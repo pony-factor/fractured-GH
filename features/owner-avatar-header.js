@@ -132,8 +132,10 @@
     }
 
     logo.setAttribute(LOGO_ATTRIBUTE, owner);
-    logo.setAttribute('href', `/${owner}`);
-    logo.setAttribute('aria-label', owner);
+
+    const ownerHref = `/${owner}`;
+    if (logo.getAttribute('href') !== ownerHref) logo.setAttribute('href', ownerHref);
+    if (logo.getAttribute('aria-label') !== owner) logo.setAttribute('aria-label', owner);
 
     let avatar = logo.querySelector(`[${AVATAR_ATTRIBUTE}]`);
     if (!(avatar instanceof HTMLImageElement)) {
