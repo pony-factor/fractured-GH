@@ -32,6 +32,7 @@
         "features/hide-copilot.js",
         "features/hide-my-navigation-links.js",
         "features/owner-avatar-header.js",
+        "features/user-nicknames.js",
         "features/mute-users.js",
         "features/block-tooltips.js",
         "features/hide-contributing-guidelines-notice.js",
