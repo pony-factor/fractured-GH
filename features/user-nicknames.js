@@ -5,9 +5,26 @@
   const MAPPINGS_KEY = 'userNicknames';
   const NICKNAME_ATTR = 'data-fractured-user-nickname';
   const ORIGINAL_TEXT_ATTR = 'data-fractured-original-username-text';
-  const REAL_USERNAME_ATTR = 'data-fractured-real-username';
-  const LINK_ATTR = 'data-fractured-nickname-link';
-  const STYLE_ID = 'fractured-user-nicknames-style';
+  const ORIGINAL_ATTR_PREFIX = 'data-fractured-original-';
+  const NO_ATTRIBUTE = '__fractured_none__';
+  const DISPLAY_ATTRIBUTES = ['title', 'aria-label', 'alt'];
+  const HOVERCARD_ATTRIBUTES = [
+    'data-hovercard-type',
+    'data-hovercard-url',
+    'data-hovercard-subject-tag',
+  ];
+  const EXCLUDED_TEXT_CONTAINERS = [
+    'script',
+    'style',
+    'textarea',
+    'input',
+    'pre',
+    'code',
+    'kbd',
+    'samp',
+    '[contenteditable="true"]',
+    '[contenteditable="plaintext-only"]',
+  ].join(',');
 
   let enabled = false;
   let nicknameByUsername = new Map();
@@ -58,47 +75,90 @@
     }
   }
 
+  function nicknameForExactText(text) {
+    const trimmed = String(text || '').trim();
+    if (!trimmed) return null;
+
+    const hadAt = trimmed.startsWith('@');
+    const username = normalizeUsername(trimmed);
+    const mapping = nicknameByUsername.get(username.toLowerCase());
+    if (!mapping) return null;
+
+    return {
+      username: mapping.username,
+      nickname: `${hadAt ? '@' : ''}${mapping.nickname}`,
+    };
+  }
+
   function renderedNickname(originalText, nickname) {
     const leading = originalText.match(/^\s*/)?.[0] || '';
     const trailing = originalText.match(/\s*$/)?.[0] || '';
-    const trimmed = originalText.trim();
-    const prefix = trimmed.startsWith('@') ? '@' : '';
-    return `${leading}${prefix}${nickname}${trailing}`;
+    return `${leading}${nickname}${trailing}`;
   }
 
-  function ensureStyle() {
-    if (document.getElementById(STYLE_ID)) return;
+  function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
 
-    const style = document.createElement('style');
-    style.id = STYLE_ID;
-    style.textContent = `
-      [${NICKNAME_ATTR}] {
-        position: relative;
-      }
+  function replaceMappedUsernames(value) {
+    let nextValue = String(value || '');
 
-      [${NICKNAME_ATTR}]:hover::after,
-      a[${LINK_ATTR}]:focus-visible [${NICKNAME_ATTR}]::after {
-        content: attr(${REAL_USERNAME_ATTR});
-        position: absolute;
-        left: 50%;
-        bottom: calc(100% + 6px);
-        z-index: 2147483647;
-        transform: translateX(-50%);
-        width: max-content;
-        max-width: 280px;
-        padding: 5px 7px;
-        border: 1px solid var(--borderColor-default, var(--color-border-default, #d0d7de));
-        border-radius: 6px;
-        background: var(--bgColor-emphasis, var(--color-neutral-emphasis-plus, #24292f));
-        color: var(--fgColor-onEmphasis, var(--color-fg-on-emphasis, #ffffff));
-        box-shadow: var(--shadow-resting-small, 0 1px 3px rgba(31, 35, 40, 0.12));
-        font: 12px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        white-space: nowrap;
-        pointer-events: none;
-      }
-    `;
+    for (const mapping of nicknameByUsername.values()) {
+      const usernamePattern = escapeRegExp(mapping.username);
+      const pattern = new RegExp(`@?${usernamePattern}(?![A-Za-z0-9-])`, 'gi');
+      nextValue = nextValue.replace(pattern, (match) => (
+        match.startsWith('@') ? `@${mapping.nickname}` : mapping.nickname
+      ));
+    }
 
-    (document.head || document.documentElement)?.append(style);
+    return nextValue;
+  }
+
+  function originalAttributeMarker(attribute) {
+    return `${ORIGINAL_ATTR_PREFIX}${attribute.replace(/[^a-z0-9-]/gi, '-')}`;
+  }
+
+  function rememberAttribute(element, attribute) {
+    const marker = originalAttributeMarker(attribute);
+    if (element.hasAttribute(marker)) return;
+
+    element.setAttribute(
+      marker,
+      element.hasAttribute(attribute) ? element.getAttribute(attribute) : NO_ATTRIBUTE,
+    );
+  }
+
+  function restoreAttribute(element, attribute) {
+    const marker = originalAttributeMarker(attribute);
+    if (!element.hasAttribute(marker)) return;
+
+    const original = element.getAttribute(marker);
+    if (original === NO_ATTRIBUTE) element.removeAttribute(attribute);
+    else element.setAttribute(attribute, original || '');
+    element.removeAttribute(marker);
+  }
+
+  function replaceDisplayAttributes(element) {
+    if (!(element instanceof Element)) return;
+
+    for (const attribute of DISPLAY_ATTRIBUTES) {
+      if (!element.hasAttribute(attribute)) continue;
+
+      const current = element.getAttribute(attribute) || '';
+      const replacement = replaceMappedUsernames(current);
+      if (replacement === current) continue;
+
+      rememberAttribute(element, attribute);
+      element.setAttribute(attribute, replacement);
+    }
+  }
+
+  function suppressHovercard(link) {
+    for (const attribute of HOVERCARD_ATTRIBUTES) {
+      if (!link.hasAttribute(attribute)) continue;
+      rememberAttribute(link, attribute);
+      link.removeAttribute(attribute);
+    }
   }
 
   function restoreSpan(span) {
@@ -120,10 +180,26 @@
     root.querySelectorAll?.(`[${NICKNAME_ATTR}]`).forEach((span) => spans.push(span));
     for (const span of spans) restoreSpan(span);
 
-    const links = [];
-    if (root instanceof Element && root.matches(`a[${LINK_ATTR}]`)) links.push(root);
-    root.querySelectorAll?.(`a[${LINK_ATTR}]`).forEach((link) => links.push(link));
-    for (const link of links) link.removeAttribute(LINK_ATTR);
+    const all = [];
+    if (root instanceof Element) all.push(root);
+    root.querySelectorAll?.('*').forEach((element) => all.push(element));
+
+    for (const element of all) {
+      for (const attribute of [...DISPLAY_ATTRIBUTES, ...HOVERCARD_ATTRIBUTES]) {
+        restoreAttribute(element, attribute);
+      }
+    }
+  }
+
+  function replaceTextNode(node, mapping) {
+    if (!(node instanceof Text)) return;
+
+    const originalText = node.textContent || '';
+    const nickname = document.createElement('span');
+    nickname.setAttribute(NICKNAME_ATTR, mapping.username);
+    nickname.setAttribute(ORIGINAL_TEXT_ATTR, originalText);
+    nickname.textContent = renderedNickname(originalText, mapping.nickname);
+    node.replaceWith(nickname);
   }
 
   function matchingTextNode(link, username) {
@@ -142,7 +218,7 @@
     return null;
   }
 
-  function applyNickname(link) {
+  function applyNicknameToProfileLink(link) {
     if (!enabled || !(link instanceof HTMLAnchorElement)) return;
 
     const username = usernameFromLink(link);
@@ -165,31 +241,72 @@
     const current = link.querySelector(`[${NICKNAME_ATTR}]`);
     if (current) {
       const originalText = current.getAttribute(ORIGINAL_TEXT_ATTR) ?? current.textContent ?? '';
-      const nextText = renderedNickname(originalText, mapping.nickname);
+      const prefix = originalText.trim().startsWith('@') ? '@' : '';
+      const nextText = renderedNickname(originalText, `${prefix}${mapping.nickname}`);
       if (current.textContent !== nextText) current.textContent = nextText;
-      current.setAttribute(REAL_USERNAME_ATTR, `@${username}`);
-      link.setAttribute(LINK_ATTR, username);
-      return;
+    } else {
+      const textNode = matchingTextNode(link, username);
+      if (textNode) {
+        replaceTextNode(textNode, {
+          username,
+          nickname: `${(textNode.textContent || '').trim().startsWith('@') ? '@' : ''}${mapping.nickname}`,
+        });
+      }
     }
 
-    const textNode = matchingTextNode(link, username);
-    if (!textNode) return;
+    replaceDisplayAttributes(link);
+    link.querySelectorAll('*').forEach(replaceDisplayAttributes);
+    suppressHovercard(link);
+  }
 
-    const originalText = textNode.textContent || '';
-    const nickname = document.createElement('span');
-    nickname.setAttribute(NICKNAME_ATTR, username);
-    nickname.setAttribute(ORIGINAL_TEXT_ATTR, originalText);
-    nickname.setAttribute(REAL_USERNAME_ATTR, `@${username}`);
-    nickname.textContent = renderedNickname(originalText, mapping.nickname);
+  function replaceStandaloneUsernameText(root) {
+    let walkerRoot = null;
 
-    textNode.replaceWith(nickname);
-    link.setAttribute(LINK_ATTR, username);
+    if (root instanceof Document) {
+      walkerRoot = root.body || root.documentElement;
+    } else if (root instanceof DocumentFragment || root instanceof Element) {
+      walkerRoot = root;
+    }
+
+    if (!walkerRoot) return;
+
+    const matches = [];
+    const walker = document.createTreeWalker(walkerRoot, NodeFilter.SHOW_TEXT);
+
+    while (walker.nextNode()) {
+      const node = walker.currentNode;
+      const parent = node.parentElement;
+      if (!parent) continue;
+      if (parent.closest(`[${NICKNAME_ATTR}]`)) continue;
+      if (parent.closest(EXCLUDED_TEXT_CONTAINERS)) continue;
+
+      const mapping = nicknameForExactText(node.textContent);
+      if (mapping) matches.push({ node, mapping });
+    }
+
+    for (const { node, mapping } of matches) {
+      if (node.isConnected) replaceTextNode(node, mapping);
+    }
+  }
+
+  function replaceVisibleAttributes(root) {
+    if (root instanceof Element) replaceDisplayAttributes(root);
+
+    if (
+      root instanceof Document
+      || root instanceof DocumentFragment
+      || root instanceof Element
+    ) {
+      for (const element of root.querySelectorAll('[title], [aria-label], [alt]')) {
+        replaceDisplayAttributes(element);
+      }
+    }
   }
 
   function processTree(root = document) {
     if (!enabled) return;
 
-    if (root instanceof HTMLAnchorElement) applyNickname(root);
+    if (root instanceof HTMLAnchorElement) applyNicknameToProfileLink(root);
 
     if (
       root instanceof Document
@@ -197,9 +314,12 @@
       || root instanceof Element
     ) {
       for (const link of root.querySelectorAll('a[href]')) {
-        applyNickname(link);
+        applyNicknameToProfileLink(link);
       }
     }
+
+    replaceStandaloneUsernameText(root);
+    replaceVisibleAttributes(root);
   }
 
   function queueRefresh() {
@@ -220,18 +340,24 @@
 
       for (const mutation of mutations) {
         if (mutation.type === 'attributes') {
-          applyNickname(mutation.target);
+          const element = mutation.target;
+          applyNicknameToProfileLink(element instanceof HTMLAnchorElement ? element : element.closest?.('a[href]'));
+          replaceDisplayAttributes(element);
           continue;
         }
 
         if (mutation.type === 'characterData') {
-          applyNickname(mutation.target.parentElement?.closest('a[href]'));
+          const parent = mutation.target.parentElement;
+          applyNicknameToProfileLink(parent?.closest('a[href]'));
+          replaceStandaloneUsernameText(parent || document);
           continue;
         }
 
         for (const node of mutation.addedNodes) {
           if (node instanceof Element || node instanceof DocumentFragment) {
             processTree(node);
+          } else if (node instanceof Text) {
+            replaceStandaloneUsernameText(node.parentElement || document);
           }
         }
       }
@@ -240,14 +366,19 @@
 
   function start() {
     enabled = true;
-    ensureStyle();
     ensureObserver();
     observer.observe(document, {
       subtree: true,
       childList: true,
       characterData: true,
       attributes: true,
-      attributeFilter: ['href'],
+      attributeFilter: [
+        'href',
+        'title',
+        'aria-label',
+        'alt',
+        ...HOVERCARD_ATTRIBUTES,
+      ],
     });
     processTree();
   }
@@ -256,7 +387,6 @@
     enabled = false;
     observer?.disconnect();
     restoreNicknames();
-    document.getElementById(STYLE_ID)?.remove();
   }
 
   async function loadSettings() {
