@@ -9,6 +9,7 @@ const DEFAULT_SETTINGS = {
   notificationOrganizations: [],
   userNicknamesEnabled: true,
   userNicknames: [],
+  conversationFirstNamesEnabled: false,
   hideContributingGuidelinesNotice: true,
   hidePullRequestMilestone: false,
   hideSuggestedWorkflows: false,

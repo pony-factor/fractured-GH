@@ -18,6 +18,7 @@ const notificationOrganizationsList = document.getElementById('notification-orga
 const addNotificationOrganizationButton = document.getElementById('add-notification-organization');
 const notificationOrganizationTemplate = document.getElementById('notification-organization-template');
 const userNicknamesInput = document.getElementById('user-nicknames-enabled');
+const conversationFirstNamesInput = document.getElementById('conversation-first-names-enabled');
 const userNicknamesList = document.getElementById('user-nicknames');
 const userNicknamesSummary = document.getElementById('user-nicknames-summary');
 const addUserNicknameButton = document.getElementById('add-user-nickname');
@@ -322,6 +323,7 @@ async function loadSettings() {
     notificationOrganizations: [],
     userNicknamesEnabled: true,
     userNicknames: [],
+    conversationFirstNamesEnabled: false,
     muteUsersEnabled: true,
     mutedUsers: DEFAULT_MUTED_USERS,
   });
@@ -340,6 +342,7 @@ async function loadSettings() {
   relativeTimesInput.checked = Boolean(settings.relativeTimesOnly);
   organizationInboxesInput.checked = Boolean(settings.organizationNotificationInboxesEnabled);
   userNicknamesInput.checked = Boolean(settings.userNicknamesEnabled);
+  conversationFirstNamesInput.checked = Boolean(settings.conversationFirstNamesEnabled);
   muteUsersInput.checked = Boolean(settings.muteUsersEnabled);
 
   const organizations = Array.isArray(settings.notificationOrganizations)
@@ -396,6 +399,7 @@ async function saveSettings() {
     notificationOrganizations,
     userNicknamesEnabled: userNicknamesInput.checked,
     userNicknames,
+    conversationFirstNamesEnabled: conversationFirstNamesInput.checked,
     muteUsersEnabled: muteUsersInput.checked,
     mutedUsers,
   });
@@ -422,6 +426,7 @@ addNotificationOrganizationButton.addEventListener('click', () => {
   addNotificationOrganizationRow('', { focus: true });
 });
 userNicknamesInput.addEventListener('change', () => void saveSettings());
+conversationFirstNamesInput.addEventListener('change', () => void saveSettings());
 addUserNicknameButton.addEventListener('click', () => {
   addUserNicknameRow({}, { focus: true });
   updateNicknameSummary();

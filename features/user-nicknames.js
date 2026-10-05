@@ -3,7 +3,9 @@
 
   const ENABLED_KEY = 'userNicknamesEnabled';
   const MAPPINGS_KEY = 'userNicknames';
+  const CONVERSATION_FIRST_NAMES_KEY = 'conversationFirstNamesEnabled';
   const NICKNAME_ATTR = 'data-fractured-user-nickname';
+  const CONVERSATION_NAME_ATTR = 'data-fractured-conversation-first-name';
   const ORIGINAL_TEXT_ATTR = 'data-fractured-original-username-text';
   const ORIGINAL_ATTR_PREFIX = 'data-fractured-original-';
   const NO_ATTRIBUTE = '__fractured_none__';
@@ -13,6 +15,17 @@
     'data-hovercard-url',
     'data-hovercard-subject-tag',
   ];
+  const CONVERSATION_BODY_SELECTOR = [
+    '[data-testid="issue-body"]',
+    '[data-testid="pull-request-body"]',
+    '[data-testid="comment-body"]',
+    '[data-testid="comment-content"]',
+    '[data-testid="discussion-body"]',
+    '[data-testid="discussion-comment-body"]',
+    '.comment-body',
+    '.markdown-body',
+  ].join(',');
+
   const EXCLUDED_TEXT_CONTAINERS = [
     'script',
     'style',
@@ -27,7 +40,9 @@
   ].join(',');
 
   let enabled = false;
+  let conversationFirstNamesEnabled = false;
   let nicknameByUsername = new Map();
+  const profileFirstNameCache = new Map();
   let observer = null;
   let refreshQueued = false;
 
@@ -42,6 +57,15 @@
 
   function normalizeNickname(value) {
     return String(value || '').trim().replace(/\s+/g, ' ');
+  }
+
+  function firstWord(value) {
+    return normalizeNickname(value).split(/\s+/)[0] || '';
+  }
+
+  function isConversationPage() {
+    return /^\/[^/]+\/[^/]+\/(?:issues|pull|discussions|commit)(?:\/|$)/i.test(location.pathname)
+      || /^\/orgs\/[^/]+\/discussions(?:\/|$)/i.test(location.pathname);
   }
 
   function mappingFromSettings(value) {
@@ -114,6 +138,12 @@
     return nextValue;
   }
 
+  function replaceUsernameWithDisplayName(value, username, displayName) {
+    const usernamePattern = escapeRegExp(username);
+    const pattern = new RegExp(`@?${usernamePattern}(?![A-Za-z0-9-])`, 'gi');
+    return String(value || '').replace(pattern, displayName);
+  }
+
   function originalAttributeMarker(attribute) {
     return `${ORIGINAL_ATTR_PREFIX}${attribute.replace(/[^a-z0-9-]/gi, '-')}`;
   }
@@ -176,8 +206,15 @@
     }
 
     const spans = [];
-    if (root instanceof Element && root.hasAttribute(NICKNAME_ATTR)) spans.push(root);
-    root.querySelectorAll?.(`[${NICKNAME_ATTR}]`).forEach((span) => spans.push(span));
+    if (
+      root instanceof Element
+      && (root.hasAttribute(NICKNAME_ATTR) || root.hasAttribute(CONVERSATION_NAME_ATTR))
+    ) {
+      spans.push(root);
+    }
+    root.querySelectorAll?.(
+      `[${NICKNAME_ATTR}], [${CONVERSATION_NAME_ATTR}]`,
+    ).forEach((span) => spans.push(span));
     for (const span of spans) restoreSpan(span);
 
     const all = [];
@@ -200,6 +237,17 @@
     nickname.setAttribute(ORIGINAL_TEXT_ATTR, originalText);
     nickname.textContent = renderedNickname(originalText, mapping.nickname);
     node.replaceWith(nickname);
+  }
+
+  function replaceConversationTextNode(node, username, firstName) {
+    if (!(node instanceof Text)) return;
+
+    const originalText = node.textContent || '';
+    const replacement = document.createElement('span');
+    replacement.setAttribute(CONVERSATION_NAME_ATTR, username);
+    replacement.setAttribute(ORIGINAL_TEXT_ATTR, originalText);
+    replacement.textContent = renderedNickname(originalText, firstName);
+    node.replaceWith(replacement);
   }
 
   function matchingTextNode(link, username) {
@@ -259,6 +307,104 @@
     suppressHovercard(link);
   }
 
+  function isConversationMention(link, username) {
+    if (!conversationFirstNamesEnabled || !isConversationPage()) return false;
+    if (!(link instanceof HTMLAnchorElement) || !username) return false;
+    if (!link.closest(CONVERSATION_BODY_SELECTOR)) return false;
+
+    const visible = (link.textContent || '').trim().replace(/^@/, '').toLowerCase();
+    return visible === username.toLowerCase()
+      || link.classList.contains('user-mention')
+      || link.matches('[data-hovercard-type="user"]');
+  }
+
+  async function fetchedProfileFirstName(username) {
+    const key = username.toLowerCase();
+    if (profileFirstNameCache.has(key)) return profileFirstNameCache.get(key);
+
+    const pending = (async () => {
+      try {
+        const response = await fetch(`/${encodeURIComponent(username)}`, {
+          credentials: 'same-origin',
+          headers: { Accept: 'text/html' },
+        });
+        if (!response.ok) return '';
+
+        const documentText = await response.text();
+        const profileDocument = new DOMParser().parseFromString(documentText, 'text/html');
+        const displayName = profileDocument
+          .querySelector('[itemprop="name"], .p-name')
+          ?.textContent
+          ?.trim();
+
+        return firstWord(displayName);
+      } catch {
+        return '';
+      }
+    })();
+
+    profileFirstNameCache.set(key, pending);
+    return pending;
+  }
+
+  async function firstNameForUser(username) {
+    const mapping = nicknameByUsername.get(username.toLowerCase());
+    const nicknameFirstName = firstWord(mapping?.nickname);
+    if (nicknameFirstName) return nicknameFirstName;
+    return fetchedProfileFirstName(username);
+  }
+
+  function replaceConversationAttributes(link, username, firstName) {
+    for (const element of [link, ...link.querySelectorAll('*')]) {
+      for (const attribute of DISPLAY_ATTRIBUTES) {
+        if (!element.hasAttribute(attribute)) continue;
+        const current = element.getAttribute(attribute) || '';
+        const replacement = replaceUsernameWithDisplayName(current, username, firstName);
+        if (replacement === current) continue;
+        rememberAttribute(element, attribute);
+        element.setAttribute(attribute, replacement);
+      }
+    }
+  }
+
+  async function applyConversationFirstName(link) {
+    if (!enabled || !conversationFirstNamesEnabled || !(link instanceof HTMLAnchorElement)) return;
+
+    const username = usernameFromLink(link);
+    if (!isConversationMention(link, username)) return;
+
+    const firstName = await firstNameForUser(username);
+    if (
+      !firstName
+      || !enabled
+      || !conversationFirstNamesEnabled
+      || !link.isConnected
+      || usernameFromLink(link).toLowerCase() !== username.toLowerCase()
+    ) {
+      return;
+    }
+
+    const existing = link.querySelector(`[${CONVERSATION_NAME_ATTR}]`);
+    if (existing) {
+      const originalText = existing.getAttribute(ORIGINAL_TEXT_ATTR) ?? existing.textContent ?? '';
+      const nextText = renderedNickname(originalText, firstName);
+      if (existing.textContent !== nextText) existing.textContent = nextText;
+    } else {
+      const nicknameSpan = link.querySelector(`[${NICKNAME_ATTR}]`);
+      if (nicknameSpan) {
+        const originalText = nicknameSpan.getAttribute(ORIGINAL_TEXT_ATTR) ?? '';
+        nicknameSpan.textContent = renderedNickname(originalText, firstName);
+      } else {
+        const textNode = matchingTextNode(link, username)
+          || [...link.childNodes].find((node) => node instanceof Text && node.textContent?.trim());
+        if (textNode instanceof Text) replaceConversationTextNode(textNode, username, firstName);
+      }
+    }
+
+    replaceConversationAttributes(link, username, firstName);
+    suppressHovercard(link);
+  }
+
   function replaceStandaloneUsernameText(root) {
     let walkerRoot = null;
 
@@ -315,8 +461,11 @@
     ) {
       for (const link of root.querySelectorAll('a[href]')) {
         applyNicknameToProfileLink(link);
+        void applyConversationFirstName(link);
       }
     }
+
+    if (root instanceof HTMLAnchorElement) void applyConversationFirstName(root);
 
     replaceStandaloneUsernameText(root);
     replaceVisibleAttributes(root);
@@ -341,14 +490,18 @@
       for (const mutation of mutations) {
         if (mutation.type === 'attributes') {
           const element = mutation.target;
-          applyNicknameToProfileLink(element instanceof HTMLAnchorElement ? element : element.closest?.('a[href]'));
+          const link = element instanceof HTMLAnchorElement ? element : element.closest?.('a[href]');
+          applyNicknameToProfileLink(link);
+          void applyConversationFirstName(link);
           replaceDisplayAttributes(element);
           continue;
         }
 
         if (mutation.type === 'characterData') {
           const parent = mutation.target.parentElement;
-          applyNicknameToProfileLink(parent?.closest('a[href]'));
+          const link = parent?.closest('a[href]');
+          applyNicknameToProfileLink(link);
+          void applyConversationFirstName(link);
           replaceStandaloneUsernameText(parent || document);
           continue;
         }
@@ -393,13 +546,16 @@
     const settings = await chrome.storage.local.get({
       [ENABLED_KEY]: true,
       [MAPPINGS_KEY]: [],
+      [CONVERSATION_FIRST_NAMES_KEY]: false,
     });
 
     const nextMappings = mappingFromSettings(settings[MAPPINGS_KEY]);
     const shouldEnable = Boolean(settings[ENABLED_KEY]);
+    const nextConversationFirstNamesEnabled = Boolean(settings[CONVERSATION_FIRST_NAMES_KEY]);
 
     if (enabled) restoreNicknames();
     nicknameByUsername = nextMappings;
+    conversationFirstNamesEnabled = nextConversationFirstNamesEnabled;
 
     if (shouldEnable) start();
     else stop();
@@ -408,7 +564,11 @@
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (
       areaName !== 'local'
-      || (!(ENABLED_KEY in changes) && !(MAPPINGS_KEY in changes))
+      || (
+        !(ENABLED_KEY in changes)
+        && !(MAPPINGS_KEY in changes)
+        && !(CONVERSATION_FIRST_NAMES_KEY in changes)
+      )
     ) {
       return;
     }
