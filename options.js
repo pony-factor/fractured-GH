@@ -17,6 +17,11 @@ const organizationInboxesInput = document.getElementById('organization-notificat
 const notificationOrganizationsList = document.getElementById('notification-organizations');
 const addNotificationOrganizationButton = document.getElementById('add-notification-organization');
 const notificationOrganizationTemplate = document.getElementById('notification-organization-template');
+const userNicknamesInput = document.getElementById('user-nicknames-enabled');
+const userNicknamesList = document.getElementById('user-nicknames');
+const userNicknamesSummary = document.getElementById('user-nicknames-summary');
+const addUserNicknameButton = document.getElementById('add-user-nickname');
+const userNicknameTemplate = document.getElementById('user-nickname-template');
 const muteUsersInput = document.getElementById('mute-users-enabled');
 const mutedUsersList = document.getElementById('muted-users');
 const mutedUsersSummary = document.getElementById('muted-users-summary');
@@ -44,6 +49,10 @@ function normalizeOrganization(value) {
   return normalizeAccountName(value);
 }
 
+function normalizeNickname(value) {
+  return String(value || '').trim().replace(/\s+/g, ' ');
+}
+
 function valuesFromRows(list, inputSelector, normalize) {
   const values = [];
   const seen = new Set();
@@ -69,6 +78,23 @@ function notificationOrganizationsFromRows() {
     '.organization-input',
     normalizeOrganization,
   );
+}
+
+function userNicknamesFromRows() {
+  const mappings = [];
+  const seen = new Set();
+
+  for (const row of userNicknamesList.querySelectorAll('.nickname-row')) {
+    const username = normalizeUsername(row.querySelector('.nickname-username-input')?.value);
+    const nickname = normalizeNickname(row.querySelector('.nickname-value-input')?.value);
+    const key = username.toLowerCase();
+
+    if (!username || !nickname || seen.has(key)) continue;
+    seen.add(key);
+    mappings.push({ username, nickname });
+  }
+
+  return mappings;
 }
 
 function addListEntryKeyboardBehavior({
@@ -117,6 +143,14 @@ function updateSummary(users = mutedUsersFromRows()) {
       : `${users.length} people`;
 }
 
+function updateNicknameSummary(mappings = userNicknamesFromRows()) {
+  userNicknamesSummary.textContent = mappings.length === 0
+    ? 'None'
+    : mappings.length === 1
+      ? '1 nickname'
+      : `${mappings.length} nicknames`;
+}
+
 function updateEmptyState(list, rowSelector, message) {
   list.querySelector('.empty-state')?.remove();
   if (list.querySelector(rowSelector)) return;
@@ -137,6 +171,10 @@ function updateOrganizationsEmptyState() {
     '.organization-row',
     'No organization inboxes configured.',
   );
+}
+
+function updateNicknamesEmptyState() {
+  updateEmptyState(userNicknamesList, '.nickname-row', 'No nicknames configured.');
 }
 
 function queueSave() {
@@ -185,6 +223,48 @@ function addNotificationOrganizationRow(organization = '', { focus = false } = {
 
   notificationOrganizationsList.append(row);
   if (focus) input.focus();
+}
+
+function addUserNicknameRow(mapping = {}, { focus = false } = {}) {
+  userNicknamesList.querySelector('.empty-state')?.remove();
+
+  const row = userNicknameTemplate.content.firstElementChild.cloneNode(true);
+  const usernameInput = row.querySelector('.nickname-username-input');
+  const nicknameInput = row.querySelector('.nickname-value-input');
+  const removeButton = row.querySelector('.remove-user-nickname');
+
+  usernameInput.value = normalizeUsername(mapping.username);
+  nicknameInput.value = normalizeNickname(mapping.nickname);
+
+  const handleInput = () => {
+    updateNicknameSummary();
+    queueSave();
+  };
+
+  usernameInput.addEventListener('input', handleInput);
+  nicknameInput.addEventListener('input', handleInput);
+
+  usernameInput.addEventListener('blur', () => {
+    usernameInput.value = normalizeUsername(usernameInput.value);
+    updateNicknameSummary();
+    queueSave();
+  });
+
+  nicknameInput.addEventListener('blur', () => {
+    nicknameInput.value = normalizeNickname(nicknameInput.value);
+    updateNicknameSummary();
+    queueSave();
+  });
+
+  removeButton.addEventListener('click', () => {
+    row.remove();
+    updateNicknamesEmptyState();
+    updateNicknameSummary();
+    void saveSettings();
+  });
+
+  userNicknamesList.append(row);
+  if (focus) usernameInput.focus();
 }
 
 function addMutedUserRow(username = '', { focus = false } = {}) {
@@ -240,6 +320,8 @@ async function loadSettings() {
     relativeTimesOnly: false,
     organizationNotificationInboxesEnabled: false,
     notificationOrganizations: [],
+    userNicknamesEnabled: true,
+    userNicknames: [],
     muteUsersEnabled: true,
     mutedUsers: DEFAULT_MUTED_USERS,
   });
@@ -257,6 +339,7 @@ async function loadSettings() {
   hideInboxInput.checked = Boolean(settings.hideInboxWhileBusy);
   relativeTimesInput.checked = Boolean(settings.relativeTimesOnly);
   organizationInboxesInput.checked = Boolean(settings.organizationNotificationInboxesEnabled);
+  userNicknamesInput.checked = Boolean(settings.userNicknamesEnabled);
   muteUsersInput.checked = Boolean(settings.muteUsersEnabled);
 
   const organizations = Array.isArray(settings.notificationOrganizations)
@@ -266,6 +349,20 @@ async function loadSettings() {
   notificationOrganizationsList.replaceChildren();
   for (const organization of organizations) addNotificationOrganizationRow(organization);
   updateOrganizationsEmptyState();
+
+  const userNicknames = Array.isArray(settings.userNicknames)
+    ? settings.userNicknames
+      .map((mapping) => ({
+        username: normalizeUsername(mapping?.username),
+        nickname: normalizeNickname(mapping?.nickname),
+      }))
+      .filter((mapping) => mapping.username && mapping.nickname)
+    : [];
+
+  userNicknamesList.replaceChildren();
+  for (const mapping of userNicknames) addUserNicknameRow(mapping);
+  updateNicknamesEmptyState();
+  updateNicknameSummary(userNicknames);
 
   const mutedUsers = Array.isArray(settings.mutedUsers)
     ? settings.mutedUsers.map(normalizeUsername).filter(Boolean)
@@ -279,6 +376,7 @@ async function loadSettings() {
 
 async function saveSettings() {
   const notificationOrganizations = notificationOrganizationsFromRows();
+  const userNicknames = userNicknamesFromRows();
   const mutedUsers = mutedUsersFromRows();
 
   await chrome.storage.local.set({
@@ -296,10 +394,13 @@ async function saveSettings() {
     relativeTimesOnly: relativeTimesInput.checked,
     organizationNotificationInboxesEnabled: organizationInboxesInput.checked,
     notificationOrganizations,
+    userNicknamesEnabled: userNicknamesInput.checked,
+    userNicknames,
     muteUsersEnabled: muteUsersInput.checked,
     mutedUsers,
   });
 
+  updateNicknameSummary(userNicknames);
   updateSummary(mutedUsers);
   showSaved();
 }
@@ -319,6 +420,11 @@ relativeTimesInput.addEventListener('change', () => void saveSettings());
 organizationInboxesInput.addEventListener('change', () => void saveSettings());
 addNotificationOrganizationButton.addEventListener('click', () => {
   addNotificationOrganizationRow('', { focus: true });
+});
+userNicknamesInput.addEventListener('change', () => void saveSettings());
+addUserNicknameButton.addEventListener('click', () => {
+  addUserNicknameRow({}, { focus: true });
+  updateNicknameSummary();
 });
 muteUsersInput.addEventListener('change', () => void saveSettings());
 addMutedUserButton.addEventListener('click', () => {

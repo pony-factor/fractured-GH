@@ -116,6 +116,28 @@
 
         <details class="settings-foldout" open>
           <summary>
+            <span>Nicknames</span>
+            <span id="user-nicknames-summary" class="summary-meta">None</span>
+          </summary>
+          <div class="foldout-body">
+            <label class="preference">
+              <input id="user-nicknames-enabled" type="checkbox" />
+              <span>
+                <strong>Use GitHub user nicknames</strong>
+                <small>Replace configured GitHub usernames with your own display names while keeping their real account visible on hover.</small>
+              </span>
+            </label>
+
+            <p class="help setup-note">Nicknames are stored only in this browser. Profile links still point to the original GitHub account.</p>
+            <div id="user-nicknames" class="nickname-list" aria-label="GitHub user nicknames"></div>
+            <div class="row-actions">
+              <button id="add-user-nickname" class="secondary" type="button">Add nickname</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="settings-foldout" open>
+          <summary>
             <span>Muted people</span>
             <span id="muted-users-summary" class="summary-meta">None</span>
           </summary>
@@ -226,6 +248,30 @@
           placeholder="github-organization"
         />
         <button class="secondary remove-notification-organization" type="button">Remove</button>
+      </div>
+    </template>
+
+    <template id="user-nickname-template">
+      <div class="nickname-row">
+        <span class="at-sign" aria-hidden="true">@</span>
+        <input
+          class="nickname-username-input"
+          type="text"
+          autocomplete="off"
+          autocapitalize="none"
+          spellcheck="false"
+          aria-label="GitHub username"
+          placeholder="github-username"
+        />
+        <span class="nickname-arrow" aria-hidden="true">→</span>
+        <input
+          class="nickname-value-input"
+          type="text"
+          autocomplete="off"
+          aria-label="Nickname"
+          placeholder="nickname"
+        />
+        <button class="secondary remove-user-nickname" type="button">Remove</button>
       </div>
     </template>
 

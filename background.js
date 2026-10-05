@@ -7,6 +7,8 @@ const DEFAULT_SETTINGS = {
   relativeTimesOnly: false,
   organizationNotificationInboxesEnabled: false,
   notificationOrganizations: [],
+  userNicknamesEnabled: true,
+  userNicknames: [],
   hideContributingGuidelinesNotice: true,
   hidePullRequestMilestone: false,
   hideSuggestedWorkflows: false,

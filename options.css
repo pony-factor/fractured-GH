@@ -149,17 +149,32 @@ form {
 }
 
 .muted-user-list,
-.organization-list {
+.organization-list,
+.nickname-list {
   display: grid;
   gap: 8px;
 }
 
 .muted-user-row,
-.organization-row {
+.organization-row,
+.nickname-row {
   align-items: center;
   display: grid;
   gap: 7px;
+}
+
+.muted-user-row,
+.organization-row {
   grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.nickname-row {
+  grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr) auto;
+}
+
+.nickname-arrow {
+  color: light-dark(#656d76, #9198a1);
+  font-size: 14px;
 }
 
 .at-sign {
@@ -253,13 +268,25 @@ button.secondary:hover {
   }
 
   .muted-user-row,
-  .organization-row {
+  .organization-row,
+  .nickname-row {
     grid-template-columns: auto minmax(0, 1fr);
   }
 
+  .nickname-arrow {
+    display: none;
+  }
+
+  .nickname-value-input,
+  .remove-user-nickname,
   .remove-muted-user,
   .remove-notification-organization {
     grid-column: 2;
+  }
+
+  .remove-user-nickname,
+  .remove-muted-user,
+  .remove-notification-organization {
     justify-self: start;
   }
 }
