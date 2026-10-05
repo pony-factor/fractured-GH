@@ -26,6 +26,26 @@
     '.markdown-body',
   ].join(',');
 
+  const CONVERSATION_CONTAINER_SELECTOR = [
+    '[data-testid="issue-body-container"]',
+    '[data-testid="comment"]',
+    '[data-testid="comment-container"]',
+    '[data-testid="timeline-comment"]',
+    '[data-testid="discussion-comment"]',
+    '[data-testid="discussion-comment-container"]',
+    '.js-comment',
+    '.timeline-comment',
+    '.review-comment',
+    '.js-timeline-item',
+    'article',
+  ].join(',');
+
+  const CONVERSATION_AUTHOR_SELECTOR = [
+    'a.author[href]',
+    'a[data-testid="author-link"][href]',
+    'a[data-hovercard-type="user"].author[href]',
+  ].join(',');
+
   const EXCLUDED_TEXT_CONTAINERS = [
     'script',
     'style',
@@ -308,15 +328,24 @@
     suppressHovercard(link);
   }
 
-  function isConversationMention(link, username) {
+  function isConversationIdentity(link, username) {
     if (!conversationFirstNamesEnabled || !isConversationPage()) return false;
     if (!(link instanceof HTMLAnchorElement) || !username) return false;
-    if (!link.closest(CONVERSATION_BODY_SELECTOR)) return false;
 
     const visible = (link.textContent || '').trim().replace(/^@/, '').toLowerCase();
-    return visible === username.toLowerCase()
-      || link.classList.contains('user-mention')
-      || link.matches('[data-hovercard-type="user"]');
+    const exactHandle = visible === username.toLowerCase();
+    const isBodyMention = Boolean(link.closest(CONVERSATION_BODY_SELECTOR))
+      && (
+        exactHandle
+        || link.classList.contains('user-mention')
+        || link.matches('[data-hovercard-type="user"]')
+        || Boolean(link.querySelector(`[${NICKNAME_ATTR}]`))
+      );
+
+    const isAuthor = link.matches(CONVERSATION_AUTHOR_SELECTOR)
+      || (exactHandle && Boolean(link.closest(CONVERSATION_CONTAINER_SELECTOR)));
+
+    return isBodyMention || isAuthor;
   }
 
   async function fetchedProfileFirstName(username) {
@@ -372,7 +401,7 @@
     if (!enabled || !conversationFirstNamesEnabled || !(link instanceof HTMLAnchorElement)) return;
 
     const username = usernameFromLink(link);
-    if (!isConversationMention(link, username)) return;
+    if (!isConversationIdentity(link, username)) return;
 
     const firstName = await firstNameForUser(username);
     if (
