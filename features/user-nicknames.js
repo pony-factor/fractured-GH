@@ -40,6 +40,7 @@
   ].join(',');
 
   let enabled = false;
+  let nicknameReplacementEnabled = false;
   let conversationFirstNamesEnabled = false;
   let nicknameByUsername = new Map();
   const profileFirstNameCache = new Map();
@@ -267,7 +268,7 @@
   }
 
   function applyNicknameToProfileLink(link) {
-    if (!enabled || !(link instanceof HTMLAnchorElement)) return;
+    if (!enabled || !nicknameReplacementEnabled || !(link instanceof HTMLAnchorElement)) return;
 
     const username = usernameFromLink(link);
     const mapping = nicknameByUsername.get(username.toLowerCase());
@@ -406,6 +407,8 @@
   }
 
   function replaceStandaloneUsernameText(root) {
+    if (!nicknameReplacementEnabled) return;
+
     let walkerRoot = null;
 
     if (root instanceof Document) {
@@ -436,6 +439,8 @@
   }
 
   function replaceVisibleAttributes(root) {
+    if (!nicknameReplacementEnabled) return;
+
     if (root instanceof Element) replaceDisplayAttributes(root);
 
     if (
@@ -550,14 +555,16 @@
     });
 
     const nextMappings = mappingFromSettings(settings[MAPPINGS_KEY]);
-    const shouldEnable = Boolean(settings[ENABLED_KEY]);
+    const nextNicknameReplacementEnabled = Boolean(settings[ENABLED_KEY]);
     const nextConversationFirstNamesEnabled = Boolean(settings[CONVERSATION_FIRST_NAMES_KEY]);
+    const shouldRun = nextNicknameReplacementEnabled || nextConversationFirstNamesEnabled;
 
     if (enabled) restoreNicknames();
     nicknameByUsername = nextMappings;
+    nicknameReplacementEnabled = nextNicknameReplacementEnabled;
     conversationFirstNamesEnabled = nextConversationFirstNamesEnabled;
 
-    if (shouldEnable) start();
+    if (shouldRun) start();
     else stop();
   }
 
