@@ -19,9 +19,9 @@
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
-      tool-tip:not([\${ALLOW_TOOLTIP_ATTRIBUTE}]),
-      [role="tooltip"]:not([\${ALLOW_TOOLTIP_ATTRIBUTE}]),
-      [data-component="Tooltip"]:not([\${ALLOW_TOOLTIP_ATTRIBUTE}]) {
+      tool-tip:not([${ALLOW_TOOLTIP_ATTRIBUTE}]),
+      [role="tooltip"]:not([${ALLOW_TOOLTIP_ATTRIBUTE}]),
+      [data-component="Tooltip"]:not([${ALLOW_TOOLTIP_ATTRIBUTE}]) {
         display: none !important;
       }
 
@@ -49,7 +49,7 @@
     if (!tooltip.id) return null;
     const escapedId = CSS.escape(tooltip.id);
     return document.querySelector(
-      `[aria-describedby~="\${escapedId}"], [aria-labelledby~="\${escapedId}"]`,
+      `[aria-describedby~="${escapedId}"], [aria-labelledby~="${escapedId}"]`,
     );
   }
 
