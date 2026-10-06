@@ -1,6 +1,7 @@
 (() => {
   'use strict';
 
+  const ENABLED_KEY = 'ownerAvatarHeaderEnabled';
   const STYLE_ID = 'fractured-owner-avatar-header-style';
   const LOGO_ATTRIBUTE = 'data-fractured-owner-logo';
   const AVATAR_ATTRIBUTE = 'data-fractured-owner-avatar';
@@ -8,6 +9,7 @@
   const ORIGINAL_HREF_ATTRIBUTE = 'data-fractured-owner-logo-original-href';
   const ORIGINAL_LABEL_ATTRIBUTE = 'data-fractured-owner-logo-original-label';
 
+  let enabled = false;
   let currentOwner = '';
   let observer = null;
   let refreshQueued = false;
@@ -17,17 +19,68 @@
   }
 
   function repositoryOwner() {
-    const nwo = document
-      .querySelector('meta[name="octolytics-dimension-repository_nwo"]')
+    const repositoryNwoSelectors = [
+      'meta[name="octolytics-dimension-repository_nwo"]',
+      'meta[name="octolytics-dimension-repository_network_root_nwo"]',
+    ];
+
+    for (const selector of repositoryNwoSelectors) {
+      const nwo = document.querySelector(selector)?.getAttribute('content')?.trim();
+      if (!nwo || !nwo.includes('/')) continue;
+
+      const owner = nwo.split('/')[0]?.trim();
+      if (owner) {
+        try {
+          return decodeURIComponent(owner);
+        } catch {
+          return owner;
+        }
+      }
+    }
+
+    const repositoryId = document
+      .querySelector('meta[name="octolytics-dimension-repository_id"]')
       ?.getAttribute('content')
       ?.trim();
 
-    if (!nwo || !nwo.includes('/')) return '';
-    return nwo.split('/', 1)[0] || '';
+    if (!repositoryId) return '';
+
+    const parts = location.pathname.split('/').filter(Boolean);
+    if (parts.length < 2) return '';
+
+    const reservedRoots = new Set([
+      'codespaces',
+      'collections',
+      'events',
+      'explore',
+      'issues',
+      'marketplace',
+      'notifications',
+      'orgs',
+      'pulls',
+      'settings',
+      'sponsors',
+      'topics',
+      'users',
+    ]);
+
+    if (reservedRoots.has(parts[0].toLowerCase())) return '';
+
+    try {
+      return decodeURIComponent(parts[0]);
+    } catch {
+      return parts[0];
+    }
   }
 
   function appHeader() {
-    return document.querySelector('.AppHeader, [data-component="AppHeader"], header[role="banner"]');
+    return document.querySelector([
+      '.AppHeader',
+      '[data-component="AppHeader"]',
+      '[data-testid="AppHeader"]',
+      '#github-header',
+      'header[role="banner"]',
+    ].join(','));
   }
 
   function ensureStyle() {
@@ -60,7 +113,12 @@
     const existing = header.querySelector(`[${LOGO_ATTRIBUTE}]`);
     if (existing instanceof HTMLAnchorElement) return existing;
 
-    const appLogo = header.querySelector('a.AppHeader-logo');
+    const appLogo = header.querySelector([
+      'a.AppHeader-logo',
+      'a[data-testid="AppHeader-logo"]',
+      'a[aria-label="Homepage"][href="/"]',
+      'a[href="/"][aria-label*="GitHub" i]',
+    ].join(','));
     if (appLogo instanceof HTMLAnchorElement) return appLogo;
 
     for (const link of header.querySelectorAll('a[href]')) {
@@ -157,6 +215,11 @@
   function hideOwnerName(header, owner) {
     const ownerKey = normalizeText(owner);
     const ownerPath = `/${owner.toLowerCase()}`;
+    const contextSelector = [
+      '.AppHeader-context-item',
+      '[data-testid="AppHeader-context-item"]',
+      '[class*="AppHeader-context-item"]',
+    ].join(',');
 
     for (const link of header.querySelectorAll('a[href]')) {
       if (link.hasAttribute(LOGO_ATTRIBUTE)) continue;
@@ -171,36 +234,36 @@
       if (
         url.origin !== window.location.origin
         || url.pathname.replace(/\/+$/, '').toLowerCase() !== ownerPath
-        || !exactOwnerElement(link, ownerKey)
       ) {
         continue;
       }
 
-      const contextItem = link.closest('.AppHeader-context-item');
-      const target = contextItem && exactOwnerElement(contextItem, ownerKey)
-        ? contextItem
-        : link;
-      target.setAttribute(HIDDEN_ATTRIBUTE, owner);
+      const contextItem = link.closest(contextSelector);
+      (contextItem || link).setAttribute(HIDDEN_ATTRIBUTE, owner);
     }
 
     const labels = header.querySelectorAll([
       '.AppHeader-context-item-label',
+      '[data-testid="AppHeader-context-item-label"]',
       '[data-component="AppHeader"] [class*="context-item-label" i]',
+      '[class*="AppHeader-context"] [class*="label" i]',
     ].join(','));
 
     for (const label of labels) {
       if (!exactOwnerElement(label, ownerKey)) continue;
 
-      const contextItem = label.closest('.AppHeader-context-item');
-      const target = contextItem && exactOwnerElement(contextItem, ownerKey)
-        ? contextItem
-        : label;
-      target.setAttribute(HIDDEN_ATTRIBUTE, owner);
+      const contextItem = label.closest(contextSelector);
+      (contextItem || label).setAttribute(HIDDEN_ATTRIBUTE, owner);
     }
   }
 
   function refresh() {
     refreshQueued = false;
+
+    if (!enabled) {
+      if (currentOwner) reset();
+      return;
+    }
 
     const owner = repositoryOwner();
     const header = appHeader();
@@ -226,6 +289,27 @@
     requestAnimationFrame(refresh);
   }
 
+  async function loadSettings() {
+    const settings = await chrome.storage.local.get({
+      [ENABLED_KEY]: true,
+    });
+
+    const nextEnabled = Boolean(settings[ENABLED_KEY]);
+    if (enabled === nextEnabled) {
+      if (enabled) queueRefresh();
+      return;
+    }
+
+    enabled = nextEnabled;
+    if (enabled) queueRefresh();
+    else reset();
+  }
+
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== 'local' || !(ENABLED_KEY in changes)) return;
+    void loadSettings();
+  });
+
   document.addEventListener('turbo:load', queueRefresh);
   document.addEventListener('pjax:end', queueRefresh);
   window.addEventListener('popstate', queueRefresh);
@@ -248,4 +332,5 @@
   }
 
   observeDocument();
+  void loadSettings();
 })();

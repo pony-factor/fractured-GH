@@ -5,6 +5,7 @@ const DEFAULT_SETTINGS = {
   hideCopilot: true,
   hideInboxWhileBusy: true,
   relativeTimesOnly: false,
+  ownerAvatarHeaderEnabled: true,
   organizationNotificationInboxesEnabled: false,
   notificationOrganizations: [],
   userNicknamesEnabled: true,

@@ -13,6 +13,7 @@ const hideMyNavigationLinksInput = document.getElementById('hide-my-navigation-l
 const hideSuggestedWorkflowsInput = document.getElementById('hide-suggested-workflows');
 const hideInboxInput = document.getElementById('hide-inbox-while-busy');
 const relativeTimesInput = document.getElementById('relative-times-only');
+const ownerAvatarHeaderInput = document.getElementById('owner-avatar-header-enabled');
 const organizationInboxesInput = document.getElementById('organization-notification-inboxes-enabled');
 const notificationOrganizationsList = document.getElementById('notification-organizations');
 const addNotificationOrganizationButton = document.getElementById('add-notification-organization');
@@ -319,6 +320,7 @@ async function loadSettings() {
     hideSuggestedWorkflows: false,
     hideInboxWhileBusy: true,
     relativeTimesOnly: false,
+    ownerAvatarHeaderEnabled: true,
     organizationNotificationInboxesEnabled: false,
     notificationOrganizations: [],
     userNicknamesEnabled: true,
@@ -340,6 +342,7 @@ async function loadSettings() {
   hideSuggestedWorkflowsInput.checked = Boolean(settings.hideSuggestedWorkflows);
   hideInboxInput.checked = Boolean(settings.hideInboxWhileBusy);
   relativeTimesInput.checked = Boolean(settings.relativeTimesOnly);
+  ownerAvatarHeaderInput.checked = Boolean(settings.ownerAvatarHeaderEnabled);
   organizationInboxesInput.checked = Boolean(settings.organizationNotificationInboxesEnabled);
   userNicknamesInput.checked = Boolean(settings.userNicknamesEnabled);
   conversationFirstNamesInput.checked = Boolean(settings.conversationFirstNamesEnabled);
@@ -395,6 +398,7 @@ async function saveSettings() {
     hideSuggestedWorkflows: hideSuggestedWorkflowsInput.checked,
     hideInboxWhileBusy: hideInboxInput.checked,
     relativeTimesOnly: relativeTimesInput.checked,
+    ownerAvatarHeaderEnabled: ownerAvatarHeaderInput.checked,
     organizationNotificationInboxesEnabled: organizationInboxesInput.checked,
     notificationOrganizations,
     userNicknamesEnabled: userNicknamesInput.checked,
@@ -421,6 +425,7 @@ hideMyNavigationLinksInput.addEventListener('change', () => void saveSettings())
 hideSuggestedWorkflowsInput.addEventListener('change', () => void saveSettings());
 hideInboxInput.addEventListener('change', () => void saveSettings());
 relativeTimesInput.addEventListener('change', () => void saveSettings());
+ownerAvatarHeaderInput.addEventListener('change', () => void saveSettings());
 organizationInboxesInput.addEventListener('change', () => void saveSettings());
 addNotificationOrganizationButton.addEventListener('click', () => {
   addNotificationOrganizationRow('', { focus: true });
