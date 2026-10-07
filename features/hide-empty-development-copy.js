@@ -4,6 +4,7 @@
   const MERGE_HINT = 'Successfully merging this pull request may close these issues.';
   const EMPTY_TEXT = 'None yet';
   const MARKER = 'data-fractured-empty-development-copy';
+  const TEXT_ELEMENT_SELECTOR = 'p, span, div, li, h1, h2, h3, h4, h5, h6, button, summary';
 
   function normalizeText(value) {
     return String(value || '').replace(/\s+/g, ' ').trim();
@@ -21,7 +22,7 @@
     }
 
     if (typeof root.querySelectorAll === 'function') {
-      for (const element of root.querySelectorAll('p, span, div, li')) {
+      for (const element of root.querySelectorAll(TEXT_ELEMENT_SELECTOR)) {
         if (normalizeText(element.textContent) === text) matches.push(element);
       }
     }
@@ -31,16 +32,15 @@
     });
   }
 
-  function hasDevelopmentHeading(root) {
-    return [...root.querySelectorAll('h1, h2, h3, h4, h5, h6')]
-      .some((heading) => normalizeText(heading.textContent) === 'Development');
+  function hasDevelopmentLabel(root) {
+    return exactTextElements(root, 'Development').length > 0;
   }
 
   function findDevelopmentSection(hint) {
     let current = hint.parentElement;
 
     while (current && current !== document.body) {
-      if (hasDevelopmentHeading(current)) {
+      if (hasDevelopmentLabel(current)) {
         return exactTextElements(current, EMPTY_TEXT).length > 0 ? current : null;
       }
       current = current.parentElement;
