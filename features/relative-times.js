@@ -80,8 +80,15 @@
       element.shadowRoot.textContent = label;
     }
     if (document.getElementById('github-tweaks-block-tooltips-style')) {
+      // Suppress native title generation before removing the title. Otherwise
+      // relative-time regenerates it on every update and removal queues another
+      // update, starving GitHub's loading and navigation work.
+      if (element.matches('relative-time, time-ago, local-time') && !element.hasAttribute('no-title')) {
+        element.setAttribute('data-github-tweaks-added-no-title', 'true');
+        element.setAttribute('no-title', '');
+      }
       element.setAttribute('data-github-tweaks-blocked-title', label);
-      element.removeAttribute('title');
+      if (element.hasAttribute('title')) element.removeAttribute('title');
     } else if (element.getAttribute('title') !== label) {
       element.setAttribute('title', label);
     }
