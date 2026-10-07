@@ -11,6 +11,7 @@ const DEFAULT_SETTINGS = {
   userNicknamesEnabled: true,
   userNicknames: [],
   conversationFirstNamesEnabled: false,
+  preferDisplayNamesEnabled: false,
   hideContributingGuidelinesNotice: true,
   hidePullRequestMilestone: false,
   hideSuggestedWorkflows: false,

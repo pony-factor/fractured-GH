@@ -1,0 +1,18 @@
+/* Leave GitHub unchanged until the People > Identity preference is enabled. */
+html[data-fractured-prefer-display-names="true"] .fractured-display-name-primary {
+  font-size: 1rem !important;
+  font-weight: 700 !important;
+  line-height: 1.4 !important;
+  color: var(--fgColor-default, var(--color-fg-default, #1f2328)) !important;
+}
+
+html[data-fractured-prefer-display-names="true"] .fractured-username-secondary {
+  font-size: 0.75rem !important;
+  font-weight: 400 !important;
+  line-height: 1.4 !important;
+  color: var(--fgColor-muted, var(--color-fg-muted, #656d76)) !important;
+}
+
+html[data-fractured-prefer-display-names="true"] [data-fractured-generated-display-name] {
+  display: block;
+}
