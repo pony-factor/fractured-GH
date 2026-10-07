@@ -15,6 +15,7 @@ const DEFAULT_SETTINGS = {
   hideContributingGuidelinesNotice: true,
   hidePullRequestMilestone: false,
   hideSuggestedWorkflows: false,
+  hideRepositoryLanguages: false,
   hideMyNavigationLinks: false,
   muteUsersEnabled: true,
   mutedUsers: [],
