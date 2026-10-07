@@ -4,6 +4,13 @@
   const STYLE_ID = 'github-tweaks-block-tooltips-style';
   const BLOCKED_TITLE_ATTRIBUTE = 'data-github-tweaks-blocked-title';
   const ADDED_ARIA_ATTRIBUTE = 'data-github-tweaks-added-aria-label';
+  const ALLOW_TOOLTIP_ATTRIBUTE = 'data-github-tweaks-allow-tooltip';
+  const REACTION_SUMMARY_SELECTOR = [
+    '.reaction-summary-item:not(.add-reaction-btn)',
+    '[data-testid="reaction-summary-item"]',
+    '[data-testid="reaction-button"][aria-label*="reacted" i]',
+    'button[aria-label*="reacted with" i]',
+  ].join(', ');
 
   let titleObserver = null;
   let enabled = false;
@@ -12,22 +19,68 @@
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
-      tool-tip,
-      [role="tooltip"],
-      [data-component="Tooltip"] {
+      tool-tip:not([${ALLOW_TOOLTIP_ATTRIBUTE}]),
+      [role="tooltip"]:not([${ALLOW_TOOLTIP_ATTRIBUTE}]),
+      [data-component="Tooltip"]:not([${ALLOW_TOOLTIP_ATTRIBUTE}]) {
         display: none !important;
       }
 
-      .tooltipped::before,
-      .tooltipped::after {
+      .tooltipped:not(.reaction-summary-item)::before,
+      .tooltipped:not(.reaction-summary-item)::after {
         display: none !important;
       }
     `;
     return style;
   }
 
+  function isReactionSummary(element) {
+    return element instanceof Element && Boolean(element.closest(REACTION_SUMMARY_SELECTOR));
+  }
+
+  function tooltipControl(tooltip) {
+    if (!(tooltip instanceof Element)) return null;
+
+    const forId = tooltip.getAttribute('for');
+    if (forId) {
+      const control = document.getElementById(forId);
+      if (control) return control;
+    }
+
+    if (!tooltip.id) return null;
+    const escapedId = CSS.escape(tooltip.id);
+    return document.querySelector(
+      `[aria-describedby~="${escapedId}"], [aria-labelledby~="${escapedId}"]`,
+    );
+  }
+
+  function allowReactionTooltip(tooltip) {
+    if (
+      !(tooltip instanceof Element) ||
+      !tooltip.matches('tool-tip, [role="tooltip"], [data-component="Tooltip"]')
+    ) {
+      return;
+    }
+
+    if (isReactionSummary(tooltipControl(tooltip))) {
+      tooltip.setAttribute(ALLOW_TOOLTIP_ATTRIBUTE, 'true');
+    } else {
+      tooltip.removeAttribute(ALLOW_TOOLTIP_ATTRIBUTE);
+    }
+  }
+
+  function allowReactionTooltipsWithin(root) {
+    if (!(root instanceof Element)) return;
+    allowReactionTooltip(root);
+    for (const tooltip of root.querySelectorAll(
+      'tool-tip, [role="tooltip"], [data-component="Tooltip"]',
+    )) {
+      allowReactionTooltip(tooltip);
+    }
+  }
+
   function blockTitle(element) {
     if (!(element instanceof Element) || !element.hasAttribute('title')) return;
+    if (isReactionSummary(element)) return;
 
     if (element.matches('relative-time, time-ago, local-time') && !element.hasAttribute('no-title')) {
       element.setAttribute('data-github-tweaks-added-no-title', 'true');
@@ -47,6 +100,7 @@
 
   function blockTitlesWithin(root) {
     if (!(root instanceof Element)) return;
+    allowReactionTooltipsWithin(root);
     blockTitle(root);
     for (const element of root.querySelectorAll('[title]')) blockTitle(element);
   }
