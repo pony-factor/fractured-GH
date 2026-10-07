@@ -1,65 +1,108 @@
-(async () => {
+(() => {
   'use strict';
 
-  const { hideRepositorySocialActions = false } = await chrome.storage.local.get({
-    hideRepositorySocialActions: false,
-  });
-  if (!hideRepositorySocialActions) return;
+  const ATTRIBUTE = 'data-fractured-hidden-repository-control';
+  const KEYS = ['hideRepositoryWatch', 'hideRepositoryStar', 'hideRepositoryFork',
+    'hideRepositoryPins', 'hideRepositoryOverviewName', 'hideRepositorySocialActions'];
+  let settings = {};
+  let scheduled = false;
 
-  const ACTIONS = new Set(['watch', 'star', 'fork']);
+  function refresh() {
+    scheduled = false;
+    for (const element of document.querySelectorAll(`[${ATTRIBUTE}]`)) {
+      element.removeAttribute(ATTRIBUTE);
+    }
 
-  function repositoryPrefix() {
-    const parts = location.pathname.split('/').filter(Boolean);
-    if (parts.length < 2 || ['settings', 'orgs', 'topics', 'collections', 'features', 'marketplace', 'notifications'].includes(parts[0])) return null;
-    return `/${parts[0]}/${parts[1]}`;
-  }
+    const repository = document.querySelector('meta[name="octolytics-dimension-repository_nwo"]')
+      ?.getAttribute('content');
+    if (!repository) return;
 
-  function removeSocialActions() {
-    const prefix = repositoryPrefix();
-    if (!prefix) return;
+    const actions = document.querySelectorAll(
+      '[data-testid="repo-header-actions"], [class*="RepoHeaderActions"], #repository-container-header .pagehead-actions',
+    );
+    for (const list of actions) {
+      for (const item of list.children) {
+        const labels = [...item.querySelectorAll('a, button, summary')].map(element =>
+          [element.getAttribute('aria-label'), element.getAttribute('title'), element.textContent]
+            .filter(Boolean).join(' ').replace(/\s+/g, ' ').trim(),
+        );
+        for (const [action, key, pattern] of [
+          ['watch', 'hideRepositoryWatch', /^(?:unwatch|watch)(?:\s|:|$)/i],
+          ['star', 'hideRepositoryStar', /^(?:unstar|star)(?:\s|:|$)/i],
+          ['fork', 'hideRepositoryFork', /^fork(?:\s|:|$)/i],
+          ['pins', 'hideRepositoryPins', /^(?:edit pins|pin repository|unpin repository)(?:\s|:|$)/i],
+        ]) {
+          const hide = key === 'hideRepositoryPins'
+            ? (settings[key] ?? true)
+            : (settings[key] ?? settings.hideRepositorySocialActions);
+          if (hide && labels.some(label => pattern.test(label))) {
+            item.setAttribute(ATTRIBUTE, action);
+          }
+        }
+      }
+    }
 
-    const header = document.querySelector('#repository-container-header');
-    if (!header) return;
+    // Cover the About statistics in both wide and narrow repository layouts.
+    for (const [action, key, destination] of [
+      ['watch', 'hideRepositoryWatch', 'watchers'],
+      ['star', 'hideRepositoryStar', 'stargazers'],
+      ['fork', 'hideRepositoryFork', 'forks'],
+    ]) {
+      if (!(settings[key] ?? settings.hideRepositorySocialActions)) continue;
+      for (const link of document.querySelectorAll(
+        '[class*="SidebarAbout"] a[href], .BorderGrid-cell a[href]',
+      )) {
+        const url = new URL(link.href, location.origin);
+        if (url.origin !== location.origin
+          || url.pathname.replace(/\/+$/, '') !== `/${repository}/${destination}`) continue;
+        const row = link.closest('[class*="insightItem"], .mt-2') || link;
+        row.setAttribute(ATTRIBUTE, action);
+        const heading = row.previousElementSibling;
+        if (heading?.matches('h3') && /^(Stars|Watchers|Forks)$/.test(heading.textContent.trim())) {
+          heading.setAttribute(ATTRIBUTE, action);
+        }
+      }
+    }
 
-    // GitHub renders these as list items containing actionable Watch/Star/Fork buttons.
-    // Scope to the repository header to preserve stars, forks, and other links elsewhere.
-    for (const item of header.querySelectorAll('li, [data-testid="repository-action-menu"]')) {
-      if (item.closest('[data-fractured-hidden-social-action]')) continue;
-      const text = (item.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
-      const labels = [...item.querySelectorAll('a, button, summary')].map((el) =>
-        (el.getAttribute('aria-label') || el.getAttribute('title') || el.textContent || '')
-          .replace(/\s+/g, ' ').trim().toLowerCase()
-      );
-      const isAction = labels.some((label) =>
-        /^(?:unwatch|watch|star|unstar|fork)(?:\s|$)/.test(label)
-      );
-      if (!isAction || (!ACTIONS.has(text.split(' ')[0]) && !labels.some((label) =>
-        /^(?:unwatch|watch|star|unstar|fork)(?:\s|$)/.test(label)
-      ))) continue;
-      // Only remove the smallest header list item containing the action (and its count).
-      if (item.querySelector('li')) continue;
-      item.hidden = true;
-      item.setAttribute('data-fractured-hidden-social-action', 'true');
+    if (settings.hideRepositoryOverviewName && location.pathname.replace(/\/+$/, '') === `/${repository}`) {
+      for (const name of document.querySelectorAll('#repo-title-component [data-testid="repo-name-wrapper"], #repository-container-header [itemprop="name"]')) {
+        name.setAttribute(ATTRIBUTE, 'name');
+        const avatar = name.parentElement.querySelector('img[data-component="Avatar"], img.avatar');
+        avatar?.setAttribute(ATTRIBUTE, 'avatar');
+        const visibility = name.parentElement.querySelector('[data-testid="repo-visibility-label"], .Label');
+        visibility?.setAttribute(ATTRIBUTE, 'visibility');
+
+        const row = name.closest('.border-bottom');
+        if (row && !row.innerText.trim()) {
+          const hasVisibleControl = [...row.querySelectorAll('a, button, summary, input, img, svg, [role="button"]')]
+            .some(element => element.getClientRects().length > 0
+              && getComputedStyle(element).visibility !== 'hidden');
+          if (!hasVisibleControl) row.setAttribute(ATTRIBUTE, 'empty-header');
+        }
+      }
     }
   }
 
-  let scheduled = false;
   function schedule() {
     if (scheduled) return;
     scheduled = true;
-    requestAnimationFrame(() => {
-      scheduled = false;
-      removeSocialActions();
-    });
+    requestAnimationFrame(refresh);
   }
 
-  const observer = new MutationObserver(schedule);
-  function start() {
+  async function loadSettings() {
+    settings = await chrome.storage.local.get(KEYS);
     schedule();
-    observer.observe(document.documentElement, { childList: true, subtree: true });
   }
-  if (document.documentElement) start();
-  else document.addEventListener('DOMContentLoaded', start, { once: true });
+
+  const style = document.createElement('style');
+  style.textContent = `[${ATTRIBUTE}] { display: none !important; }`;
+  (document.head || document.documentElement).append(style);
+  new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true });
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && KEYS.some(key => key in changes)) void loadSettings();
+  });
   document.addEventListener('turbo:load', schedule);
   document.addEventListener('pjax:end', schedule);
+  window.addEventListener('popstate', schedule);
+  void loadSettings();
 })();
