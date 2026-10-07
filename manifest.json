@@ -44,6 +44,7 @@
         "features/hide-suggested-workflows.js",
         "features/hide-repository-languages.js",
         "features/hide-unused-repository-tabs.js",
+        "features/hide-repository-social-actions.js",
         "features/organization-notifications.js",
         "features/relative-times.js",
         "features/commit-title-emojis.js",
