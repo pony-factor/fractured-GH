@@ -79,4 +79,27 @@ chrome.action.onClicked.addListener(() => {
   void chrome.runtime.openOptionsPage();
 });
 
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === 'fractured:open-spellcheck' && typeof message.jobId === 'string') {
+    const url = `https://chatgpt.com/?fractured-spellcheck=${encodeURIComponent(message.jobId)}`;
+    chrome.tabs.create({ url, active: false }, (tab) => {
+      const error = chrome.runtime.lastError;
+      sendResponse(error
+        ? { ok: false, error: error.message }
+        : { ok: true, tabId: tab?.id ?? null });
+    });
+    return true;
+  }
+
+  if (message?.type === 'fractured:close-spellcheck-tab' && sender.tab?.id != null) {
+    chrome.tabs.remove(sender.tab.id, () => {
+      const error = chrome.runtime.lastError;
+      sendResponse(error ? { ok: false, error: error.message } : { ok: true });
+    });
+    return true;
+  }
+
+  return false;
+});
+
 void applyActionIcon();
