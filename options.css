@@ -16,7 +16,7 @@ body {
 
 main {
   margin: 48px auto;
-  max-width: 680px;
+  max-width: 880px;
   padding: 0 24px;
 }
 
@@ -24,7 +24,7 @@ main {
   align-items: center;
   display: flex;
   gap: 14px;
-  margin-bottom: 24px;
+  margin-bottom: 18px;
 }
 
 .standalone-artwork {
@@ -63,6 +63,47 @@ form {
   border: 1px solid light-dark(#d0d7de, #3d444d);
   border-radius: 12px;
   padding: 24px;
+}
+
+.settings-category-tabs {
+  background: light-dark(#ffffff, #0d1117);
+  border: 1px solid light-dark(#d0d7de, #3d444d);
+  border-radius: 12px;
+  display: grid;
+  gap: 4px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 12px;
+  padding: 4px;
+  position: sticky;
+  top: 12px;
+  z-index: 2;
+}
+
+button.settings-category-tab {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  min-width: 0;
+  padding: 9px 10px;
+  white-space: nowrap;
+}
+
+button.settings-category-tab:hover {
+  background: light-dark(#f6f8fa, #161b22);
+  color: inherit;
+}
+
+button.settings-category-tab[aria-selected="true"] {
+  background: #2da44e;
+  color: #ffffff;
+}
+
+.settings-panel[hidden] {
+  display: none;
+}
+
+.settings-panel > .settings-foldout:last-child {
+  margin-bottom: 0;
 }
 
 .settings-foldout {
@@ -249,6 +290,11 @@ button.secondary:hover {
 }
 
 @media (max-width: 560px) {
+  .settings-category-tabs {
+    grid-template-columns: repeat(4, minmax(112px, 1fr));
+    overflow-x: auto;
+  }
+
   main {
     margin: 24px auto;
     padding: 0 14px;
