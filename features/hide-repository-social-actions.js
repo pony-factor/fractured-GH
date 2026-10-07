@@ -71,6 +71,14 @@
         avatar?.setAttribute(ATTRIBUTE, 'avatar');
         const visibility = name.parentElement.querySelector('[data-testid="repo-visibility-label"], .Label');
         visibility?.setAttribute(ATTRIBUTE, 'visibility');
+
+        const row = name.closest('.border-bottom');
+        if (row && !row.innerText.trim()) {
+          const hasVisibleControl = [...row.querySelectorAll('a, button, summary, input, img, svg, [role="button"]')]
+            .some(element => element.getClientRects().length > 0
+              && getComputedStyle(element).visibility !== 'hidden');
+          if (!hasVisibleControl) row.setAttribute(ATTRIBUTE, 'empty-header');
+        }
       }
     }
   }
