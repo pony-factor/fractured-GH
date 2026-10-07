@@ -149,6 +149,10 @@ button.settings-category-tab[aria-selected="true"] {
   margin: 0;
 }
 
+.preference + .preference {
+  margin-top: 12px;
+}
+
 .preference input {
   accent-color: #2da44e;
   margin: 3px 0 0;
