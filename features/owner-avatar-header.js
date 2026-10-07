@@ -74,6 +74,9 @@
   }
 
   function appHeader() {
+    const globalNav = document.querySelector('.GlobalNav, #global-nav');
+    if (globalNav) return globalNav;
+
     return document.querySelector([
       '.AppHeader',
       '[data-component="AppHeader"]',
@@ -102,6 +105,10 @@
       }
 
       [${HIDDEN_ATTRIBUTE}] {
+        display: none !important;
+      }
+
+      li:has(> [data-component="Breadcrumbs.Item"][${HIDDEN_ATTRIBUTE}]) {
         display: none !important;
       }
     `;
@@ -216,6 +223,7 @@
     const ownerKey = normalizeText(owner);
     const ownerPath = `/${owner.toLowerCase()}`;
     const contextSelector = [
+      '[data-component="Breadcrumbs.Item"]',
       '.AppHeader-context-item',
       '[data-testid="AppHeader-context-item"]',
       '[class*="AppHeader-context-item"]',
