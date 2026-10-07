@@ -20,6 +20,7 @@ const notificationOrganizationsList = document.getElementById('notification-orga
 const addNotificationOrganizationButton = document.getElementById('add-notification-organization');
 const notificationOrganizationTemplate = document.getElementById('notification-organization-template');
 const userNicknamesInput = document.getElementById('user-nicknames-enabled');
+const preferDisplayNamesInput = document.getElementById('prefer-display-names-enabled');
 const conversationFirstNamesInput = document.getElementById('conversation-first-names-enabled');
 const userNicknamesList = document.getElementById('user-nicknames');
 const userNicknamesSummary = document.getElementById('user-nicknames-summary');
@@ -328,6 +329,7 @@ async function loadSettings() {
     userNicknamesEnabled: true,
     userNicknames: [],
     conversationFirstNamesEnabled: false,
+    preferDisplayNamesEnabled: false,
     muteUsersEnabled: true,
     mutedUsers: DEFAULT_MUTED_USERS,
   });
@@ -348,6 +350,7 @@ async function loadSettings() {
   ownerAvatarHeaderInput.checked = Boolean(settings.ownerAvatarHeaderEnabled);
   organizationInboxesInput.checked = Boolean(settings.organizationNotificationInboxesEnabled);
   userNicknamesInput.checked = Boolean(settings.userNicknamesEnabled);
+  preferDisplayNamesInput.checked = Boolean(settings.preferDisplayNamesEnabled);
   conversationFirstNamesInput.checked = Boolean(settings.conversationFirstNamesEnabled);
   muteUsersInput.checked = Boolean(settings.muteUsersEnabled);
 
@@ -406,6 +409,7 @@ async function saveSettings() {
     organizationNotificationInboxesEnabled: organizationInboxesInput.checked,
     notificationOrganizations,
     userNicknamesEnabled: userNicknamesInput.checked,
+    preferDisplayNamesEnabled: preferDisplayNamesInput.checked,
     userNicknames,
     conversationFirstNamesEnabled: conversationFirstNamesInput.checked,
     muteUsersEnabled: muteUsersInput.checked,
@@ -436,6 +440,7 @@ addNotificationOrganizationButton.addEventListener('click', () => {
   addNotificationOrganizationRow('', { focus: true });
 });
 userNicknamesInput.addEventListener('change', () => void saveSettings());
+preferDisplayNamesInput.addEventListener('change', () => void saveSettings());
 conversationFirstNamesInput.addEventListener('change', () => void saveSettings());
 addUserNicknameButton.addEventListener('click', () => {
   addUserNicknameRow({}, { focus: true });

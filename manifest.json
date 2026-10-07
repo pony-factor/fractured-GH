@@ -25,7 +25,8 @@
         "https://github.com/*"
       ],
       "css": [
-        "features/pony-headings.css"
+        "features/pony-headings.css",
+        "features/promote-display-names.css"
       ],
       "js": [
         "features/hide-inbox-while-busy.js",
@@ -33,6 +34,7 @@
         "features/hide-my-navigation-links.js",
         "features/owner-avatar-header.js",
         "features/user-nicknames.js",
+        "features/promote-display-names.js",
         "features/mute-users.js",
         "features/block-tooltips.js",
         "features/hide-contributing-guidelines-notice.js",
