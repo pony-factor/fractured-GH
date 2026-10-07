@@ -69,6 +69,8 @@
         name.setAttribute(ATTRIBUTE, 'name');
         const avatar = name.parentElement.querySelector('img[data-component="Avatar"], img.avatar');
         avatar?.setAttribute(ATTRIBUTE, 'avatar');
+        const visibility = name.parentElement.querySelector('[data-testid="repo-visibility-label"], .Label');
+        visibility?.setAttribute(ATTRIBUTE, 'visibility');
       }
     }
   }
