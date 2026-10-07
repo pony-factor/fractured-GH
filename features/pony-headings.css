@@ -22,7 +22,9 @@
 /* Give the repository name beside the owner avatar more prominence. */
 :is(
   .AppHeader-context-item-label,
-  [data-testid="AppHeader-context-item-label"]
+  [data-testid="AppHeader-context-item-label"],
+  .GlobalNav [data-component="Breadcrumbs.Item"][href*="/"],
+  header [data-component="Breadcrumbs.Item"][href*="/"]
 ) {
   font-size: 1.25rem !important;
   line-height: 1.35 !important;
