@@ -6,7 +6,7 @@
     <title>Fractured GitHub</title>
     <link rel="stylesheet" href="options.css" />
   </head>
-  <body>
+  <body class="standalone-options">
     <main>
       <header class="standalone-header">
         <img class="standalone-artwork" src="icons/applejack-family.webp" alt="" />
@@ -16,7 +16,15 @@
         </div>
       </header>
 
+      <nav class="settings-category-tabs" role="tablist" aria-label="Settings categories">
+        <button id="settings-tab-general" class="settings-category-tab" type="button" role="tab" aria-selected="true" aria-controls="settings-panel-general">General</button>
+        <button id="settings-tab-people" class="settings-category-tab" type="button" role="tab" aria-selected="false" aria-controls="settings-panel-people" tabindex="-1">People</button>
+        <button id="settings-tab-commits" class="settings-category-tab" type="button" role="tab" aria-selected="false" aria-controls="settings-panel-commits" tabindex="-1">Commits</button>
+        <button id="settings-tab-pull-requests" class="settings-category-tab" type="button" role="tab" aria-selected="false" aria-controls="settings-panel-pull-requests" tabindex="-1">Pull requests</button>
+      </nav>
+
       <form id="settings-form">
+        <section id="settings-panel-general" class="settings-panel" role="tabpanel" aria-labelledby="settings-tab-general">
         <details class="settings-foldout" open>
           <summary>
             <span>Notifications</span>
@@ -116,6 +124,24 @@
 
         <details class="settings-foldout" open>
           <summary>
+            <span>Footer</span>
+            <span class="summary-meta">Sitewide links</span>
+          </summary>
+          <div class="foldout-body">
+            <label class="preference">
+              <input id="hide-footer" type="checkbox" />
+              <span>
+                <strong>Hide GitHub footer</strong>
+                <small>Hide GitHub's sitewide footer, including the copyright, legal, support, and cookie links.</small>
+              </span>
+            </label>
+          </div>
+        </details>
+        </section>
+
+        <section id="settings-panel-people" class="settings-panel" role="tabpanel" aria-labelledby="settings-tab-people" hidden>
+        <details class="settings-foldout" open>
+          <summary>
             <span>Identity</span>
             <span id="user-nicknames-summary" class="summary-meta">None</span>
           </summary>
@@ -177,7 +203,9 @@
             </div>
           </div>
         </details>
+        </section>
 
+        <section id="settings-panel-commits" class="settings-panel" role="tabpanel" aria-labelledby="settings-tab-commits" hidden>
         <details class="settings-foldout" open>
           <summary>
             <span>Commits</span>
@@ -200,7 +228,9 @@
             </label>
           </div>
         </details>
+        </section>
 
+        <section id="settings-panel-pull-requests" class="settings-panel" role="tabpanel" aria-labelledby="settings-tab-pull-requests" hidden>
         <details class="settings-foldout" open>
           <summary>
             <span>Pull requests</span>
@@ -242,22 +272,7 @@
             </label>
           </div>
         </details>
-
-        <details class="settings-foldout" open>
-          <summary>
-            <span>Interface</span>
-            <span class="summary-meta">Footer</span>
-          </summary>
-          <div class="foldout-body">
-            <label class="preference">
-              <input id="hide-footer" type="checkbox" />
-              <span>
-                <strong>Hide GitHub footer</strong>
-                <small>Hide GitHub's sitewide footer, including the copyright, legal, support, and cookie links.</small>
-              </span>
-            </label>
-          </div>
-        </details>
+        </section>
 
         <p id="status" role="status" aria-live="polite">Changes save automatically.</p>
       </form>
@@ -320,5 +335,6 @@
     </template>
 
     <script src="options.js"></script>
+    <script src="options-page.js"></script>
   </body>
 </html>
