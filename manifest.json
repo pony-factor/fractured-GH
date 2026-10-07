@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Fractured GitHub",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "Personal GitHub interface tweaks.",
   "permissions": [
     "storage"
@@ -46,9 +46,19 @@
         "features/commit-message-simplifier.js",
         "features/hide-notification-reason.js",
         "features/hide-empty-development-copy.js",
-        "features/wrap-diff-lines.js"
+        "features/wrap-diff-lines.js",
+        "features/spellcheck-issue-pr-drafts.js"
       ],
       "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://chatgpt.com/*"
+      ],
+      "js": [
+        "features/spellcheck-chatgpt-bridge.js"
+      ],
+      "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
