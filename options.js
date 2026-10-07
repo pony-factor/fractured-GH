@@ -10,7 +10,10 @@ const hideContributingGuidelinesNoticeInput = document.getElementById('hide-cont
 const hidePullRequestProtipInput = document.getElementById('hide-pull-request-protip');
 const hidePullRequestMilestoneInput = document.getElementById('hide-pull-request-milestone');
 const hideFooterInput = document.getElementById('hide-footer');
-const hideRepositorySocialActionsInput = document.getElementById('hide-repository-social-actions');
+const hideRepositoryWatchInput = document.getElementById('hide-repository-watch');
+const hideRepositoryStarInput = document.getElementById('hide-repository-star');
+const hideRepositoryForkInput = document.getElementById('hide-repository-fork');
+const hideRepositoryOverviewNameInput = document.getElementById('hide-repository-overview-name');
 const hideMyNavigationLinksInput = document.getElementById('hide-my-navigation-links');
 const hideSuggestedWorkflowsInput = document.getElementById('hide-suggested-workflows');
 const hideRepositoryLanguagesInput = document.getElementById('hide-repository-languages');
@@ -322,6 +325,10 @@ async function loadSettings() {
     hidePullRequestMilestone: false,
     hideFooter: false,
     hideRepositorySocialActions: false,
+    hideRepositoryWatch: null,
+    hideRepositoryStar: null,
+    hideRepositoryFork: null,
+    hideRepositoryOverviewName: false,
     hideMyNavigationLinks: false,
     hideSuggestedWorkflows: false,
     hideRepositoryLanguages: false,
@@ -347,7 +354,10 @@ async function loadSettings() {
   hidePullRequestProtipInput.checked = Boolean(settings.hidePullRequestProtip);
   hidePullRequestMilestoneInput.checked = Boolean(settings.hidePullRequestMilestone);
   hideFooterInput.checked = Boolean(settings.hideFooter);
-  hideRepositorySocialActionsInput.checked = Boolean(settings.hideRepositorySocialActions);
+  hideRepositoryWatchInput.checked = Boolean(settings.hideRepositoryWatch ?? settings.hideRepositorySocialActions);
+  hideRepositoryStarInput.checked = Boolean(settings.hideRepositoryStar ?? settings.hideRepositorySocialActions);
+  hideRepositoryForkInput.checked = Boolean(settings.hideRepositoryFork ?? settings.hideRepositorySocialActions);
+  hideRepositoryOverviewNameInput.checked = Boolean(settings.hideRepositoryOverviewName);
   hideMyNavigationLinksInput.checked = Boolean(settings.hideMyNavigationLinks);
   hideSuggestedWorkflowsInput.checked = Boolean(settings.hideSuggestedWorkflows);
   hideRepositoryLanguagesInput.checked = Boolean(settings.hideRepositoryLanguages);
@@ -407,7 +417,10 @@ async function saveSettings() {
     hidePullRequestProtip: hidePullRequestProtipInput.checked,
     hidePullRequestMilestone: hidePullRequestMilestoneInput.checked,
     hideFooter: hideFooterInput.checked,
-    hideRepositorySocialActions: hideRepositorySocialActionsInput.checked,
+    hideRepositoryWatch: hideRepositoryWatchInput.checked,
+    hideRepositoryStar: hideRepositoryStarInput.checked,
+    hideRepositoryFork: hideRepositoryForkInput.checked,
+    hideRepositoryOverviewName: hideRepositoryOverviewNameInput.checked,
     hideMyNavigationLinks: hideMyNavigationLinksInput.checked,
     hideSuggestedWorkflows: hideSuggestedWorkflowsInput.checked,
     hideRepositoryLanguages: hideRepositoryLanguagesInput.checked,
@@ -438,7 +451,10 @@ hideContributingGuidelinesNoticeInput.addEventListener('change', () => void save
 hidePullRequestProtipInput.addEventListener('change', () => void saveSettings());
 hidePullRequestMilestoneInput.addEventListener('change', () => void saveSettings());
 hideFooterInput.addEventListener('change', () => void saveSettings());
-hideRepositorySocialActionsInput.addEventListener('change', () => void saveSettings());
+hideRepositoryWatchInput.addEventListener('change', () => void saveSettings());
+hideRepositoryStarInput.addEventListener('change', () => void saveSettings());
+hideRepositoryForkInput.addEventListener('change', () => void saveSettings());
+hideRepositoryOverviewNameInput.addEventListener('change', () => void saveSettings());
 hideMyNavigationLinksInput.addEventListener('change', () => void saveSettings());
 hideSuggestedWorkflowsInput.addEventListener('change', () => void saveSettings());
 hideRepositoryLanguagesInput.addEventListener('change', () => void saveSettings());

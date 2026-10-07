@@ -16,18 +16,24 @@ const DEFAULT_SETTINGS = {
   hidePullRequestMilestone: false,
   hideSuggestedWorkflows: false,
   hideRepositoryLanguages: false,
+  hideRepositoryOverviewName: false,
   hideMyNavigationLinks: false,
   muteUsersEnabled: true,
   mutedUsers: [],
 };
 
 async function initializeMissingSettings() {
-  const keys = Object.keys(DEFAULT_SETTINGS);
+  const keys = [...Object.keys(DEFAULT_SETTINGS), 'hideRepositorySocialActions',
+    'hideRepositoryWatch', 'hideRepositoryStar', 'hideRepositoryFork'];
   const stored = await chrome.storage.local.get(keys);
   const missing = {};
 
-  for (const key of keys) {
+  for (const key of Object.keys(DEFAULT_SETTINGS)) {
     if (stored[key] === undefined) missing[key] = DEFAULT_SETTINGS[key];
+  }
+
+  for (const key of ['hideRepositoryWatch', 'hideRepositoryStar', 'hideRepositoryFork']) {
+    if (stored[key] === undefined) missing[key] = Boolean(stored.hideRepositorySocialActions);
   }
 
   if (Object.keys(missing).length) {
