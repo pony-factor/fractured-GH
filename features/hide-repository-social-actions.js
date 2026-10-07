@@ -3,7 +3,7 @@
 
   const ATTRIBUTE = 'data-fractured-hidden-repository-control';
   const KEYS = ['hideRepositoryWatch', 'hideRepositoryStar', 'hideRepositoryFork',
-    'hideRepositoryOverviewName', 'hideRepositorySocialActions'];
+    'hideRepositoryPins', 'hideRepositoryOverviewName', 'hideRepositorySocialActions'];
   let settings = {};
   let scheduled = false;
 
@@ -30,10 +30,36 @@
           ['watch', 'hideRepositoryWatch', /^(?:unwatch|watch)(?:\s|:|$)/i],
           ['star', 'hideRepositoryStar', /^(?:unstar|star)(?:\s|:|$)/i],
           ['fork', 'hideRepositoryFork', /^fork(?:\s|:|$)/i],
+          ['pins', 'hideRepositoryPins', /^(?:edit pins|pin repository|unpin repository)(?:\s|:|$)/i],
         ]) {
-          if ((settings[key] ?? settings.hideRepositorySocialActions) && labels.some(label => pattern.test(label))) {
+          const hide = key === 'hideRepositoryPins'
+            ? (settings[key] ?? true)
+            : (settings[key] ?? settings.hideRepositorySocialActions);
+          if (hide && labels.some(label => pattern.test(label))) {
             item.setAttribute(ATTRIBUTE, action);
           }
+        }
+      }
+    }
+
+    // Cover the About statistics in both wide and narrow repository layouts.
+    for (const [action, key, destination] of [
+      ['watch', 'hideRepositoryWatch', 'watchers'],
+      ['star', 'hideRepositoryStar', 'stargazers'],
+      ['fork', 'hideRepositoryFork', 'forks'],
+    ]) {
+      if (!(settings[key] ?? settings.hideRepositorySocialActions)) continue;
+      for (const link of document.querySelectorAll(
+        '[class*="SidebarAbout"] a[href], .BorderGrid-cell a[href]',
+      )) {
+        const url = new URL(link.href, location.origin);
+        if (url.origin !== location.origin
+          || url.pathname.replace(/\/+$/, '') !== `/${repository}/${destination}`) continue;
+        const row = link.closest('[class*="insightItem"], .mt-2') || link;
+        row.setAttribute(ATTRIBUTE, action);
+        const heading = row.previousElementSibling;
+        if (heading?.matches('h3') && /^(Stars|Watchers|Forks)$/.test(heading.textContent.trim())) {
+          heading.setAttribute(ATTRIBUTE, action);
         }
       }
     }

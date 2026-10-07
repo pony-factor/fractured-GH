@@ -13,6 +13,7 @@ const hideFooterInput = document.getElementById('hide-footer');
 const hideRepositoryWatchInput = document.getElementById('hide-repository-watch');
 const hideRepositoryStarInput = document.getElementById('hide-repository-star');
 const hideRepositoryForkInput = document.getElementById('hide-repository-fork');
+const hideRepositoryPinsInput = document.getElementById('hide-repository-pins');
 const hideRepositoryOverviewNameInput = document.getElementById('hide-repository-overview-name');
 const hideMyNavigationLinksInput = document.getElementById('hide-my-navigation-links');
 const hideSuggestedWorkflowsInput = document.getElementById('hide-suggested-workflows');
@@ -328,6 +329,7 @@ async function loadSettings() {
     hideRepositoryWatch: null,
     hideRepositoryStar: null,
     hideRepositoryFork: null,
+    hideRepositoryPins: true,
     hideRepositoryOverviewName: false,
     hideMyNavigationLinks: false,
     hideSuggestedWorkflows: false,
@@ -357,6 +359,7 @@ async function loadSettings() {
   hideRepositoryWatchInput.checked = Boolean(settings.hideRepositoryWatch ?? settings.hideRepositorySocialActions);
   hideRepositoryStarInput.checked = Boolean(settings.hideRepositoryStar ?? settings.hideRepositorySocialActions);
   hideRepositoryForkInput.checked = Boolean(settings.hideRepositoryFork ?? settings.hideRepositorySocialActions);
+  hideRepositoryPinsInput.checked = Boolean(settings.hideRepositoryPins);
   hideRepositoryOverviewNameInput.checked = Boolean(settings.hideRepositoryOverviewName);
   hideMyNavigationLinksInput.checked = Boolean(settings.hideMyNavigationLinks);
   hideSuggestedWorkflowsInput.checked = Boolean(settings.hideSuggestedWorkflows);
@@ -420,6 +423,7 @@ async function saveSettings() {
     hideRepositoryWatch: hideRepositoryWatchInput.checked,
     hideRepositoryStar: hideRepositoryStarInput.checked,
     hideRepositoryFork: hideRepositoryForkInput.checked,
+    hideRepositoryPins: hideRepositoryPinsInput.checked,
     hideRepositoryOverviewName: hideRepositoryOverviewNameInput.checked,
     hideMyNavigationLinks: hideMyNavigationLinksInput.checked,
     hideSuggestedWorkflows: hideSuggestedWorkflowsInput.checked,
@@ -454,6 +458,7 @@ hideFooterInput.addEventListener('change', () => void saveSettings());
 hideRepositoryWatchInput.addEventListener('change', () => void saveSettings());
 hideRepositoryStarInput.addEventListener('change', () => void saveSettings());
 hideRepositoryForkInput.addEventListener('change', () => void saveSettings());
+hideRepositoryPinsInput.addEventListener('change', () => void saveSettings());
 hideRepositoryOverviewNameInput.addEventListener('change', () => void saveSettings());
 hideMyNavigationLinksInput.addEventListener('change', () => void saveSettings());
 hideSuggestedWorkflowsInput.addEventListener('change', () => void saveSettings());
