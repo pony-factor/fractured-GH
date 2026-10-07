@@ -42,6 +42,7 @@
         "features/hide-pull-request-milestone.js",
         "features/hide-footer.js",
         "features/hide-suggested-workflows.js",
+        "features/hide-repository-languages.js",
         "features/hide-unused-repository-tabs.js",
         "features/hide-repository-social-actions.js",
         "features/organization-notifications.js",

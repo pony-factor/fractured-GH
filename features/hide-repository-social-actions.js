@@ -25,16 +25,16 @@
     // Scope to the repository header to preserve stars, forks, and other links elsewhere.
     for (const item of header.querySelectorAll('li, [data-testid="repository-action-menu"]')) {
       if (item.closest('[data-fractured-hidden-social-action]')) continue;
-      const text = (item.textContent || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+      const text = (item.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
       const labels = [...item.querySelectorAll('a, button, summary')].map((el) =>
         (el.getAttribute('aria-label') || el.getAttribute('title') || el.textContent || '')
-          .replace(/\\s+/g, ' ').trim().toLowerCase()
+          .replace(/\s+/g, ' ').trim().toLowerCase()
       );
       const isAction = labels.some((label) =>
-        /^(?:unwatch|watch|star|unstar|fork)(?:\\s|$)/.test(label)
+        /^(?:unwatch|watch|star|unstar|fork)(?:\s|$)/.test(label)
       );
       if (!isAction || (!ACTIONS.has(text.split(' ')[0]) && !labels.some((label) =>
-        /^(?:unwatch|watch|star|unstar|fork)(?:\\s|$)/.test(label)
+        /^(?:unwatch|watch|star|unstar|fork)(?:\s|$)/.test(label)
       ))) continue;
       // Only remove the smallest header list item containing the action (and its count).
       if (item.querySelector('li')) continue;

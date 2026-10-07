@@ -7,6 +7,8 @@
   const NAVIGATION_SELECTOR = [
     'header[role="banner"]',
     'header.AppHeader',
+    'header.GlobalNav',
+    'header[aria-label="Global navigation menu"]',
     '[data-component="AppHeader"]',
     '#global-nav',
     'nav[aria-label="Global"]',
@@ -53,7 +55,8 @@
     }
 
     if (url.origin !== window.location.origin) return false;
-    if (url.pathname === '/pulls' || url.pathname === '/issues' || url.pathname === '/repositories') {
+    if (url.pathname === '/pulls' || url.pathname === '/issues'
+      || url.pathname === '/repos' || url.pathname === '/repositories') {
       return true;
     }
 
