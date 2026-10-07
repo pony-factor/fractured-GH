@@ -1,42 +1,55 @@
-(async () => {
+(() => {
   'use strict';
 
-  const { hideRepositoryLanguages = false } = await chrome.storage.local.get({
-    hideRepositoryLanguages: false,
-  });
-  if (!hideRepositoryLanguages) return;
+  const KEY = 'hideRepositoryLanguages';
+  const ATTRIBUTE = 'data-fractured-hidden-languages';
+  let enabled = false;
+  let scheduled = false;
 
   function isRepositoryHome() {
-    // Avoid profile, dashboard, issue, and other non-repository views.
-    const parts = location.pathname.split('/').filter(Boolean);
-    const reserved = new Set(['settings', 'notifications', 'organizations', 'orgs', 'topics',
-      'explore', 'marketplace', 'features', 'pricing', 'search', 'new', 'login', 'signup']);
-    return parts.length === 2 && !reserved.has(parts[0].toLowerCase());
+    const repository = document.querySelector('meta[name="octolytics-dimension-repository_nwo"]')
+      ?.getAttribute('content');
+    return repository && location.pathname.replace(/\/+$/, '') === `/${repository}`;
   }
 
-  function hideLanguages() {
-    if (!isRepositoryHome()) return;
+  function refresh() {
+    scheduled = false;
+    for (const section of document.querySelectorAll(`[${ATTRIBUTE}]`)) {
+      section.removeAttribute(ATTRIBUTE);
+    }
+    if (!enabled || !isRepositoryHome()) return;
 
-    // GitHub's repository sidebar currently groups Languages in a BorderGrid row.
-    // Match the exact heading, not arbitrary occurrences of the word in repository content.
-    const headings = document.querySelectorAll(
-      '.BorderGrid-row h2, .BorderGrid-row h3, aside h2, aside h3',
-    );
-    for (const heading of headings) {
+    // React's sidebar sections replaced the older BorderGrid rows.
+    for (const heading of document.querySelectorAll(
+      '[class*="SidebarSection"] h2, [class*="SidebarSection"] h3, .BorderGrid-row h2, .BorderGrid-row h3, aside h2, aside h3',
+    )) {
       if (heading.textContent.trim() !== 'Languages') continue;
-      const row = heading.closest('.BorderGrid-row');
-      if (row) {
-        row.hidden = true;
-      } else {
-        const section = heading.closest('section');
-        if (section && section.closest('aside')) section.hidden = true;
-      }
+      const section = heading.closest('[class*="SidebarSection"][class*="sidebarSection"], .BorderGrid-row, aside section');
+      section?.setAttribute(ATTRIBUTE, '');
     }
   }
 
-  hideLanguages();
-  const observer = new MutationObserver(() => hideLanguages());
-  observer.observe(document.documentElement, { childList: true, subtree: true });
-  document.addEventListener('turbo:load', hideLanguages);
-  document.addEventListener('pjax:end', hideLanguages);
+  function schedule() {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(refresh);
+  }
+
+  async function loadSettings() {
+    const settings = await chrome.storage.local.get({ [KEY]: false });
+    enabled = Boolean(settings[KEY]);
+    schedule();
+  }
+
+  const style = document.createElement('style');
+  style.textContent = `[${ATTRIBUTE}] { display: none !important; }`;
+  (document.head || document.documentElement).append(style);
+  new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true });
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && KEY in changes) void loadSettings();
+  });
+  document.addEventListener('turbo:load', schedule);
+  document.addEventListener('pjax:end', schedule);
+  window.addEventListener('popstate', schedule);
+  void loadSettings();
 })();
