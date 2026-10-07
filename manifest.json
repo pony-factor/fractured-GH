@@ -36,6 +36,7 @@
         "features/mute-users.js",
         "features/block-tooltips.js",
         "features/hide-contributing-guidelines-notice.js",
+        "features/hide-pull-request-protip.js",
         "features/hide-pull-request-milestone.js",
         "features/hide-footer.js",
         "features/hide-suggested-workflows.js",
