@@ -7,6 +7,7 @@ const wrapDiffLinesInput = document.getElementById('wrap-diff-lines');
 const blockTooltipsInput = document.getElementById('block-tooltips');
 const hideCopilotInput = document.getElementById('hide-copilot');
 const hideContributingGuidelinesNoticeInput = document.getElementById('hide-contributing-guidelines-notice');
+const hidePullRequestProtipInput = document.getElementById('hide-pull-request-protip');
 const hidePullRequestMilestoneInput = document.getElementById('hide-pull-request-milestone');
 const hideFooterInput = document.getElementById('hide-footer');
 const hideMyNavigationLinksInput = document.getElementById('hide-my-navigation-links');
@@ -314,6 +315,7 @@ async function loadSettings() {
     blockTooltips: false,
     hideCopilot: true,
     hideContributingGuidelinesNotice: true,
+    hidePullRequestProtip: false,
     hidePullRequestMilestone: false,
     hideFooter: false,
     hideMyNavigationLinks: false,
@@ -336,6 +338,7 @@ async function loadSettings() {
   blockTooltipsInput.checked = Boolean(settings.blockTooltips);
   hideCopilotInput.checked = Boolean(settings.hideCopilot);
   hideContributingGuidelinesNoticeInput.checked = Boolean(settings.hideContributingGuidelinesNotice);
+  hidePullRequestProtipInput.checked = Boolean(settings.hidePullRequestProtip);
   hidePullRequestMilestoneInput.checked = Boolean(settings.hidePullRequestMilestone);
   hideFooterInput.checked = Boolean(settings.hideFooter);
   hideMyNavigationLinksInput.checked = Boolean(settings.hideMyNavigationLinks);
@@ -392,6 +395,7 @@ async function saveSettings() {
     blockTooltips: blockTooltipsInput.checked,
     hideCopilot: hideCopilotInput.checked,
     hideContributingGuidelinesNotice: hideContributingGuidelinesNoticeInput.checked,
+    hidePullRequestProtip: hidePullRequestProtipInput.checked,
     hidePullRequestMilestone: hidePullRequestMilestoneInput.checked,
     hideFooter: hideFooterInput.checked,
     hideMyNavigationLinks: hideMyNavigationLinksInput.checked,
@@ -419,6 +423,7 @@ wrapDiffLinesInput.addEventListener('change', () => void saveSettings());
 blockTooltipsInput.addEventListener('change', () => void saveSettings());
 hideCopilotInput.addEventListener('change', () => void saveSettings());
 hideContributingGuidelinesNoticeInput.addEventListener('change', () => void saveSettings());
+hidePullRequestProtipInput.addEventListener('change', () => void saveSettings());
 hidePullRequestMilestoneInput.addEventListener('change', () => void saveSettings());
 hideFooterInput.addEventListener('change', () => void saveSettings());
 hideMyNavigationLinksInput.addEventListener('change', () => void saveSettings());
