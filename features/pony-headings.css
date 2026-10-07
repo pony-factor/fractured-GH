@@ -18,3 +18,27 @@
   font-family: "Celestia Medium Redux", "Mona Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
   font-weight: 400;
 }
+
+/* Give the repository name beside the owner avatar more prominence. */
+:is(
+  .AppHeader-context-item-label,
+  [data-testid="AppHeader-context-item-label"]
+) {
+  font-size: 1.25rem !important;
+  line-height: 1.35 !important;
+}
+
+/* Carry the pony display font through repository navigation tabs. */
+:is(
+  nav[aria-label="Repository"],
+  nav[aria-label="Repository navigation"],
+  [data-testid="repository-navigation"],
+  #repository-container-header .UnderlineNav
+) :is(
+  .UnderlineNav-item,
+  [role="tab"],
+  a[data-tab-item]
+) {
+  font-family: "Celestia Medium Redux", "Mona Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  font-weight: 400;
+}
