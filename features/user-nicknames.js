@@ -107,6 +107,16 @@
   function usernameFromLink(link) {
     if (!(link instanceof HTMLAnchorElement)) return '';
 
+    const hovercardUrl = link.getAttribute('data-hovercard-url') || '';
+    const hovercardMatch = hovercardUrl.match(/\/users\/([^/?#]+)\/hovercard/i);
+    if (hovercardMatch?.[1]) {
+      try {
+        return normalizeUsername(decodeURIComponent(hovercardMatch[1]));
+      } catch {
+        return normalizeUsername(hovercardMatch[1]);
+      }
+    }
+
     try {
       const url = new URL(link.getAttribute('href') || '', location.origin);
       if (url.origin !== location.origin) return '';
@@ -150,9 +160,9 @@
 
     for (const mapping of nicknameByUsername.values()) {
       const usernamePattern = escapeRegExp(mapping.username);
-      const pattern = new RegExp(`@?${usernamePattern}(?![A-Za-z0-9-])`, 'gi');
-      nextValue = nextValue.replace(pattern, (match) => (
-        match.startsWith('@') ? `@${mapping.nickname}` : mapping.nickname
+      const pattern = new RegExp(`(^|[^A-Za-z0-9-])(@?${usernamePattern})(?![A-Za-z0-9-])`, 'gi');
+      nextValue = nextValue.replace(pattern, (_match, prefix, account) => (
+        `${prefix}${account.startsWith('@') ? `@${mapping.nickname}` : mapping.nickname}`
       ));
     }
 
@@ -161,8 +171,8 @@
 
   function replaceUsernameWithDisplayName(value, username, displayName) {
     const usernamePattern = escapeRegExp(username);
-    const pattern = new RegExp(`@?${usernamePattern}(?![A-Za-z0-9-])`, 'gi');
-    return String(value || '').replace(pattern, displayName);
+    const pattern = new RegExp(`(^|[^A-Za-z0-9-])@?${usernamePattern}(?![A-Za-z0-9-])`, 'gi');
+    return String(value || '').replace(pattern, (_match, prefix) => `${prefix}${displayName}`);
   }
 
   function originalAttributeMarker(attribute) {
@@ -258,6 +268,17 @@
     nickname.setAttribute(ORIGINAL_TEXT_ATTR, originalText);
     nickname.textContent = renderedNickname(originalText, mapping.nickname);
     node.replaceWith(nickname);
+  }
+
+  function replaceTextNodeContents(node, replacementText) {
+    if (!(node instanceof Text)) return;
+
+    const originalText = node.textContent || '';
+    const replacement = document.createElement('span');
+    replacement.setAttribute(NICKNAME_ATTR, 'text');
+    replacement.setAttribute(ORIGINAL_TEXT_ATTR, originalText);
+    replacement.textContent = replacementText;
+    node.replaceWith(replacement);
   }
 
   function replaceConversationTextNode(node, username, firstName) {
@@ -363,11 +384,24 @@
         const documentText = await response.text();
         const profileDocument = new DOMParser().parseFromString(documentText, 'text/html');
         const displayName = profileDocument
-          .querySelector('[itemprop="name"], .p-name')
+          .querySelector([
+            '[itemprop="name"]',
+            '[data-testid="profile-name"]',
+            '.p-name',
+            'h1 [class*="name" i]',
+          ].join(','))
           ?.textContent
           ?.trim();
 
-        return firstWord(displayName);
+        if (displayName) return firstWord(displayName);
+
+        const title = profileDocument.querySelector('title')?.textContent?.trim() || '';
+        const escapedUsername = escapeRegExp(username);
+        const titleMatch = title.match(new RegExp(
+          `^(.+?)\\s+\\(@?${escapedUsername}\\)\\s+·\\s+GitHub$`,
+          'i',
+        ));
+        return firstWord(titleMatch?.[1]);
       } catch {
         return '';
       }
@@ -458,12 +492,15 @@
       if (parent.closest(`[${NICKNAME_ATTR}]`)) continue;
       if (parent.closest(EXCLUDED_TEXT_CONTAINERS)) continue;
 
-      const mapping = nicknameForExactText(node.textContent);
-      if (mapping) matches.push({ node, mapping });
+      const originalText = node.textContent || '';
+      const replacementText = replaceMappedUsernames(originalText);
+      if (replacementText !== originalText) {
+        matches.push({ node, replacementText });
+      }
     }
 
-    for (const { node, mapping } of matches) {
-      if (node.isConnected) replaceTextNode(node, mapping);
+    for (const { node, replacementText } of matches) {
+      if (node.isConnected) replaceTextNodeContents(node, replacementText);
     }
   }
 

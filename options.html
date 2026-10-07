@@ -116,10 +116,20 @@
 
         <details class="settings-foldout" open>
           <summary>
-            <span>Nicknames</span>
+            <span>Identity</span>
             <span id="user-nicknames-summary" class="summary-meta">None</span>
           </summary>
           <div class="foldout-body">
+            <label class="preference">
+              <input id="owner-avatar-header-enabled" type="checkbox" />
+              <span>
+                <strong>Use repository owner avatar in the header</strong>
+                <small>Replace GitHub's mark with the repository owner's profile image and hide the redundant owner name on repository pages.</small>
+              </span>
+            </label>
+
+            <hr class="preference-divider" />
+
             <label class="preference">
               <input id="user-nicknames-enabled" type="checkbox" />
               <span>
