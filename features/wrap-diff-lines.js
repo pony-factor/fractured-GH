@@ -53,7 +53,7 @@
       setEnabled(Boolean(changes.wrapDiffLines.newValue));
     }
   });
-  void chrome.storage.local.get({ wrapDiffLines: false }).then(({ wrapDiffLines }) => {
+  void chrome.storage.local.get({ wrapDiffLines: true }).then(({ wrapDiffLines }) => {
     setEnabled(wrapDiffLines);
   });
 })();
