@@ -43,6 +43,24 @@
       }
     }
 
+    // On private repositories, GitHub can render Fork as a disabled control
+    // outside the normal action group. Honor the Fork visibility preference.
+    if (settings.hideRepositoryFork ?? settings.hideRepositorySocialActions) {
+      for (const control of document.querySelectorAll(
+        '#repository-container-header button:disabled, #repository-container-header [aria-disabled="true"]',
+      )) {
+        const labels = [
+          control.getAttribute('aria-label'),
+          control.getAttribute('title'),
+          control.textContent,
+        ].filter(Boolean).map(label => label.replace(/\s+/g, ' ').trim());
+        if (!labels.some(label => /^fork(?:\s|:|$)/i.test(label)
+          || /^(?:cannot|can't|unable to) fork(?:\s|:|$)/i.test(label))) continue;
+        const item = control.closest('li, .btn-with-count, [data-testid="fork-button"]') || control;
+        item.setAttribute(ATTRIBUTE, 'fork');
+      }
+    }
+
     // Cover the About statistics in both wide and narrow repository layouts.
     for (const [action, key, destination] of [
       ['watch', 'hideRepositoryWatch', 'watchers'],
