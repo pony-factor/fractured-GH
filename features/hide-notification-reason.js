@@ -1,7 +1,10 @@
 (function () {
   'use strict';
 
-  const NOTIFICATION_REASON = "You're receiving notifications because you authored the thread.";
+  const NOTIFICATION_REASONS = new Set([
+    "You're receiving notifications because you authored the thread.",
+    "You're receiving notifications because you modified the open/close state.",
+  ]);
 
   function normalizeText(value) {
     return String(value || '')
@@ -23,7 +26,7 @@
 
     for (const paragraph of paragraphs) {
       if (paragraph.hidden) continue;
-      if (normalizeText(paragraph.textContent) !== NOTIFICATION_REASON) continue;
+      if (!NOTIFICATION_REASONS.has(normalizeText(paragraph.textContent))) continue;
       paragraph.hidden = true;
     }
   }
@@ -32,6 +35,11 @@
 
   const observer = new MutationObserver((records) => {
     for (const record of records) {
+      if (record.type === 'characterData') {
+        const paragraph = record.target.parentElement?.closest('p');
+        if (paragraph) hideAuthoredThreadReason(paragraph);
+      }
+      if (record.target instanceof Element) hideAuthoredThreadReason(record.target.closest('p') || record.target);
       for (const node of record.addedNodes) {
         if (node instanceof Element) hideAuthoredThreadReason(node);
       }
@@ -41,6 +49,7 @@
   observer.observe(document.documentElement || document, {
     childList: true,
     subtree: true,
+    characterData: true,
   });
 
   document.addEventListener('turbo:load', () => hideAuthoredThreadReason());

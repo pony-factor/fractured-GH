@@ -5,6 +5,44 @@
   const EMPTY_TEXT = 'None yet';
   const MARKER = 'data-fractured-empty-development-copy';
   const TEXT_ELEMENT_SELECTOR = 'p, span, div, li, h1, h2, h3, h4, h5, h6, button, summary';
+  const SIDEBAR_SELECTOR = '#partial-discussion-sidebar, .discussion-sidebar, [data-testid="issue-viewer-sidebar"], [data-testid="pr-sidebar"]';
+  const SIDEBAR_COPY_MARKER = 'data-fractured-empty-sidebar-copy';
+  const EMPTY_SIDEBAR_TEXT = new Set([
+    'None yet', 'No reviews', 'No reviewers', 'Still in progress?', 'No one', 'No one—', 'No one —',
+  ]);
+
+  function tidySidebarCopy() {
+    if (!/^\/[^/]+\/[^/]+\/(?:pull|issues)\/\d+(?:\/|$)/.test(location.pathname)) return;
+
+    for (const sidebar of document.querySelectorAll(SIDEBAR_SELECTOR)) {
+      for (const copy of sidebar.querySelectorAll(`[${SIDEBAR_COPY_MARKER}]`)) {
+        if (!EMPTY_SIDEBAR_TEXT.has(normalizeText(copy.textContent))) {
+          copy.replaceWith(...copy.childNodes);
+        }
+      }
+      const walker = document.createTreeWalker(sidebar, NodeFilter.SHOW_TEXT);
+      const nodes = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode);
+
+      for (const node of nodes) {
+        const parent = node.parentElement;
+        if (!parent || parent.closest(`[${SIDEBAR_COPY_MARKER}], script, style, textarea, input, [contenteditable="true"]`)) continue;
+        const text = normalizeText(node.textContent);
+        if (text === 'assign yourself' && parent.closest('a, button')) {
+          node.textContent = node.textContent.replace('assign yourself', 'Assign yourself');
+          continue;
+        }
+        if (parent.closest('a, button, summary')) continue;
+        if (!EMPTY_SIDEBAR_TEXT.has(text)) continue;
+
+        const hiddenCopy = document.createElement('span');
+        hiddenCopy.setAttribute(SIDEBAR_COPY_MARKER, '');
+        hiddenCopy.hidden = true;
+        node.replaceWith(hiddenCopy);
+        hiddenCopy.append(node);
+      }
+    }
+  }
 
   function normalizeText(value) {
     return String(value || '').replace(/\s+/g, ' ').trim();
@@ -86,6 +124,7 @@
     queueMicrotask(() => {
       scheduled = false;
       updateEmptyDevelopmentCopy();
+      tidySidebarCopy();
     });
   }
 
@@ -96,6 +135,7 @@
     observer.observe(document.documentElement, {
       childList: true,
       subtree: true,
+      characterData: true,
     });
 
     document.addEventListener('turbo:load', scheduleUpdate);
