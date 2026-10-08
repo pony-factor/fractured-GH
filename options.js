@@ -320,7 +320,7 @@ async function loadSettings() {
   const settings = await chrome.storage.local.get({
     commitTitleEmojis: false,
     simplifyCommitMessages: false,
-    wrapDiffLines: false,
+    wrapDiffLines: true,
     blockTooltips: false,
     hideCopilot: true,
     hideContributingGuidelinesNotice: true,
