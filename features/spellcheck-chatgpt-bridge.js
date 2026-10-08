@@ -224,7 +224,9 @@
       body: String(job.original?.body ?? ''),
     });
     return [
-      'Spellcheck this GitHub issue or pull request draft.',
+      job.kind === 'comment'
+        ? 'Spellcheck this GitHub pull request comment.'
+        : 'Spellcheck this GitHub issue or pull request draft.',
       'Correct spelling, capitalization, punctuation, and grammar only. Preserve meaning, Markdown, links, code, identifiers, and formatting.',
       'Return only one valid JSON object with exactly the string keys "title" and "body". Do not use Markdown fences or add commentary.',
       `Input JSON: ${input}`,
