@@ -8,7 +8,7 @@ const source = fs.readFileSync(
   path.join(__dirname, '../features/promote-display-names.js'), 'utf8',
 );
 
-function startFeature(initial = {}) {
+function startFeature(initial = {}, dom = {}) {
   const settings = { ...initial };
   const attributes = new Map();
   const callbacks = [];
@@ -22,6 +22,7 @@ function startFeature(initial = {}) {
     },
     querySelectorAll: () => [],
     addEventListener: () => {},
+    ...dom,
   };
 
   const chrome = {
@@ -46,6 +47,13 @@ function startFeature(initial = {}) {
     MutationObserver,
     location: { pathname: '/owner/repository', origin: 'https://github.com' },
     requestAnimationFrame: (callback) => callback(),
+    HTMLAnchorElement: class {},
+    fetch: async () => ({ ok: true, text: async () => '' }),
+    DOMParser: class {
+      parseFromString() {
+        return { querySelector: () => ({ textContent: 'John Wooten' }) };
+      }
+    },
   });
 
   return {
@@ -81,4 +89,54 @@ test('enabling then disabling the preference updates the DOM and observer', asyn
   await feature.change(true);
   assert.equal(feature.attributes.get('data-fractured-prefer-display-names'), 'true');
   assert.equal(feature.observations, 2);
+});
+
+test('the two-line account header shows the nickname above the username and restores both', async () => {
+  function label(text) {
+    const classes = new Set();
+    return {
+      childNodes: [{ textContent: text }],
+      children: [],
+      isConnected: true,
+      get textContent() { return this.childNodes.map((node) => node.textContent).join(''); },
+      set textContent(value) { this.childNodes = [{ textContent: value }]; },
+      replaceChildren(...nodes) { this.childNodes = nodes; },
+      contains: (node) => false,
+      classList: {
+        add: (value) => classes.add(value),
+        contains: (value) => classes.has(value),
+        remove: (...values) => values.forEach((value) => classes.delete(value)),
+      },
+    };
+  }
+  const handle = label('JFWooten4');
+  const name = label('John Wooten');
+  const originalNameNode = name.childNodes[0];
+  const surface = {
+    isConnected: true,
+    matches: () => true,
+    querySelectorAll: (selector) => selector === 'a[href]' || selector === 'li, p, div, span'
+      ? [] : [handle, name],
+  };
+  handle.parentElement = name.parentElement = surface;
+  const feature = startFeature({
+    preferDisplayNamesEnabled: true,
+    userNicknames: [{ username: 'JFWooten4', nickname: 'Windsor Filth' }],
+  }, {
+    querySelector: () => ({ content: 'JFWooten4' }),
+    querySelectorAll: (selector) => selector.includes('.fractured-display-name-primary') ? [handle, name]
+      : selector.startsWith('[') ? [] : [surface],
+  });
+  await feature.ready();
+  assert.equal(handle.textContent, 'Windsor Filth');
+  assert.equal(name.textContent, 'JFWooten4');
+  assert.equal(handle.classList.contains('fractured-display-name-primary'), true);
+  assert.equal(name.classList.contains('fractured-username-secondary'), true);
+  await feature.change(false);
+  assert.equal(handle.textContent, 'JFWooten4');
+  assert.equal(name.textContent, 'John Wooten');
+  assert.equal(name.childNodes[0], originalNameNode);
+  await feature.change(true);
+  assert.equal(handle.textContent, 'Windsor Filth');
+  assert.equal(name.textContent, 'JFWooten4');
 });

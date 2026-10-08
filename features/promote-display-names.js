@@ -28,6 +28,8 @@
   let scanScheduled = false;
   const displayNameCache = new Map();
   const pendingLinks = new WeakSet();
+  const pendingMenuLabels = new WeakSet();
+  const originalMenuLabels = new Map();
 
   function plainText(value) {
     return String(value || '').trim().replace(/\s+/g, ' ');
@@ -144,6 +146,42 @@
   }
 
   function styleAccountMenu(surface) {
+    // The current drawer has a two-line identity header without a profile link.
+    const currentUsername = document.querySelector('meta[name="user-login"]')?.content;
+    if (currentUsername) {
+      const handle = [...surface.querySelectorAll('strong, b, span, h1, h2, h3, div')]
+        .find((element) => !element.children.length
+          && !element.classList.contains(PRIMARY_CLASS)
+          && !element.classList.contains(SECONDARY_CLASS)
+          && !/^signed in as\s/i.test(plainText(element.parentElement?.textContent))
+          && isUsernameLabel(element, currentUsername));
+      if (handle && !pendingMenuLabels.has(handle)) {
+        pendingMenuLabels.add(handle);
+        void fetchedDisplayName(currentUsername).then((name) => {
+          const displayName = nicknames.get(currentUsername.toLowerCase()) || name;
+          if (!enabled || !handle.isConnected || !surface.isConnected || !displayName) return;
+
+          let secondary = null;
+          for (let scope = handle.parentElement; scope; scope = scope.parentElement) {
+            secondary = existingDisplayName(scope, name, handle);
+            if (secondary || scope === surface) break;
+          }
+          if (secondary) {
+            originalMenuLabels.set(secondary, [...secondary.childNodes]);
+          } else {
+            secondary = document.createElement('span');
+            secondary.setAttribute(GENERATED_ATTRIBUTE, '');
+            handle.after(secondary);
+          }
+          originalMenuLabels.set(handle, [...handle.childNodes]);
+          handle.textContent = displayName;
+          secondary.textContent = currentUsername;
+          handle.classList.add(PRIMARY_CLASS);
+          secondary.classList.add(SECONDARY_CLASS);
+        }).finally(() => pendingMenuLabels.delete(handle));
+      }
+    }
+
     // GitHub's "Signed in as <username>" menu header may have no profile link.
     const lines = [...surface.querySelectorAll('li, p, div, span')]
       .filter((item) => {
@@ -221,6 +259,8 @@
       observer?.disconnect();
       observer = null;
       document.documentElement?.removeAttribute(ROOT_ATTRIBUTE);
+      for (const [element, nodes] of originalMenuLabels) element.replaceChildren(...nodes);
+      originalMenuLabels.clear();
       document.querySelectorAll('[' + GENERATED_ATTRIBUTE + ']').forEach((node) => node.remove());
       document.querySelectorAll('.' + PRIMARY_CLASS + ', .' + SECONDARY_CLASS).forEach((node) => {
         node.classList.remove(PRIMARY_CLASS, SECONDARY_CLASS);
