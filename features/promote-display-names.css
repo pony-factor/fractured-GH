@@ -1,4 +1,10 @@
 /* Leave GitHub unchanged until the People > Identity preference is enabled. */
+html[data-fractured-prefer-display-names="true"] .fractured-display-name-row {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+
 html[data-fractured-prefer-display-names="true"] .fractured-display-name-primary {
   font-size: 1rem !important;
   font-weight: 700 !important;
