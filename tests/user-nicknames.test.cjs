@@ -5,6 +5,35 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname, '../features/user-nicknames.js'), 'utf8');
+
+test('profile nickname applies synchronously without a cached or fetched display name', () => {
+  const original = { textContent: ' New GitHub Name ' };
+  const element = { textContent: original.textContent, querySelector: () => null };
+  const replacements = [];
+  const apply = vm.runInNewContext([
+    functionSource('normalizeUsername'),
+    functionSource('applyNicknameToCurrentProfile'),
+    'applyNicknameToCurrentProfile',
+  ].join('\n'), {
+    enabled: true, nicknameReplacementEnabled: true,
+    location: { pathname: '/ExampleUser' },
+    nicknameByUsername: new Map([['exampleuser', { nickname: 'Friend' }]]),
+    document: { querySelectorAll: () => [element] },
+    PROFILE_DISPLAY_NAME_SELECTOR: '.p-name', NICKNAME_ATTR: 'nickname',
+    fetchedProfileDisplayName() { throw new Error('Must not fetch'); },
+    matchingExactTextNode(root, name) {
+      assert.equal(root, element);
+      assert.equal(name, 'New GitHub Name');
+      return original;
+    },
+    replaceTextNode(node, mapping) { replacements.push({ node, ...mapping }); },
+  });
+  assert.equal(apply(), undefined);
+  assert.equal(replacements.length, 1);
+  assert.equal(replacements[0].nickname, 'Friend');
+  assert.equal(replacements[0].node, original);
+});
+
 function functionSource(name) {
   const start = source.indexOf(`  function ${name}(`);
   const end = source.indexOf('\n  }', start) + 4;

@@ -516,7 +516,7 @@
     replaceConversationAttributes(link, username, firstName);
   }
 
-  async function applyNicknameToCurrentProfile() {
+  function applyNicknameToCurrentProfile() {
     if (!enabled || !nicknameReplacementEnabled) return;
 
     const parts = location.pathname.split('/').filter(Boolean);
@@ -532,9 +532,6 @@
     const mapping = nicknameByUsername.get(username.toLowerCase());
     if (!mapping) return;
 
-    const displayName = await fetchedProfileDisplayName(username);
-    if (!displayName || !enabled || !nicknameReplacementEnabled) return;
-
     for (const element of document.querySelectorAll(PROFILE_DISPLAY_NAME_SELECTOR)) {
       const existing = element.querySelector(`[${NICKNAME_ATTR}]`);
       if (existing) {
@@ -544,7 +541,9 @@
         continue;
       }
 
-      const textNode = matchingExactTextNode(element, displayName);
+      // The profile already contains its own display name. Fetching it again
+      // delays the override on a cold cache and can return an outdated name.
+      const textNode = matchingExactTextNode(element, element.textContent.trim());
       if (!textNode) continue;
 
       replaceTextNode(textNode, {
