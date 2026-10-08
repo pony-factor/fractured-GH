@@ -24,6 +24,18 @@
     'textarea[data-testid*="body" i]',
   ];
 
+  const COMMENT_SELECTORS = [
+    'textarea[name="comment[body]"]',
+    'textarea[name="pull_request_review[body]"]',
+    'textarea[name="review[body]"]',
+    'textarea[id="new_comment_field"]',
+    'textarea[aria-label*="comment" i]',
+    'textarea[placeholder*="comment" i]',
+    'textarea[aria-label*="reply" i]',
+    'textarea[placeholder*="reply" i]',
+    'textarea[name="body"]',
+  ];
+
   let activeJob = null;
   let activeFields = null;
   let scanQueued = false;
@@ -151,12 +163,30 @@
     return title && body ? { title, body } : null;
   }
 
+  function commentFields(scope, control) {
+    // Comment composers have a body but no title. Keep this path limited to PR pages.
+    if (!/^\/[^/]+\/[^/]+\/pull\/\d+(?:\/|$)/.test(location.pathname)
+      || !/\b(comment|reply|review)\b/i.test(controlText(control))) return null;
+
+    let body = pickField(scope, COMMENT_SELECTORS);
+    if (!body) {
+      // GitHub sometimes gives new comment textareas no comment-specific attributes.
+      const visibleTextareas = Array.from(scope.querySelectorAll('textarea')).filter(visible);
+      if (visibleTextareas.length === 1) body = visibleTextareas[0];
+    }
+    return body ? { kind: 'comment', title: null, body } : null;
+  }
+
+  function fieldsFor(scope, control) {
+    return draftFields(scope) || commentFields(scope, control);
+  }
+
   function scopeFor(control) {
     const direct = control.closest('form, [role="dialog"]');
-    if (direct && draftFields(direct)) return direct;
+    if (direct && fieldsFor(direct, control)) return direct;
 
     for (let parent = control.parentElement; parent && parent !== document.body; parent = parent.parentElement) {
-      if (draftFields(parent)) return parent;
+      if (fieldsFor(parent, control)) return parent;
     }
     return null;
   }
@@ -169,7 +199,7 @@
 
   function isSubmitControl(control) {
     const text = controlText(control);
-    return /\b(create|submit|open|update|save)\b/i.test(text)
+    return /\b(create|submit|open|update|save|comment|reply|review)\b/i.test(text)
       && !/\b(cancel|preview|close)\b/i.test(text);
   }
 
@@ -319,10 +349,10 @@
     return [...header, ...body].join('\n');
   }
 
-  function draftDiff(original, result) {
+  function draftDiff(original, result, kind = 'draft') {
     return [
-      fileDiff('title.txt', original.title, result.title),
-      fileDiff('body.md', original.body, result.body),
+      kind === 'comment' ? '' : fileDiff('title.txt', original.title, result.title),
+      fileDiff(kind === 'comment' ? 'comment.md' : 'body.md', original.body, result.body),
     ].filter(Boolean).join('\n');
   }
 
@@ -333,13 +363,13 @@
     });
   }
 
-  async function launchSpellcheck(control) {
-    const scope = scopeFor(control);
-    const fields = scope && draftFields(scope);
+  async function launchSpellcheck(control, submitControl) {
+    const scope = scopeFor(submitControl);
+    const fields = scope && fieldsFor(scope, submitControl);
     if (!fields) return;
 
     const original = {
-      title: fields.title.value,
+      title: fields.title?.value ?? '',
       body: fields.body.value,
     };
     if (!original.title.trim() && !original.body.trim()) return;
@@ -349,6 +379,7 @@
       status: 'pending',
       sourceUrl: location.href,
       createdAt: Date.now(),
+      kind: fields.kind || 'draft',
       original,
     };
 
@@ -356,7 +387,9 @@
     activeFields = fields;
     control.disabled = true;
     control.textContent = '…';
-    showSidebar({ status: 'Running Spellcheck Only on the title and body…' });
+    showSidebar({ status: fields.kind === 'comment'
+      ? 'Running Spellcheck Only on the comment…'
+      : 'Running Spellcheck Only on the title and body…' });
 
     await chrome.storage.local.set({ [JOB_KEY]: job });
     try {
@@ -381,12 +414,17 @@
     const result = job.result;
     if (!result || typeof result.title !== 'string' || typeof result.body !== 'string') return;
 
+    if (!activeFields.body.isConnected || (activeFields.title && !activeFields.title.isConnected)) {
+      showSidebar({ status: 'The original editor was closed before spellcheck finished. No changes were applied.', error: true });
+      resetEnhancerButtons();
+      return;
+    }
     const current = {
-      title: activeFields.title.value,
+      title: activeFields.title?.value ?? '',
       body: activeFields.body.value,
     };
     const unchanged = current.title === activeJob.original.title && current.body === activeJob.original.body;
-    const diff = draftDiff(activeJob.original, result);
+    const diff = draftDiff(activeJob.original, result, activeJob.kind);
 
     if (!force && !unchanged) {
       showSidebar({
@@ -398,7 +436,7 @@
       return;
     }
 
-    setControlValue(activeFields.title, result.title);
+    if (activeFields.title) setControlValue(activeFields.title, result.title);
     setControlValue(activeFields.body, result.body);
     showSidebar({
       status: diff ? 'Applied the spellcheck changes to your draft.' : 'Spellcheck found no changes.',
@@ -422,14 +460,16 @@
     }
   }
 
-  function createEnhancer(control) {
+  function createEnhancer(control, fields) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = BUTTON_CLASS;
     button.textContent = '✨';
-    button.title = 'Enhance title and body with Spellcheck Only';
-    button.setAttribute('aria-label', 'Enhance title and body with Spellcheck Only');
-    button.addEventListener('click', () => void launchSpellcheck(button));
+    button.title = fields.kind === 'comment'
+      ? 'Spellcheck this comment'
+      : 'Enhance title and body with Spellcheck Only';
+    button.setAttribute('aria-label', button.title);
+    button.addEventListener('click', () => void launchSpellcheck(button, control));
     control.before(button);
   }
 
@@ -439,9 +479,10 @@
     for (const control of controls) {
       if (control.hasAttribute(BUTTON_BOUND) || !isSubmitControl(control)) continue;
       const scope = scopeFor(control);
-      if (!scope || !draftFields(scope)) continue;
+      const fields = scope && fieldsFor(scope, control);
+      if (!fields || scope.querySelector(`.${BUTTON_CLASS}`)) continue;
       control.setAttribute(BUTTON_BOUND, 'true');
-      createEnhancer(control);
+      createEnhancer(control, fields);
     }
   }
 
