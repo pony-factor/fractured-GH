@@ -128,3 +128,96 @@ test('does not apply an outdated result after navigating to another repository',
   await app.settle();
   assert.equal(app.links[0].item.hidden, false);
 });
+
+test('hides Actions when there are no workflows or historical runs', async () => {
+  const urls = [];
+  const app = setup(async url => {
+    urls.push(url);
+    return { ok: true, json: async () => ({ total_count: 0 }) };
+  });
+  app.links.push(makeLink('Actions', 'actions'), makeLink('Issues', 'issues'));
+  app.flush();
+  assert.equal(app.links[0].item.hidden, false);
+  await app.settle();
+  assert.equal(app.links[0].item.hidden, true);
+  assert.equal(app.links[1].item.hidden, false);
+  assert.equal(urls.length, 2);
+  assert.match(urls[0], /\/actions\/workflows\?per_page=1$/);
+  assert.match(urls[1], /\/actions\/runs\?per_page=1$/);
+  app.callbacks['turbo:load']();
+  app.flush();
+  assert.equal(urls.length, 2, 'cache avoids refetching on navigation events');
+});
+
+test('keeps Actions visible with configured workflows, even if they have never run', async () => {
+  const urls = [];
+  const app = setup(async url => {
+    urls.push(url);
+    return { ok: true, json: async () => ({ total_count: 1 }) };
+  });
+  app.links.push(makeLink('Actions', 'actions'));
+  app.flush();
+  await app.settle();
+  assert.equal(app.links[0].item.hidden, false);
+  assert.equal(urls.length, 1, 'do not fetch historical runs if workflows exist');
+});
+
+test('keeps Actions visible with historical runs after workflows were removed', async () => {
+  const urls = [];
+  const app = setup(async url => {
+    urls.push(url);
+    return { ok: true, json: async () => ({
+      total_count: url.includes('/workflows?') ? 0 : 4,
+    }) };
+  });
+  app.links.push(makeLink('Actions', 'actions'));
+  app.flush();
+  await app.settle();
+  assert.equal(app.links[0].item.hidden, false);
+  assert.equal(urls.length, 2);
+});
+
+test('keeps Actions visible when metadata cannot prove there is nothing to see', async () => {
+  for (const fetch of [
+    async () => ({ ok: false, status: 403 }),
+    async () => ({ ok: true, json: async () => ({ bogus: true }) }),
+    async url => url.includes('/runs?')
+      ? { ok: false, status: 404 }
+      : { ok: true, json: async () => ({ total_count: 0 }) },
+    async () => { throw Error('Offline'); },
+  ]) {
+    const app = setup(fetch);
+    app.links.push(makeLink('Actions', 'actions'));
+    app.flush();
+    await app.settle();
+    assert.equal(app.links[0].item.hidden, false);
+  }
+});
+
+test('does not request Actions status if no Actions tab is shown', () => {
+  let calls = 0;
+  const app = setup(async () => { calls++; return { ok: true, json: async () => ({ total_count: 0 }) }; });
+  app.links.push(makeLink('Issues', 'issues'));
+  app.flush();
+  assert.equal(calls, 0);
+});
+
+test('does not hide the Actions tab for a different repository after navigation', async () => {
+  const pending = [];
+  const app = setup(url => new Promise(resolve => pending.push({ url, resolve })));
+  app.links.push(makeLink('Actions', 'actions'));
+  app.flush();
+  app.location.pathname = '/other/repo';
+  app.links.splice(0, 1, makeLink('Actions', 'actions', 'other', 'repo'));
+  app.callbacks['turbo:load']();
+  app.flush();
+  assert.equal(pending.length, 2);
+  pending[1].resolve({ ok: true, json: async () => ({ total_count: 2 }) });
+  await app.settle();
+  pending[0].resolve({ ok: true, json: async () => ({ total_count: 0 }) });
+  await app.settle();
+  assert.equal(pending.length, 3, 'first repository checks historical runs');
+  pending[2].resolve({ ok: true, json: async () => ({ total_count: 0 }) });
+  await app.settle();
+  assert.equal(app.links[0].item.hidden, false);
+});

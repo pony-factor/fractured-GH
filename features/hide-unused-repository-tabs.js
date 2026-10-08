@@ -9,6 +9,8 @@
 
   const DISCUSSIONS_CACHE_TTL = 5 * 60 * 1000;
   const discussionsCache = new Map();
+  const ACTIONS_CACHE_TTL = 5 * 60 * 1000;
+  const actionsCache = new Map();
 
   function repositoryPrefix() {
     const parts = window.location.pathname.split('/').filter(Boolean);
@@ -80,6 +82,59 @@
     return null;
   }
 
+
+  function isActionsTab(link, prefix) {
+    try {
+      const url = new URL(link.href, window.location.origin);
+      return url.origin === window.location.origin
+        && (url.pathname === `${prefix}/actions` || url.pathname === `${prefix}/actions/`);
+    } catch {
+      return false;
+    }
+  }
+
+  function actionsAreEmpty(prefix) {
+    const repository = prefix.slice(1);
+    const cached = actionsCache.get(repository);
+    if (cached && (cached.loading || Date.now() - cached.checkedAt < ACTIONS_CACHE_TTL)) {
+      return cached.empty;
+    }
+
+    const entry = { empty: null, loading: true, checkedAt: Date.now() };
+    actionsCache.set(repository, entry);
+    const encodedRepository = repository.split('/').map(encodeURIComponent).join('/');
+    const urlPrefix = `https://api.github.com/repos/${encodedRepository}/actions`;
+
+    async function readCount(url) {
+      const response = await fetch(url, {
+        credentials: 'omit',
+        headers: { Accept: 'application/vnd.github+json' },
+      });
+      if (!response.ok) return null;
+      const data = await response.json();
+      return Number.isSafeInteger(data?.total_count) && data.total_count >= 0
+        ? data.total_count : null;
+    }
+
+    // An empty workflow list alone isn't enough: historical runs may still
+    // be available after workflow files were removed.
+    void readCount(`${urlPrefix}/workflows?per_page=1`)
+      .then(async workflowCount => {
+        if (workflowCount === null) return null;
+        if (workflowCount > 0) return false;
+        const runCount = await readCount(`${urlPrefix}/runs?per_page=1`);
+        return runCount === null ? null : runCount === 0;
+      })
+      .then(empty => { entry.empty = empty; })
+      .catch(() => { entry.empty = null; })
+      .finally(() => {
+        entry.loading = false;
+        entry.checkedAt = Date.now();
+        scheduleUpdate();
+      });
+    return null;
+  }
+
   function restorePreviouslyHiddenTabs(navigation) {
     for (const item of navigation.querySelectorAll('[data-fractured-hidden-repository-tab]')) {
       item.hidden = false;
@@ -101,10 +156,13 @@
       const links = [...navigation.querySelectorAll('a[href]')];
       const hideDiscussions = links.some(link => isDiscussionsTab(link, prefix))
         && discussionsEnabled(prefix) === false;
+      const hideActions = links.some(link => isActionsTab(link, prefix))
+        && actionsAreEmpty(prefix) === true;
 
       for (const link of links) {
         if (!isHiddenRepositoryTab(link, prefix)
-          && !(hideDiscussions && isDiscussionsTab(link, prefix))) continue;
+          && !(hideDiscussions && isDiscussionsTab(link, prefix))
+          && !(hideActions && isActionsTab(link, prefix))) continue;
 
         const item = link.closest('li') || link.closest('[role="tab"]') || link;
         item.hidden = true;
