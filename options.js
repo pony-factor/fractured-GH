@@ -19,6 +19,7 @@ const hideMyNavigationLinksInput = document.getElementById('hide-my-navigation-l
 const hideSuggestedWorkflowsInput = document.getElementById('hide-suggested-workflows');
 const hideRepositoryLanguagesInput = document.getElementById('hide-repository-languages');
 const hideRepositoryCustomPropertiesInput = document.getElementById('hide-repository-custom-properties');
+const hideReportRepositoryInput = document.getElementById('hide-report-repository');
 const hideInboxInput = document.getElementById('hide-inbox-while-busy');
 const relativeTimesInput = document.getElementById('relative-times-only');
 const ownerAvatarHeaderInput = document.getElementById('owner-avatar-header-enabled');
@@ -336,6 +337,7 @@ async function loadSettings() {
     hideSuggestedWorkflows: false,
     hideRepositoryLanguages: false,
     hideRepositoryCustomProperties: false,
+    hideReportRepository: false,
     hideInboxWhileBusy: true,
     relativeTimesOnly: false,
     ownerAvatarHeaderEnabled: true,
@@ -367,6 +369,7 @@ async function loadSettings() {
   hideSuggestedWorkflowsInput.checked = Boolean(settings.hideSuggestedWorkflows);
   hideRepositoryLanguagesInput.checked = Boolean(settings.hideRepositoryLanguages);
   hideRepositoryCustomPropertiesInput.checked = Boolean(settings.hideRepositoryCustomProperties);
+  hideReportRepositoryInput.checked = Boolean(settings.hideReportRepository);
   hideInboxInput.checked = Boolean(settings.hideInboxWhileBusy);
   relativeTimesInput.checked = Boolean(settings.relativeTimesOnly);
   ownerAvatarHeaderInput.checked = Boolean(settings.ownerAvatarHeaderEnabled);
@@ -432,6 +435,7 @@ async function saveSettings() {
     hideSuggestedWorkflows: hideSuggestedWorkflowsInput.checked,
     hideRepositoryLanguages: hideRepositoryLanguagesInput.checked,
     hideRepositoryCustomProperties: hideRepositoryCustomPropertiesInput.checked,
+    hideReportRepository: hideReportRepositoryInput.checked,
     hideInboxWhileBusy: hideInboxInput.checked,
     relativeTimesOnly: relativeTimesInput.checked,
     ownerAvatarHeaderEnabled: ownerAvatarHeaderInput.checked,
@@ -468,6 +472,7 @@ hideMyNavigationLinksInput.addEventListener('change', () => void saveSettings())
 hideSuggestedWorkflowsInput.addEventListener('change', () => void saveSettings());
 hideRepositoryLanguagesInput.addEventListener('change', () => void saveSettings());
 hideRepositoryCustomPropertiesInput.addEventListener('change', () => void saveSettings());
+hideReportRepositoryInput.addEventListener('change', () => void saveSettings());
 hideInboxInput.addEventListener('change', () => void saveSettings());
 relativeTimesInput.addEventListener('change', () => void saveSettings());
 ownerAvatarHeaderInput.addEventListener('change', () => void saveSettings());

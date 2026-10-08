@@ -4,7 +4,7 @@
   const ATTRIBUTE = 'data-fractured-hidden-repository-control';
   const KEYS = ['hideRepositoryWatch', 'hideRepositoryStar', 'hideRepositoryFork',
     'hideRepositoryPins', 'hideRepositoryOverviewName', 'hideRepositorySocialActions',
-    'hideRepositoryCustomProperties'];
+    'hideRepositoryCustomProperties', 'hideReportRepository'];
   let settings = {};
   let scheduled = false;
 
@@ -74,6 +74,19 @@
           || url.pathname.replace(/\/+$/, '') !== `/${repository}/custom-properties`) continue;
         const row = link.closest('[class*="insightItem"], .mt-2') || link;
         row.setAttribute(ATTRIBUTE, 'custom-properties');
+      }
+    }
+
+    if (settings.hideReportRepository) {
+      for (const link of document.querySelectorAll(
+        '[class*="SidebarSection"] a[href], .BorderGrid-cell a[href], aside a[href]',
+      )) {
+        const url = new URL(link.href, location.origin);
+        const reportedContent = url.searchParams.get('content_url');
+        if (url.origin !== location.origin || url.pathname !== '/contact/report-content'
+          || reportedContent !== `${location.origin}/${repository}`) continue;
+        const row = link.closest('[class*="insightItem"], .mt-2') || link;
+        row.setAttribute(ATTRIBUTE, 'report-repository');
       }
     }
 

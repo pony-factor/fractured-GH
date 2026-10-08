@@ -17,6 +17,7 @@ const DEFAULT_SETTINGS = {
   hideSuggestedWorkflows: false,
   hideRepositoryLanguages: false,
   hideRepositoryCustomProperties: false,
+  hideReportRepository: false,
   hideRepositoryOverviewName: false,
   hideRepositoryPins: true,
   hideMyNavigationLinks: false,
