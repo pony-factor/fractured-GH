@@ -55,6 +55,7 @@ function startFeature(initial = {}, dom = {}, runtime = {}) {
         return { querySelector: () => ({ textContent: 'John Wooten' }) };
       }
     },
+    FracturedProfileNameCache: { getDisplayName: async () => 'John Wooten' },
     ...runtime,
   });
 
