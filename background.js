@@ -1,7 +1,7 @@
 const DEFAULT_SETTINGS = {
   commitTitleEmojis: false,
   simplifyCommitMessages: false,
-  wrapDiffLines: false,
+  wrapDiffLines: true,
   hideCopilot: true,
   hideInboxWhileBusy: true,
   relativeTimesOnly: false,
