@@ -1,9 +1,14 @@
 (() => {
+  'use strict';
+
   const HIDDEN_REPOSITORY_TABS = [
     { label: 'agents', route: 'agents' },
     { label: 'security and quality', route: 'security' },
     { label: 'wiki', route: 'wiki' },
   ];
+
+  const DISCUSSIONS_CACHE_TTL = 5 * 60 * 1000;
+  const discussionsCache = new Map();
 
   function repositoryPrefix() {
     const parts = window.location.pathname.split('/').filter(Boolean);
@@ -36,6 +41,45 @@
     });
   }
 
+  function isDiscussionsTab(link, prefix) {
+    try {
+      const url = new URL(link.href, window.location.origin);
+      return url.origin === window.location.origin
+        && (url.pathname === `${prefix}/discussions` || url.pathname === `${prefix}/discussions/`);
+    } catch {
+      return false;
+    }
+  }
+
+  function discussionsEnabled(prefix) {
+    const repository = prefix.slice(1);
+    const cached = discussionsCache.get(repository);
+    if (cached && (cached.loading || Date.now() - cached.checkedAt < DISCUSSIONS_CACHE_TTL)) {
+      return cached.enabled;
+    }
+
+    const entry = { enabled: null, loading: true, checkedAt: Date.now() };
+    discussionsCache.set(repository, entry);
+
+    // Only hide on explicit GitHub metadata; keep tabs visible if an API
+    // response is inaccessible (for example, a private repository).
+    void fetch(`https://api.github.com/repos/${repository.split('/').map(encodeURIComponent).join('/')}`, {
+      credentials: 'omit',
+      headers: { Accept: 'application/vnd.github+json' },
+    })
+      .then(response => (response.ok ? response.json() : null))
+      .then(data => {
+        entry.enabled = typeof data?.has_discussions === 'boolean' ? data.has_discussions : null;
+      })
+      .catch(() => { entry.enabled = null; })
+      .finally(() => {
+        entry.loading = false;
+        entry.checkedAt = Date.now();
+        scheduleUpdate();
+      });
+    return null;
+  }
+
   function restorePreviouslyHiddenTabs(navigation) {
     for (const item of navigation.querySelectorAll('[data-fractured-hidden-repository-tab]')) {
       item.hidden = false;
@@ -54,8 +98,13 @@
     for (const navigation of navigations) {
       restorePreviouslyHiddenTabs(navigation);
 
-      for (const link of navigation.querySelectorAll('a[href]')) {
-        if (!isHiddenRepositoryTab(link, prefix)) continue;
+      const links = [...navigation.querySelectorAll('a[href]')];
+      const hideDiscussions = links.some(link => isDiscussionsTab(link, prefix))
+        && discussionsEnabled(prefix) === false;
+
+      for (const link of links) {
+        if (!isHiddenRepositoryTab(link, prefix)
+          && !(hideDiscussions && isDiscussionsTab(link, prefix))) continue;
 
         const item = link.closest('li') || link.closest('[role="tab"]') || link;
         item.hidden = true;
