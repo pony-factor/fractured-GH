@@ -8,6 +8,8 @@
   const GENERATED_ATTRIBUTE = 'data-fractured-generated-display-name';
   const SURFACE_SELECTOR = [
     '.js-hovercard-content',
+    '[class*="hovercard" i]',
+    '[data-testid*="hover-card" i]',
     '[data-testid*="hovercard" i]',
     '[data-test-selector*="hovercard" i]',
     '.Popover-message',
@@ -122,6 +124,20 @@
     }
     nameElement.classList.add(PRIMARY_CLASS);
     handle.classList.add(SECONDARY_CLASS);
+    // Hovercards put the login and display name in separate sibling links.
+    // Move the name's outer label so nicknames nested inside it stay intact.
+    if (handle instanceof HTMLAnchorElement) {
+      let nameLabel = nameElement;
+      while (nameLabel.parentElement && nameLabel.parentElement !== handle.parentElement) {
+        nameLabel = nameLabel.parentElement;
+      }
+      const row = handle.parentElement;
+      if (row && nameLabel !== handle && nameLabel.parentElement === row) {
+        if (!originalIdentityRows.has(row)) originalIdentityRows.set(row, [...row.childNodes]);
+        if (nameLabel.nextElementSibling !== handle) row.insertBefore(nameLabel, handle);
+        row.classList.add('fractured-display-name-row');
+      }
+    }
   }
 
   async function styleProfileLink(link, scope) {
