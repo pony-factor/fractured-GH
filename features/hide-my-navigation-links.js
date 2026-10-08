@@ -60,8 +60,9 @@
       return true;
     }
 
-    return url.searchParams.get('tab') === 'repositories'
-      && (url.pathname === '/' || /^\/[^/]+\/?$/.test(url.pathname));
+    // Profile tabs also live inside GitHub's global header. Keep their
+    // repositories links visible; only the global shortcuts belong here.
+    return false;
   }
 
   function ensureStyle() {
