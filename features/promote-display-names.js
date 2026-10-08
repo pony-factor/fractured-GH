@@ -31,6 +31,7 @@
   const pendingLinks = new WeakSet();
   const pendingMenuLabels = new WeakSet();
   const originalMenuLabels = new Map();
+  const originalIdentityRows = new Map();
 
   function plainText(value) {
     return String(value || '').trim().replace(/\s+/g, ' ');
@@ -110,7 +111,7 @@
 
   function styleIdentity(handle, scope, displayName) {
     if (!enabled || !handle.isConnected || !scope.isConnected) return;
-    if (!displayName || plainText(displayName).toLowerCase() === plainText(handle.textContent).toLowerCase()) return;
+    if (!displayName || plainText(displayName) === plainText(handle.textContent)) return;
 
     let nameElement = existingDisplayName(scope, displayName, handle);
     if (!nameElement) {
@@ -125,7 +126,12 @@
 
   async function styleProfileLink(link, scope) {
     const username = usernameFromLink(link);
-    if (!username || !isUsernameLabel(link, username) || pendingLinks.has(link)) return;
+    if (!username || pendingLinks.has(link)) return;
+    const handle = isUsernameLabel(link, username) ? link
+      : [...link.querySelectorAll('span, strong, b')]
+        .find((element) => !element.children.length
+          && !element.classList.contains(PRIMARY_CLASS) && isUsernameLabel(element, username));
+    if (!handle) return;
 
     pendingLinks.add(link);
     try {
@@ -136,11 +142,25 @@
       if (!displayName) return;
       // If a configured nickname was not rendered yet, fall back to the
       // real visible profile name before inserting a duplicate.
-      if (nickname && !existingDisplayName(scope, nickname, link) && fetchedName
-        && existingDisplayName(scope, fetchedName, link)) {
-        styleIdentity(link, scope, fetchedName);
+      const identityScope = handle === link ? scope : link;
+      if (nickname && !existingDisplayName(identityScope, nickname, handle) && fetchedName
+        && existingDisplayName(identityScope, fetchedName, handle)) {
+        styleIdentity(handle, identityScope, fetchedName);
       } else {
-        styleIdentity(link, scope, displayName);
+        styleIdentity(handle, identityScope, displayName);
+      }
+      if (handle !== link) {
+        let nameElement = link.querySelector('.' + PRIMARY_CLASS);
+        if (nameElement) {
+          while (nameElement.parentElement !== link) nameElement = nameElement.parentElement;
+          let usernameElement = handle;
+          while (usernameElement.parentElement !== link) usernameElement = usernameElement.parentElement;
+          if (nameElement !== usernameElement && link.firstElementChild !== nameElement) {
+            if (!originalIdentityRows.has(link)) originalIdentityRows.set(link, [...link.childNodes]);
+            link.insertBefore(nameElement, usernameElement);
+          }
+          link.classList.add('fractured-display-name-row');
+        }
       }
     } finally {
       pendingLinks.delete(link);
@@ -210,6 +230,8 @@
 
   function scan() {
     if (!enabled) return;
+    // GitHub can replace the root attributes during client-side navigation.
+    document.documentElement?.setAttribute(ROOT_ATTRIBUTE, 'true');
     const scopes = [...document.querySelectorAll(SURFACE_SELECTOR)];
 
     if (isContributorRoute()) {
@@ -221,7 +243,7 @@
 
       for (const link of scope.querySelectorAll('a[href]')) {
         const username = usernameFromLink(link);
-        if (!username || !isUsernameLabel(link, username)) continue;
+        if (!username) continue;
 
         const row = isContributorRoute() || /contributor/i.test(scope.className || '')
           ? link.closest('li, tr, .Box-row, [data-testid*="contributor" i]') || link.parentElement?.parentElement || scope
@@ -263,6 +285,11 @@
       document.documentElement?.removeAttribute(ROOT_ATTRIBUTE);
       for (const [element, nodes] of originalMenuLabels) element.replaceChildren(...nodes);
       originalMenuLabels.clear();
+      for (const [element, nodes] of originalIdentityRows) element.replaceChildren(...nodes);
+      originalIdentityRows.clear();
+      document.querySelectorAll('.fractured-display-name-row').forEach((node) => {
+        node.classList.remove('fractured-display-name-row');
+      });
       document.querySelectorAll('[' + GENERATED_ATTRIBUTE + ']').forEach((node) => node.remove());
       document.querySelectorAll('.' + PRIMARY_CLASS + ', .' + SECONDARY_CLASS).forEach((node) => {
         node.classList.remove(PRIMARY_CLASS, SECONDARY_CLASS);
