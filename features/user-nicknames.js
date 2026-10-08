@@ -78,7 +78,6 @@
   let nicknameReplacementEnabled = false;
   let conversationFirstNamesEnabled = false;
   let nicknameByUsername = new Map();
-  const profileDisplayNameCache = new Map();
   let observer = null;
   let refreshQueued = false;
 
@@ -452,41 +451,8 @@
     return isBodyMention || isAuthor;
   }
 
-  async function fetchedProfileDisplayName(username) {
-    const key = username.toLowerCase();
-    if (profileDisplayNameCache.has(key)) return profileDisplayNameCache.get(key);
-
-    const pending = (async () => {
-      try {
-        const response = await fetch(`/${encodeURIComponent(username)}`, {
-          credentials: 'same-origin',
-          headers: { Accept: 'text/html' },
-        });
-        if (!response.ok) return '';
-
-        const documentText = await response.text();
-        const profileDocument = new DOMParser().parseFromString(documentText, 'text/html');
-        const displayName = profileDocument
-          .querySelector(PROFILE_DISPLAY_NAME_SELECTOR)
-          ?.textContent
-          ?.trim();
-
-        if (displayName) return normalizeNickname(displayName);
-
-        const title = profileDocument.querySelector('title')?.textContent?.trim() || '';
-        const escapedUsername = escapeRegExp(username);
-        const titleMatch = title.match(new RegExp(
-          `^(.+?)\\s+\\(@?${escapedUsername}\\)\\s+·\\s+GitHub$`,
-          'i',
-        ));
-        return normalizeNickname(titleMatch?.[1]);
-      } catch {
-        return '';
-      }
-    })();
-
-    profileDisplayNameCache.set(key, pending);
-    return pending;
+  function fetchedProfileDisplayName(username) {
+    return globalThis.FracturedProfileNameCache.getDisplayName(username);
   }
 
   async function fetchedProfileFirstName(username) {

@@ -29,7 +29,6 @@
   let nicknames = new Map();
   let observer = null;
   let scanScheduled = false;
-  const displayNameCache = new Map();
   const pendingLinks = new WeakSet();
   const pendingMenuLabels = new WeakSet();
   const originalMenuLabels = new Map();
@@ -73,27 +72,8 @@
     ].join(','));
   }
 
-  async function fetchedDisplayName(username) {
-    const key = username.toLowerCase();
-    if (displayNameCache.has(key)) return displayNameCache.get(key);
-
-    const pending = (async () => {
-      try {
-        const response = await fetch('/' + encodeURIComponent(username), {
-          credentials: 'same-origin',
-          headers: { Accept: 'text/html' },
-        });
-        if (!response.ok) return '';
-        const profile = new DOMParser().parseFromString(await response.text(), 'text/html');
-        const name = plainText(profile.querySelector('[itemprop="name"], [data-testid="profile-name"], .p-name')?.textContent);
-        return name || '';
-      } catch {
-        return '';
-      }
-    })();
-
-    displayNameCache.set(key, pending);
-    return pending;
+  function fetchedDisplayName(username) {
+    return globalThis.FracturedProfileNameCache.getDisplayName(username);
   }
 
   function existingDisplayName(scope, name, handle) {

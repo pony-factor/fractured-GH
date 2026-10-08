@@ -33,6 +33,7 @@
         "features/hide-copilot.js",
         "features/hide-my-navigation-links.js",
         "features/owner-avatar-header.js",
+        "features/profile-name-cache.js",
         "features/user-nicknames.js",
         "features/promote-display-names.js",
         "features/mute-users.js",
