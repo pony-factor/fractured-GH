@@ -117,6 +117,18 @@
     return mappings;
   }
 
+  function commitAuthorFromLink(link) {
+    if (!(link instanceof HTMLAnchorElement)) return '';
+    try {
+      const url = new URL(link.getAttribute('href') || '', location.origin);
+      if (url.origin !== location.origin
+        || !/^\/[^/]+\/[^/]+\/commits(?:\/|$)/i.test(url.pathname)) return '';
+      return normalizeUsername(url.searchParams.get('author'));
+    } catch {
+      return '';
+    }
+  }
+
   function usernameFromLink(link) {
     if (!(link instanceof HTMLAnchorElement)) return '';
 
@@ -135,7 +147,7 @@
       if (url.origin !== location.origin) return '';
 
       const parts = url.pathname.split('/').filter(Boolean);
-      if (parts.length !== 1) return '';
+      if (parts.length !== 1) return commitAuthorFromLink(link);
 
       return normalizeUsername(decodeURIComponent(parts[0]));
     } catch {
@@ -416,8 +428,11 @@
   }
 
   function isConversationIdentity(link, username) {
-    if (!conversationFirstNamesEnabled || !isConversationPage()) return false;
+    if (!conversationFirstNamesEnabled) return false;
     if (!(link instanceof HTMLAnchorElement) || !username) return false;
+
+    if (commitAuthorFromLink(link).toLowerCase() === username.toLowerCase()) return true;
+    if (!isConversationPage()) return false;
 
     const visible = (link.textContent || '').trim().replace(/^@/, '').toLowerCase();
     const exactHandle = visible === username.toLowerCase();
