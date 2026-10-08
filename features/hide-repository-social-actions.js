@@ -3,7 +3,8 @@
 
   const ATTRIBUTE = 'data-fractured-hidden-repository-control';
   const KEYS = ['hideRepositoryWatch', 'hideRepositoryStar', 'hideRepositoryFork',
-    'hideRepositoryPins', 'hideRepositoryOverviewName', 'hideRepositorySocialActions'];
+    'hideRepositoryPins', 'hideRepositoryOverviewName', 'hideRepositorySocialActions',
+    'hideRepositoryCustomProperties'];
   let settings = {};
   let scheduled = false;
 
@@ -61,6 +62,18 @@
         if (heading?.matches('h3') && /^(Stars|Watchers|Forks)$/.test(heading.textContent.trim())) {
           heading.setAttribute(ATTRIBUTE, action);
         }
+      }
+    }
+
+    if (settings.hideRepositoryCustomProperties) {
+      for (const link of document.querySelectorAll(
+        '[class*="SidebarSection"] a[href], .BorderGrid-cell a[href], aside a[href]',
+      )) {
+        const url = new URL(link.href, location.origin);
+        if (url.origin !== location.origin
+          || url.pathname.replace(/\/+$/, '') !== `/${repository}/custom-properties`) continue;
+        const row = link.closest('[class*="insightItem"], .mt-2') || link;
+        row.setAttribute(ATTRIBUTE, 'custom-properties');
       }
     }
 
