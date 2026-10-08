@@ -16,6 +16,7 @@ const DEFAULT_SETTINGS = {
   hidePullRequestMilestone: false,
   hideSuggestedWorkflows: false,
   hideRepositoryLanguages: false,
+  hideRepositoryInsights: false,
   hideRepositoryCustomProperties: false,
   hideReportRepository: false,
   hideRepositoryOverviewName: false,

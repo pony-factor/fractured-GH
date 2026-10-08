@@ -18,6 +18,7 @@ const hideRepositoryOverviewNameInput = document.getElementById('hide-repository
 const hideMyNavigationLinksInput = document.getElementById('hide-my-navigation-links');
 const hideSuggestedWorkflowsInput = document.getElementById('hide-suggested-workflows');
 const hideRepositoryLanguagesInput = document.getElementById('hide-repository-languages');
+const hideRepositoryInsightsInput = document.getElementById('hide-repository-insights');
 const hideRepositoryCustomPropertiesInput = document.getElementById('hide-repository-custom-properties');
 const hideReportRepositoryInput = document.getElementById('hide-report-repository');
 const hideInboxInput = document.getElementById('hide-inbox-while-busy');
@@ -336,6 +337,7 @@ async function loadSettings() {
     hideMyNavigationLinks: false,
     hideSuggestedWorkflows: false,
     hideRepositoryLanguages: false,
+    hideRepositoryInsights: false,
     hideRepositoryCustomProperties: false,
     hideReportRepository: false,
     hideInboxWhileBusy: true,
@@ -368,6 +370,7 @@ async function loadSettings() {
   hideMyNavigationLinksInput.checked = Boolean(settings.hideMyNavigationLinks);
   hideSuggestedWorkflowsInput.checked = Boolean(settings.hideSuggestedWorkflows);
   hideRepositoryLanguagesInput.checked = Boolean(settings.hideRepositoryLanguages);
+  hideRepositoryInsightsInput.checked = Boolean(settings.hideRepositoryInsights);
   hideRepositoryCustomPropertiesInput.checked = Boolean(settings.hideRepositoryCustomProperties);
   hideReportRepositoryInput.checked = Boolean(settings.hideReportRepository);
   hideInboxInput.checked = Boolean(settings.hideInboxWhileBusy);
@@ -434,6 +437,7 @@ async function saveSettings() {
     hideMyNavigationLinks: hideMyNavigationLinksInput.checked,
     hideSuggestedWorkflows: hideSuggestedWorkflowsInput.checked,
     hideRepositoryLanguages: hideRepositoryLanguagesInput.checked,
+    hideRepositoryInsights: hideRepositoryInsightsInput.checked,
     hideRepositoryCustomProperties: hideRepositoryCustomPropertiesInput.checked,
     hideReportRepository: hideReportRepositoryInput.checked,
     hideInboxWhileBusy: hideInboxInput.checked,
@@ -471,6 +475,7 @@ hideRepositoryOverviewNameInput.addEventListener('change', () => void saveSettin
 hideMyNavigationLinksInput.addEventListener('change', () => void saveSettings());
 hideSuggestedWorkflowsInput.addEventListener('change', () => void saveSettings());
 hideRepositoryLanguagesInput.addEventListener('change', () => void saveSettings());
+hideRepositoryInsightsInput.addEventListener('change', () => void saveSettings());
 hideRepositoryCustomPropertiesInput.addEventListener('change', () => void saveSettings());
 hideReportRepositoryInput.addEventListener('change', () => void saveSettings());
 hideInboxInput.addEventListener('change', () => void saveSettings());
