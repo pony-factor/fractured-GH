@@ -12,6 +12,7 @@
     '[data-test-selector*="hovercard" i]',
     '.Popover-message',
     '#global-user-nav-drawer',
+    '[role="dialog"][aria-labelledby="global-nav-user-menu-header"]',
     '[data-testid*="global-user-nav" i]',
     '[data-testid*="user-menu" i]',
     '[data-testid*="account-menu" i]',
@@ -60,6 +61,7 @@
   function isMenuSurface(surface) {
     return surface.matches([
       '#global-user-nav-drawer',
+      '[role="dialog"][aria-labelledby="global-nav-user-menu-header"]',
       '[data-testid*="global-user-nav" i]',
       '[data-testid*="user-menu" i]',
       '[data-testid*="account-menu" i]',

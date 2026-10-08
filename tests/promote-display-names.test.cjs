@@ -91,7 +91,7 @@ test('enabling then disabling the preference updates the DOM and observer', asyn
   assert.equal(feature.observations, 2);
 });
 
-test('the two-line account header shows the nickname above the username and restores both', async () => {
+test('the current anchored account menu shows the nickname above the username and restores both', async () => {
   function label(text) {
     const classes = new Set();
     return {
@@ -114,7 +114,7 @@ test('the two-line account header shows the nickname above the username and rest
   const originalNameNode = name.childNodes[0];
   const surface = {
     isConnected: true,
-    matches: () => true,
+    matches: (selector) => selector.includes('[role="dialog"][aria-labelledby="global-nav-user-menu-header"]'),
     querySelectorAll: (selector) => selector === 'a[href]' || selector === 'li, p, div, span'
       ? [] : [handle, name],
   };
@@ -125,7 +125,7 @@ test('the two-line account header shows the nickname above the username and rest
   }, {
     querySelector: () => ({ content: 'JFWooten4' }),
     querySelectorAll: (selector) => selector.includes('.fractured-display-name-primary') ? [handle, name]
-      : selector.startsWith('[') ? [] : [surface],
+      : selector.includes('[role="dialog"][aria-labelledby="global-nav-user-menu-header"]') ? [surface] : [],
   });
   await feature.ready();
   assert.equal(handle.textContent, 'Windsor Filth');
