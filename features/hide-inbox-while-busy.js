@@ -11,6 +11,12 @@
   const BUSY_CACHE_KEY = 'github-viewer-busy';
   let currentBusy = null;
   const CHECK_INTERVAL_MS = 60_000;
+  const MAX_RETRY_MS = 5 * CHECK_INTERVAL_MS;
+  const REQUEST_TIMEOUT_MS = 15_000;
+  let requestPending = false;
+  let retryDelay = CHECK_INTERVAL_MS;
+  let nextCheckAt = 0;
+  let lastWarning = null;
   const STATUS_URL = '/users/status?circle=0&compact=1&link_mentions=1&truncate=0';
   const BUSY_CONTROL_SELECTOR = [
     'input[name="limited_availability"]',
@@ -124,13 +130,14 @@
     throw new Error('GitHub status response did not contain a Busy status control');
   }
 
-  async function fetchBusyStatus() {
+  async function fetchBusyStatus(signal) {
     const statusUrl = new URL(STATUS_URL, window.location.origin);
     statusUrl.searchParams.set('_', String(Date.now()));
 
     const response = await window.fetch(statusUrl, {
       credentials: 'same-origin',
       cache: 'no-store',
+      signal,
       headers: {
         Accept: 'text/html',
         'X-Requested-With': 'XMLHttpRequest',
@@ -147,10 +154,30 @@
   }
 
   async function checkBusyStatus() {
+    if (requestPending || navigator.onLine === false || document.hidden ||
+        Date.now() < nextCheckAt) return;
+
+    requestPending = true;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
-      applyBusyStatus(await fetchBusyStatus());
+      applyBusyStatus(await fetchBusyStatus(controller.signal));
+      retryDelay = CHECK_INTERVAL_MS;
+      nextCheckAt = 0;
+      lastWarning = null;
     } catch (error) {
-      console.warn('[GitHub Extension]', error.message);
+      // Fetch rejects during offline periods, navigation, and request timeouts.
+      // Keep the cached presentation and retry without filling extension Errors.
+      nextCheckAt = Date.now() + retryDelay;
+      retryDelay = Math.min(retryDelay * 2, MAX_RETRY_MS);
+      if (error.name !== 'TypeError' && error.name !== 'AbortError' &&
+          error.message !== lastWarning) {
+        console.warn('[GitHub Extension]', error.message);
+        lastWarning = error.message;
+      }
+    } finally {
+      window.clearTimeout(timeout);
+      requestPending = false;
     }
   }
 
@@ -169,6 +196,13 @@
   document.addEventListener('turbo:load', () => void checkBusyStatus());
   document.addEventListener('pjax:end', () => void checkBusyStatus());
   window.addEventListener('focus', () => void checkBusyStatus());
+  window.addEventListener('online', () => {
+    nextCheckAt = 0;
+    void checkBusyStatus();
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) void checkBusyStatus();
+  });
 
   restoreCachedBusyStatus();
 
