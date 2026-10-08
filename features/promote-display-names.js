@@ -8,10 +8,13 @@
   const GENERATED_ATTRIBUTE = 'data-fractured-generated-display-name';
   const SURFACE_SELECTOR = [
     '.js-hovercard-content',
+    '[class*="hovercard" i]',
+    '[data-testid*="hover-card" i]',
     '[data-testid*="hovercard" i]',
     '[data-test-selector*="hovercard" i]',
     '.Popover-message',
     '#global-user-nav-drawer',
+    '[role="dialog"][aria-labelledby="global-nav-user-menu-header"]',
     '[data-testid*="global-user-nav" i]',
     '[data-testid*="user-menu" i]',
     '[data-testid*="account-menu" i]',
@@ -28,6 +31,9 @@
   let scanScheduled = false;
   const displayNameCache = new Map();
   const pendingLinks = new WeakSet();
+  const pendingMenuLabels = new WeakSet();
+  const originalMenuLabels = new Map();
+  const originalIdentityRows = new Map();
 
   function plainText(value) {
     return String(value || '').trim().replace(/\s+/g, ' ');
@@ -58,6 +64,7 @@
   function isMenuSurface(surface) {
     return surface.matches([
       '#global-user-nav-drawer',
+      '[role="dialog"][aria-labelledby="global-nav-user-menu-header"]',
       '[data-testid*="global-user-nav" i]',
       '[data-testid*="user-menu" i]',
       '[data-testid*="account-menu" i]',
@@ -106,7 +113,7 @@
 
   function styleIdentity(handle, scope, displayName) {
     if (!enabled || !handle.isConnected || !scope.isConnected) return;
-    if (!displayName || plainText(displayName).toLowerCase() === plainText(handle.textContent).toLowerCase()) return;
+    if (!displayName || plainText(displayName) === plainText(handle.textContent)) return;
 
     let nameElement = existingDisplayName(scope, displayName, handle);
     if (!nameElement) {
@@ -117,11 +124,30 @@
     }
     nameElement.classList.add(PRIMARY_CLASS);
     handle.classList.add(SECONDARY_CLASS);
+    // Hovercards put the login and display name in separate sibling links.
+    // Move the name's outer label so nicknames nested inside it stay intact.
+    if (handle instanceof HTMLAnchorElement) {
+      let nameLabel = nameElement;
+      while (nameLabel.parentElement && nameLabel.parentElement !== handle.parentElement) {
+        nameLabel = nameLabel.parentElement;
+      }
+      const row = handle.parentElement;
+      if (row && nameLabel !== handle && nameLabel.parentElement === row) {
+        if (!originalIdentityRows.has(row)) originalIdentityRows.set(row, [...row.childNodes]);
+        if (nameLabel.nextElementSibling !== handle) row.insertBefore(nameLabel, handle);
+        row.classList.add('fractured-display-name-row');
+      }
+    }
   }
 
   async function styleProfileLink(link, scope) {
     const username = usernameFromLink(link);
-    if (!username || !isUsernameLabel(link, username) || pendingLinks.has(link)) return;
+    if (!username || pendingLinks.has(link)) return;
+    const handle = isUsernameLabel(link, username) ? link
+      : [...link.querySelectorAll('span, strong, b')]
+        .find((element) => !element.children.length
+          && !element.classList.contains(PRIMARY_CLASS) && isUsernameLabel(element, username));
+    if (!handle) return;
 
     pendingLinks.add(link);
     try {
@@ -132,11 +158,25 @@
       if (!displayName) return;
       // If a configured nickname was not rendered yet, fall back to the
       // real visible profile name before inserting a duplicate.
-      if (nickname && !existingDisplayName(scope, nickname, link) && fetchedName
-        && existingDisplayName(scope, fetchedName, link)) {
-        styleIdentity(link, scope, fetchedName);
+      const identityScope = handle === link ? scope : link;
+      if (nickname && !existingDisplayName(identityScope, nickname, handle) && fetchedName
+        && existingDisplayName(identityScope, fetchedName, handle)) {
+        styleIdentity(handle, identityScope, fetchedName);
       } else {
-        styleIdentity(link, scope, displayName);
+        styleIdentity(handle, identityScope, displayName);
+      }
+      if (handle !== link) {
+        let nameElement = link.querySelector('.' + PRIMARY_CLASS);
+        if (nameElement) {
+          while (nameElement.parentElement !== link) nameElement = nameElement.parentElement;
+          let usernameElement = handle;
+          while (usernameElement.parentElement !== link) usernameElement = usernameElement.parentElement;
+          if (nameElement !== usernameElement && link.firstElementChild !== nameElement) {
+            if (!originalIdentityRows.has(link)) originalIdentityRows.set(link, [...link.childNodes]);
+            link.insertBefore(nameElement, usernameElement);
+          }
+          link.classList.add('fractured-display-name-row');
+        }
       }
     } finally {
       pendingLinks.delete(link);
@@ -144,6 +184,42 @@
   }
 
   function styleAccountMenu(surface) {
+    // The current drawer has a two-line identity header without a profile link.
+    const currentUsername = document.querySelector('meta[name="user-login"]')?.content;
+    if (currentUsername) {
+      const handle = [...surface.querySelectorAll('strong, b, span, h1, h2, h3, div')]
+        .find((element) => !element.children.length
+          && !element.classList.contains(PRIMARY_CLASS)
+          && !element.classList.contains(SECONDARY_CLASS)
+          && !/^signed in as\s/i.test(plainText(element.parentElement?.textContent))
+          && isUsernameLabel(element, currentUsername));
+      if (handle && !pendingMenuLabels.has(handle)) {
+        pendingMenuLabels.add(handle);
+        void fetchedDisplayName(currentUsername).then((name) => {
+          const displayName = nicknames.get(currentUsername.toLowerCase()) || name;
+          if (!enabled || !handle.isConnected || !surface.isConnected || !displayName) return;
+
+          let secondary = null;
+          for (let scope = handle.parentElement; scope; scope = scope.parentElement) {
+            secondary = existingDisplayName(scope, name, handle);
+            if (secondary || scope === surface) break;
+          }
+          if (secondary) {
+            originalMenuLabels.set(secondary, [...secondary.childNodes]);
+          } else {
+            secondary = document.createElement('span');
+            secondary.setAttribute(GENERATED_ATTRIBUTE, '');
+            handle.after(secondary);
+          }
+          originalMenuLabels.set(handle, [...handle.childNodes]);
+          handle.textContent = displayName;
+          secondary.textContent = currentUsername;
+          handle.classList.add(PRIMARY_CLASS);
+          secondary.classList.add(SECONDARY_CLASS);
+        }).finally(() => pendingMenuLabels.delete(handle));
+      }
+    }
+
     // GitHub's "Signed in as <username>" menu header may have no profile link.
     const lines = [...surface.querySelectorAll('li, p, div, span')]
       .filter((item) => {
@@ -170,6 +246,8 @@
 
   function scan() {
     if (!enabled) return;
+    // GitHub can replace the root attributes during client-side navigation.
+    document.documentElement?.setAttribute(ROOT_ATTRIBUTE, 'true');
     const scopes = [...document.querySelectorAll(SURFACE_SELECTOR)];
 
     if (isContributorRoute()) {
@@ -181,7 +259,7 @@
 
       for (const link of scope.querySelectorAll('a[href]')) {
         const username = usernameFromLink(link);
-        if (!username || !isUsernameLabel(link, username)) continue;
+        if (!username) continue;
 
         const row = isContributorRoute() || /contributor/i.test(scope.className || '')
           ? link.closest('li, tr, .Box-row, [data-testid*="contributor" i]') || link.parentElement?.parentElement || scope
@@ -221,6 +299,13 @@
       observer?.disconnect();
       observer = null;
       document.documentElement?.removeAttribute(ROOT_ATTRIBUTE);
+      for (const [element, nodes] of originalMenuLabels) element.replaceChildren(...nodes);
+      originalMenuLabels.clear();
+      for (const [element, nodes] of originalIdentityRows) element.replaceChildren(...nodes);
+      originalIdentityRows.clear();
+      document.querySelectorAll('.fractured-display-name-row').forEach((node) => {
+        node.classList.remove('fractured-display-name-row');
+      });
       document.querySelectorAll('[' + GENERATED_ATTRIBUTE + ']').forEach((node) => node.remove());
       document.querySelectorAll('.' + PRIMARY_CLASS + ', .' + SECONDARY_CLASS).forEach((node) => {
         node.classList.remove(PRIMARY_CLASS, SECONDARY_CLASS);
