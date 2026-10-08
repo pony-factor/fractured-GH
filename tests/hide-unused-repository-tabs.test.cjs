@@ -19,8 +19,16 @@ function makeLink(label, route, owner = 'pony-factor', repo = 'fractured-GH') {
   return { item, link };
 }
 
-function setup(fetch) {
+function setup(fetch, initialSettings = {}) {
   const callbacks = {};
+  const storageListeners = [];
+  const storedSettings = { ...initialSettings };
+  const chrome = {
+    storage: {
+      local: { get: async defaults => ({ ...defaults, ...storedSettings }) },
+      onChanged: { addListener: listener => storageListeners.push(listener) },
+    },
+  };
   const frames = [];
   const location = { origin: 'https://github.com', pathname: '/pony-factor/fractured-GH' };
   const links = [];
@@ -46,6 +54,7 @@ function setup(fetch) {
   vm.runInNewContext(source, {
     window, document, fetch, URL, encodeURIComponent, Date,
     MutationObserver: class { observe() {} },
+    chrome,
   });
   function flush() {
     for (let i = 0; frames.length; i++) {
@@ -57,7 +66,13 @@ function setup(fetch) {
     for (let i = 0; i < 20; i++) await Promise.resolve();
     flush();
   }
-  return { links, location, callbacks, flush, settle };
+  function changeSetting(key, value) {
+    storedSettings[key] = value;
+    for (const listener of storageListeners) {
+      listener({ [key]: { newValue: value } }, 'local');
+    }
+  }
+  return { links, location, callbacks, flush, settle, changeSetting };
 }
 
 test('does not fetch metadata without a Discussions tab', () => {
@@ -220,4 +235,40 @@ test('does not hide the Actions tab for a different repository after navigation'
   pending[2].resolve({ ok: true, json: async () => ({ total_count: 0 }) });
   await app.settle();
   assert.equal(app.links[0].item.hidden, false);
+});
+
+
+test('hides the repository Insights tab when explicitly enabled', async () => {
+  const app = setup(async () => { throw Error('No metadata request expected'); }, {
+    hideRepositoryInsights: true,
+  });
+  app.links.push(
+    makeLink('Insights', 'pulse'),
+    makeLink('Code', ''),
+    makeLink('Issues', 'issues'),
+    makeLink('Insights', 'pulse', 'another', 'repository'),
+    makeLink('Insights', 'settings'),
+  );
+  await app.settle();
+  assert.equal(app.links[0].item.hidden, true);
+  assert.equal(app.links[1].item.hidden, false);
+  assert.equal(app.links[2].item.hidden, false);
+  assert.equal(app.links[3].item.hidden, false, 'another repository remains unaffected');
+  assert.equal(app.links[4].item.hidden, false, 'unrelated Insights links remain visible');
+});
+
+test('keeps the Insights tab visible by default and restores it live when disabled', async () => {
+  const app = setup(async () => { throw Error('No metadata request expected'); });
+  app.links.push(makeLink('Insights', 'pulse'));
+  await app.settle();
+  assert.equal(app.links[0].item.hidden, false);
+
+  app.changeSetting('hideRepositoryInsights', true);
+  app.flush();
+  assert.equal(app.links[0].item.hidden, true);
+
+  app.changeSetting('hideRepositoryInsights', false);
+  app.flush();
+  assert.equal(app.links[0].item.hidden, false);
+  assert.equal(app.links[0].item.dataset.fracturedHiddenRepositoryTab, undefined);
 });

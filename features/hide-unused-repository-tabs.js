@@ -10,6 +10,7 @@
   const DISCUSSIONS_CACHE_TTL = 5 * 60 * 1000;
   const discussionsCache = new Map();
   const ACTIONS_CACHE_TTL = 5 * 60 * 1000;
+  let hideRepositoryInsights = false;
   const actionsCache = new Map();
 
   function repositoryPrefix() {
@@ -41,6 +42,17 @@
       const tabPath = `${prefix}/${route}`;
       return url.pathname === tabPath || url.pathname.startsWith(`${tabPath}/`);
     });
+  }
+
+  function isInsightsTab(link, prefix) {
+    if (!/^insights(?:\s+\d+)?$/.test(normalizedLabel(link))) return false;
+    try {
+      const url = new URL(link.href, window.location.origin);
+      return url.origin === window.location.origin
+        && (url.pathname === `${prefix}/pulse` || url.pathname === `${prefix}/pulse/`);
+    } catch {
+      return false;
+    }
   }
 
   function isDiscussionsTab(link, prefix) {
@@ -161,6 +173,7 @@
 
       for (const link of links) {
         if (!isHiddenRepositoryTab(link, prefix)
+          && !(hideRepositoryInsights && isInsightsTab(link, prefix))
           && !(hideDiscussions && isDiscussionsTab(link, prefix))
           && !(hideActions && isActionsTab(link, prefix))) continue;
 
@@ -193,6 +206,20 @@
 
   if (document.documentElement) start();
   else document.addEventListener('DOMContentLoaded', start, { once: true });
+
+  if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+    void chrome.storage.local.get({ hideRepositoryInsights: false })
+      .then(settings => {
+        hideRepositoryInsights = Boolean(settings.hideRepositoryInsights);
+        scheduleUpdate();
+      })
+      .catch(() => {});
+    chrome.storage.onChanged?.addListener((changes, area) => {
+      if (area !== 'local' || !('hideRepositoryInsights' in changes)) return;
+      hideRepositoryInsights = Boolean(changes.hideRepositoryInsights.newValue);
+      scheduleUpdate();
+    });
+  }
 
   document.addEventListener('turbo:load', scheduleUpdate);
   document.addEventListener('pjax:end', scheduleUpdate);
