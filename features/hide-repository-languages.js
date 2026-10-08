@@ -6,18 +6,25 @@
   let enabled = false;
   let scheduled = false;
 
-  function isRepositoryHome() {
+  function isRepositoryPage() {
     const repository = document.querySelector('meta[name="octolytics-dimension-repository_nwo"]')
       ?.getAttribute('content');
-    return repository && location.pathname.replace(/\/+$/, '') === `/${repository}`;
+    if (!repository) return false;
+    const prefix = `/${repository}`;
+    const path = location.pathname.replace(/\/+$/, '');
+    return path === prefix || path.startsWith(`${prefix}/`);
   }
 
   function refresh() {
     scheduled = false;
     for (const section of document.querySelectorAll(`[${ATTRIBUTE}]`)) {
-      section.removeAttribute(ATTRIBUTE);
+      // Keep the outgoing repository sidebar hidden while GitHub swaps in a
+      // file view. Restore a reused section only when it is no longer Languages.
+      const stillLanguages = [...section.querySelectorAll('h2, h3')]
+        .some(heading => heading.textContent.trim() === 'Languages');
+      if (!enabled || !stillLanguages) section.removeAttribute(ATTRIBUTE);
     }
-    if (!enabled || !isRepositoryHome()) return;
+    if (!enabled || !isRepositoryPage()) return;
 
     // React's sidebar sections replaced the older BorderGrid rows.
     for (const heading of document.querySelectorAll(
@@ -44,7 +51,13 @@
   const style = document.createElement('style');
   style.textContent = `[${ATTRIBUTE}] { display: none !important; }`;
   (document.head || document.documentElement).append(style);
-  new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true });
+  // MutationObserver callbacks run before paint; waiting for animation frames
+  // would briefly expose a newly rendered Languages sidebar on file navigation.
+  new MutationObserver(refresh).observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+    characterData: true,
+  });
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && KEY in changes) void loadSettings();
   });
