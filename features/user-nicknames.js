@@ -44,6 +44,8 @@
     'a.author[href]',
     'a[data-testid="author-link"][href]',
     'a[data-hovercard-type="user"].author[href]',
+    '[data-component="PageHeader.Description"] [class*="PullRequestHeaderSummary-module__summaryContainer"] > a[href]',
+    '.gh-header-meta > a[href]',
   ].join(',');
 
   const PROFILE_DISPLAY_NAME_SELECTOR = [

@@ -12,11 +12,17 @@ function functionSource(name) {
 }
 
 class Anchor {
-  constructor(href, hovercard = '') { this.href = href; this.hovercard = hovercard; }
+  constructor(href, hovercard = '', author = false) {
+    this.href = href; this.hovercard = hovercard; this.author = author;
+    this.textContent = href.split('/').pop();
+    this.classList = { contains: () => false };
+  }
   getAttribute(name) { return name === 'href' ? this.href : this.hovercard; }
+  closest() { return null; }
+  matches(selector) { return this.author && selector === 'authors'; }
 }
 
-function identities(enabled = true) {
+function identities(enabled = true, pathname = '/owner/repository') {
   return vm.runInNewContext([
     functionSource('normalizeUsername'),
     functionSource('isConversationPage'),
@@ -26,8 +32,10 @@ function identities(enabled = true) {
     '({ usernameFromLink, isConversationIdentity })',
   ].join('\n'), {
     HTMLAnchorElement: Anchor, URL,
-    location: { origin: 'https://github.com', pathname: '/owner/repository' },
+    location: { origin: 'https://github.com', pathname },
     conversationFirstNamesEnabled: enabled,
+    CONVERSATION_AUTHOR_SELECTOR: 'authors', CONVERSATION_BODY_SELECTOR: 'bodies',
+    CONVERSATION_CONTAINER_SELECTOR: 'containers', NICKNAME_ATTR: 'nickname',
   });
 }
 
@@ -38,6 +46,15 @@ test('repository latest commit authors qualify for first names without changing 
   assert.equal(feature.isConversationIdentity(link, 'JFWooten4'), true);
   assert.equal(link.href, '/owner/repository/commits/main/?author=JFWooten4');
   assert.equal(identities(false).isConversationIdentity(link, 'JFWooten4'), false);
+});
+
+test('PR header authors qualify outside comment containers, while unrelated profile links do not', () => {
+  const feature = identities(true, '/WhyDRS/documents/pull/8');
+  const author = new Anchor('/JFWooten4', '', true);
+  assert.equal(feature.isConversationIdentity(author, 'JFWooten4'), true);
+  assert.equal(feature.isConversationIdentity(new Anchor('/JFWooten4'), 'JFWooten4'), false);
+  assert.equal(identities(false, '/WhyDRS/documents/pull/8').isConversationIdentity(author, 'JFWooten4'), false);
+  assert.equal(author.href, '/JFWooten4');
 });
 
 test('ordinary repository links, external links, and mismatched authors do not qualify', () => {
