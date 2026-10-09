@@ -14,6 +14,22 @@
       element.removeAttribute(ATTRIBUTE);
     }
 
+    // Organization/profile cards and repository lists have no repository metadata.
+    // Hide the statistic link itself so adjacent language and issue links remain.
+    for (const [action, key, destination] of [
+      ['star', 'hideRepositoryStar', 'stargazers'],
+      ['fork', 'hideRepositoryFork', 'forks'],
+    ]) {
+      if (!(settings[key] ?? settings.hideRepositorySocialActions)) continue;
+      for (const link of document.querySelectorAll(`a[href*="/${destination}"]`)) {
+        const url = new URL(link.href, location.origin);
+        if (url.origin === location.origin
+          && new RegExp(`^/(?!orgs/|organizations/|users/)[^/]+/[^/]+/${destination}/?$`).test(url.pathname)) {
+          link.setAttribute(ATTRIBUTE, action);
+        }
+      }
+    }
+
     const repository = document.querySelector('meta[name="octolytics-dimension-repository_nwo"]')
       ?.getAttribute('content');
     if (!repository) return;

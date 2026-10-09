@@ -27,20 +27,22 @@ function disabledControl(text, ariaLabel = '') {
   };
 }
 
-async function render(hideRepositoryFork, controls) {
+async function render(hideRepositoryFork, controls, options = {}) {
   const frames = [];
   const document = {
     head: { append() {} },
     documentElement: {},
     createElement: () => ({ textContent: '' }),
     querySelector: selector => selector.includes('octolytics-dimension-repository_nwo')
-      ? { getAttribute: () => 'pony-factor/fractured-GH' }
+      ? (options.organization ? null : { getAttribute: () => 'pony-factor/fractured-GH' })
       : null,
     querySelectorAll(selector) {
       if (selector === `[${attribute}]`) {
         return controls.map(control => control.wrapper).filter(item => item.action);
       }
       if (selector.includes('#repository-container-header button:disabled')) return controls;
+      if (selector.startsWith('a[href*=')) return (options.links || []).filter(link =>
+        link.href.includes(selector.includes('stargazers') ? '/stargazers' : '/forks'));
       return [];
     },
     addEventListener() {},
@@ -50,7 +52,7 @@ async function render(hideRepositoryFork, controls) {
     location: { origin: 'https://github.com', pathname: '/pony-factor/fractured-GH' },
     chrome: {
       storage: {
-        local: { get: async () => ({ hideRepositoryFork }) },
+        local: { get: async () => ({ hideRepositoryFork, ...options.settings }) },
         onChanged: { addListener() {} },
       },
     },
@@ -87,4 +89,33 @@ test('leaves disabled Fork controls visible when the setting is off', async () =
   const fork = disabledControl('Fork');
   await render(false, [fork]);
   assert.equal(fork.wrapper.action, undefined);
+});
+
+function statistic(href) {
+  return { href, ...disabledControl('').wrapper };
+}
+
+test('hides pinned and listed statistics without repository metadata, preserving other links', async () => {
+  const links = [
+    statistic('https://github.com/blocktransfer/TAD3-core/stargazers'),
+    statistic('https://github.com/blocktransfer/SEC-publications/forks/'),
+    statistic('https://github.com/blocktransfer/SEC-publications/issues'),
+    statistic('https://example.com/blocktransfer/TAD3-core/stargazers'),
+    statistic('https://github.com/orgs/blocktransfer/forks'),
+    statistic('https://github.com/blocktransfer/TAD3-core/stargazers/extra'),
+  ];
+  await render(true, [], { organization: true, links, settings: { hideRepositoryStar: true } });
+  assert.deepEqual(links.map(link => link.action), ['star', 'fork', undefined, undefined, undefined, undefined]);
+});
+
+test('honors separate star/fork preferences and the legacy fallback on organization cards', async () => {
+  const star = statistic('https://github.com/blocktransfer/TAD3-core/stargazers');
+  const fork = statistic('https://github.com/blocktransfer/TAD3-core/forks');
+  await render(false, [], { organization: true, links: [star, fork], settings: { hideRepositorySocialActions: true } });
+  assert.equal(star.action, 'star');
+  assert.equal(fork.action, undefined);
+  star.action = undefined;
+  await render(true, [], { organization: true, links: [star, fork], settings: { hideRepositoryStar: false } });
+  assert.equal(star.action, undefined);
+  assert.equal(fork.action, 'fork');
 });
