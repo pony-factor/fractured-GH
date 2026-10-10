@@ -44,6 +44,7 @@
         "features/hide-footer.js",
         "features/hide-suggested-workflows.js",
         "features/hide-repository-languages.js",
+        "features/repository-code-shortcuts.js",
         "features/hide-empty-repository-description.js",
         "features/hide-unused-repository-tabs.js",
         "features/hide-repository-social-actions.js",
