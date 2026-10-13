@@ -104,6 +104,23 @@
         object-fit: cover !important;
       }
 
+      /* Keep the private-repository lock level with the enlarged repository name. */
+      :is(.GlobalNav, #global-nav, .AppHeader, #github-header, header[role="banner"]):has([${LOGO_ATTRIBUTE}])
+        :is(.AppHeader-context, [data-component="Breadcrumbs"], nav[aria-label="Breadcrumb"], nav[aria-label="Breadcrumbs"])
+        li:has(svg.octicon-lock, svg[data-octicon="lock"]) {
+        display: inline-flex !important;
+        align-items: center !important;
+      }
+
+      :is(.GlobalNav, #global-nav, .AppHeader, #github-header, header[role="banner"]):has([${LOGO_ATTRIBUTE}])
+        :is(.AppHeader-context, [data-component="Breadcrumbs"], nav[aria-label="Breadcrumb"], nav[aria-label="Breadcrumbs"])
+        :is(svg.octicon-lock, svg[data-octicon="lock"]) {
+        width: 16px !important;
+        height: 16px !important;
+        flex-shrink: 0 !important;
+        vertical-align: middle !important;
+      }
+
       [${HIDDEN_ATTRIBUTE}] {
         display: none !important;
       }
