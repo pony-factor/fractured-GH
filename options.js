@@ -10,6 +10,9 @@ const hideContributingGuidelinesNoticeInput = document.getElementById('hide-cont
 const hidePullRequestProtipInput = document.getElementById('hide-pull-request-protip');
 const hidePullRequestMilestoneInput = document.getElementById('hide-pull-request-milestone');
 const hideFooterInput = document.getElementById('hide-footer');
+const openCodeInVsCodeWebInput = document.getElementById('open-code-in-vscode-web');
+const hideRepositoryTagsShortcutInput = document.getElementById('hide-repository-tags-shortcut');
+const hideUnprotectedBranchWarningInput = document.getElementById('hide-unprotected-branch-warning');
 const hideRepositoryWatchInput = document.getElementById('hide-repository-watch');
 const hideRepositoryStarInput = document.getElementById('hide-repository-star');
 const hideRepositoryForkInput = document.getElementById('hide-repository-fork');
@@ -328,6 +331,9 @@ async function loadSettings() {
     hidePullRequestProtip: false,
     hidePullRequestMilestone: false,
     hideFooter: false,
+    openCodeInVsCodeWeb: true,
+    hideRepositoryTagsShortcut: true,
+    hideUnprotectedBranchWarning: true,
     hideRepositorySocialActions: false,
     hideRepositoryWatch: null,
     hideRepositoryStar: null,
@@ -362,6 +368,9 @@ async function loadSettings() {
   hidePullRequestProtipInput.checked = Boolean(settings.hidePullRequestProtip);
   hidePullRequestMilestoneInput.checked = Boolean(settings.hidePullRequestMilestone);
   hideFooterInput.checked = Boolean(settings.hideFooter);
+  openCodeInVsCodeWebInput.checked = Boolean(settings.openCodeInVsCodeWeb);
+  hideRepositoryTagsShortcutInput.checked = Boolean(settings.hideRepositoryTagsShortcut);
+  hideUnprotectedBranchWarningInput.checked = Boolean(settings.hideUnprotectedBranchWarning);
   hideRepositoryWatchInput.checked = Boolean(settings.hideRepositoryWatch ?? settings.hideRepositorySocialActions);
   hideRepositoryStarInput.checked = Boolean(settings.hideRepositoryStar ?? settings.hideRepositorySocialActions);
   hideRepositoryForkInput.checked = Boolean(settings.hideRepositoryFork ?? settings.hideRepositorySocialActions);
@@ -429,6 +438,9 @@ async function saveSettings() {
     hidePullRequestProtip: hidePullRequestProtipInput.checked,
     hidePullRequestMilestone: hidePullRequestMilestoneInput.checked,
     hideFooter: hideFooterInput.checked,
+    openCodeInVsCodeWeb: openCodeInVsCodeWebInput.checked,
+    hideRepositoryTagsShortcut: hideRepositoryTagsShortcutInput.checked,
+    hideUnprotectedBranchWarning: hideUnprotectedBranchWarningInput.checked,
     hideRepositoryWatch: hideRepositoryWatchInput.checked,
     hideRepositoryStar: hideRepositoryStarInput.checked,
     hideRepositoryFork: hideRepositoryForkInput.checked,
@@ -467,6 +479,9 @@ hideContributingGuidelinesNoticeInput.addEventListener('change', () => void save
 hidePullRequestProtipInput.addEventListener('change', () => void saveSettings());
 hidePullRequestMilestoneInput.addEventListener('change', () => void saveSettings());
 hideFooterInput.addEventListener('change', () => void saveSettings());
+openCodeInVsCodeWebInput.addEventListener('change', () => void saveSettings());
+hideRepositoryTagsShortcutInput.addEventListener('change', () => void saveSettings());
+hideUnprotectedBranchWarningInput.addEventListener('change', () => void saveSettings());
 hideRepositoryWatchInput.addEventListener('change', () => void saveSettings());
 hideRepositoryStarInput.addEventListener('change', () => void saveSettings());
 hideRepositoryForkInput.addEventListener('change', () => void saveSettings());
