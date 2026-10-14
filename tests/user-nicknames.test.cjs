@@ -35,9 +35,61 @@ test('profile nickname applies synchronously without a cached or fetched display
 });
 
 function functionSource(name) {
-  const start = source.indexOf(`  function ${name}(`);
+  const start = source.search(new RegExp(`  (?:async )?function ${name}\\(`));
   const end = source.indexOf('\n  }', start) + 4;
   return source.slice(start, end);
+}
+
+for (const nickname of ['John', 'John Wooten']) {
+  test(`nickname and conversation observers settle for ${nickname}`, async () => {
+    const updates = [];
+    let label = nickname;
+    let writes = 0;
+    const span = {
+      getAttribute: (name) => name === 'nickname' ? 'JFWooten4' : '@JFWooten4',
+      get textContent() { return label; },
+      set textContent(value) {
+        label = value;
+        writes++;
+        updates.push(true);
+      },
+    };
+    const link = new Anchor('/JFWooten4', '', true);
+    link.isConnected = true;
+    link.querySelector = (selector) => selector === '[nickname]' ? span : null;
+    const feature = vm.runInNewContext([
+      functionSource('normalizeNickname'),
+      functionSource('firstWord'),
+      functionSource('applyNicknameToProfileLink'),
+      functionSource('applyConversationFirstName'),
+      '({ applyNicknameToProfileLink, applyConversationFirstName })',
+    ].join('\n'), {
+      enabled: true, nicknameReplacementEnabled: true, conversationFirstNamesEnabled: true,
+      HTMLAnchorElement: Anchor,
+      nicknameByUsername: new Map([['jfwooten4', { nickname }]]),
+      NICKNAME_ATTR: 'nickname', CONVERSATION_NAME_ATTR: 'conversation', ORIGINAL_TEXT_ATTR: 'original',
+      usernameFromLink: () => 'JFWooten4',
+      isConversationIdentity: () => true,
+      fetchedProfileDisplayName: async () => 'John Wooten',
+      firstNameForUser: async () => 'John',
+      renderedNickname: (original, name) => original.startsWith('@') ? `@${name}` : name,
+      replaceConversationAttributes() {},
+    });
+    async function refresh() {
+      await Promise.all([
+        feature.applyNicknameToProfileLink(link),
+        feature.applyConversationFirstName(link),
+      ]);
+    }
+    await refresh();
+    for (let count = 0; updates.length && count < 10; count++) {
+      updates.shift();
+      await refresh();
+    }
+    assert.equal(updates.length, 0, 'name mutations must stop scheduling observer updates');
+    assert.equal(label, '@John');
+    assert.equal(writes, 1, 'both name passes must agree without rewriting identical text');
+  });
 }
 
 class Anchor {

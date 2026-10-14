@@ -388,10 +388,15 @@
       return;
     }
 
+    // Both name passes must agree on conversation labels, or their observer
+    // updates alternate between the full nickname and its first word.
+    const nickname = isConversationIdentity(link, username)
+      ? firstWord(mapping.nickname)
+      : mapping.nickname;
     const current = link.querySelector(`[${NICKNAME_ATTR}]`);
     if (current) {
       const originalText = current.getAttribute(ORIGINAL_TEXT_ATTR) ?? current.textContent ?? '';
-      const nextText = renderedNickname(originalText, mapping.nickname);
+      const nextText = renderedNickname(originalText, nickname);
       if (current.textContent !== nextText) current.textContent = nextText;
       return;
     }
@@ -400,7 +405,7 @@
     if (displayNameNode) {
       replaceTextNode(displayNameNode, {
         username,
-        nickname: mapping.nickname,
+        nickname,
       });
       return;
     }
@@ -412,7 +417,7 @@
     if (hovercardDisplayNameNode) {
       replaceTextNode(hovercardDisplayNameNode, {
         username,
-        nickname: mapping.nickname,
+        nickname,
       });
       return;
     }
@@ -423,7 +428,7 @@
     if (textNode) {
       replaceTextNode(textNode, {
         username,
-        nickname: mapping.nickname,
+        nickname,
       });
     }
   }
@@ -505,7 +510,8 @@
       const nicknameSpan = link.querySelector(`[${NICKNAME_ATTR}]`);
       if (nicknameSpan) {
         const originalText = nicknameSpan.getAttribute(ORIGINAL_TEXT_ATTR) ?? '';
-        nicknameSpan.textContent = renderedNickname(originalText, firstName);
+        const nextText = renderedNickname(originalText, firstName);
+        if (nicknameSpan.textContent !== nextText) nicknameSpan.textContent = nextText;
       } else {
         const textNode = matchingTextNode(link, username)
           || [...link.childNodes].find((node) => node instanceof Text && node.textContent?.trim());
