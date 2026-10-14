@@ -105,6 +105,34 @@ test('enlarges and centers the private lock only in the avatar-enhanced breadcru
   assert.equal(feature.logo.getAttribute('href'), '/pony-factor');
 });
 
+test('matches the owner navigation button and hover shape to the rounded-square avatar', async () => {
+  const feature = harness(true);
+  await feature.settle();
+
+  const css = feature.styles.get('fractured-owner-avatar-header-style')?.textContent;
+  const linkRule = css?.match(/\[data-fractured-owner-logo\]\s*\{([^}]+)\}/)?.[1];
+  assert.ok(linkRule);
+  for (const declaration of [
+    'width: 28px !important;',
+    'height: 28px !important;',
+    'min-width: 28px !important;',
+    'min-height: 28px !important;',
+    'padding: 0 !important;',
+    'border-radius: 6px !important;',
+    'display: inline-flex !important;',
+    'overflow: hidden !important;',
+  ]) {
+    assert.ok(linkRule.includes(declaration), 'owner link missing ' + declaration);
+  }
+  assert.match(css, /\[data-fractured-owner-logo\]::before,\s*\[data-fractured-owner-logo\]::after\s*\{[^}]*border-radius: inherit !important;/);
+  assert.equal(feature.logo.getAttribute('href'), '/pony-factor');
+  assert.equal(feature.logo.getAttribute('aria-label'), 'pony-factor');
+  assert.equal(
+    feature.logo.querySelector('[data-fractured-owner-avatar]')?.src,
+    'https://github.com/pony-factor.png?size=64',
+  );
+});
+
 test('leaves GitHub unmodified when the avatar setting is disabled or switched off', async () => {
   const feature = harness(false);
   await feature.settle();

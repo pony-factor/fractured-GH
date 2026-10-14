@@ -96,6 +96,26 @@
         display: none !important;
       }
 
+      /* Match the navigation hit target and hover shape to the square owner avatar. */
+      [${LOGO_ATTRIBUTE}] {
+        width: 28px !important;
+        height: 28px !important;
+        min-width: 28px !important;
+        min-height: 28px !important;
+        padding: 0 !important;
+        border-radius: 6px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+      }
+
+      [${LOGO_ATTRIBUTE}]::before,
+      [${LOGO_ATTRIBUTE}]::after {
+        border-radius: inherit !important;
+      }
+
       [${AVATAR_ATTRIBUTE}] {
         width: 28px !important;
         height: 28px !important;
