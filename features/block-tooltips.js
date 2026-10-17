@@ -5,6 +5,8 @@
   const BLOCKED_TITLE_ATTRIBUTE = 'data-github-tweaks-blocked-title';
   const ADDED_ARIA_ATTRIBUTE = 'data-github-tweaks-added-aria-label';
   const ALLOW_TOOLTIP_ATTRIBUTE = 'data-github-tweaks-allow-tooltip';
+  const ORG_PROTIP_ATTRIBUTE = 'data-github-tweaks-blocked-org-protip';
+  const ORG_PROTIP_PATTERN = /^ProTip!\s+When viewing an organization['’]s repositories, you can use the props\.\s*filter to filter by custom property\.?$/i;
   const REACTION_SUMMARY_SELECTOR = [
     '.reaction-summary-item:not(.add-reaction-btn)',
     '[data-testid="reaction-summary-item"]',
@@ -27,6 +29,10 @@
 
       .tooltipped:not(.reaction-summary-item)::before,
       .tooltipped:not(.reaction-summary-item)::after {
+        display: none !important;
+      }
+
+      [${ORG_PROTIP_ATTRIBUTE}] {
         display: none !important;
       }
     `;
@@ -78,6 +84,44 @@
     }
   }
 
+  function normalizeText(value) {
+    return String(value || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function isOrganizationRepositoryListing() {
+    return /^\/orgs\/[^/]+\/repositories(?:\/|$)/.test(location.pathname);
+  }
+
+  function blockOrganizationProtipsWithin(root) {
+    if (!isOrganizationRepositoryListing() || !(root instanceof Element)) return;
+
+    const candidates = [];
+    if (root.matches('p, div, aside')) candidates.push(root);
+    candidates.push(...root.querySelectorAll('p, div, aside'));
+
+    for (const candidate of candidates) {
+      if (!ORG_PROTIP_PATTERN.test(normalizeText(candidate.textContent))) continue;
+      if (!candidate.closest(`[${ORG_PROTIP_ATTRIBUTE}]`)) {
+        candidate.setAttribute(ORG_PROTIP_ATTRIBUTE, '');
+      }
+    }
+  }
+
+  function restoreOrganizationProtips() {
+    for (const element of document.querySelectorAll(`[${ORG_PROTIP_ATTRIBUTE}]`)) {
+      element.removeAttribute(ORG_PROTIP_ATTRIBUTE);
+    }
+  }
+
+  function refreshOrganizationProtips() {
+    if (!enabled) return;
+    if (isOrganizationRepositoryListing()) {
+      blockOrganizationProtipsWithin(document.documentElement);
+    } else {
+      restoreOrganizationProtips();
+    }
+  }
+
   function blockTitle(element) {
     if (!(element instanceof Element) || !element.hasAttribute('title')) return;
     if (isReactionSummary(element)) return;
@@ -101,6 +145,7 @@
   function blockTitlesWithin(root) {
     if (!(root instanceof Element)) return;
     allowReactionTooltipsWithin(root);
+    blockOrganizationProtipsWithin(root);
     blockTitle(root);
     for (const element of root.querySelectorAll('[title]')) blockTitle(element);
   }
@@ -142,8 +187,15 @@
         for (const node of mutation.addedNodes) {
           if (node instanceof Element) blockTitlesWithin(node);
         }
+        // GitHub sometimes adds the tip's text after its surrounding container.
+        if (mutation.target instanceof Element) {
+          blockOrganizationProtipsWithin(mutation.target);
+        }
       }
     });
+
+    document.addEventListener('turbo:load', refreshOrganizationProtips);
+    document.addEventListener('pjax:end', refreshOrganizationProtips);
 
     titleObserver.observe(document.documentElement, {
       subtree: true,
@@ -158,7 +210,10 @@
     enabled = false;
     titleObserver?.disconnect();
     titleObserver = null;
+    document.removeEventListener('turbo:load', refreshOrganizationProtips);
+    document.removeEventListener('pjax:end', refreshOrganizationProtips);
     document.getElementById(STYLE_ID)?.remove();
+    restoreOrganizationProtips();
     restoreTitles();
   }
 
