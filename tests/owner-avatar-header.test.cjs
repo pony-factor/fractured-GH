@@ -13,6 +13,9 @@ function harness(initiallyEnabled) {
   let storageListener;
   const frames = [];
   const styles = new Map();
+  const location = { pathname: '/pony-factor/fractured-GH', origin: 'https://github.com' };
+  const documentListeners = new Map();
+  const windowListeners = new Map();
 
   class Image {
     setAttribute(name, value) { this[name] = value; }
@@ -62,12 +65,12 @@ function harness(initiallyEnabled) {
       return null;
     },
     querySelectorAll() { return []; },
-    addEventListener() {},
+    addEventListener(name, callback) { documentListeners.set(name, callback); },
   };
   vm.runInNewContext(source, {
     document, HTMLAnchorElement: Anchor, HTMLImageElement: Image,
-    location: { pathname: '/pony-factor/fractured-GH', origin: 'https://github.com' },
-    window: { location: { origin: 'https://github.com' }, addEventListener() {} },
+    location,
+    window: { location, addEventListener(name, callback) { windowListeners.set(name, callback); } },
     chrome: {
       storage: {
         local: { async get() { return { ownerAvatarHeaderEnabled: setting }; } },
@@ -80,6 +83,14 @@ function harness(initiallyEnabled) {
 
   return {
     logo, styles,
+    navigate(pathname, eventName = 'turbo:load') {
+      location.pathname = pathname;
+      const listener = eventName === 'popstate'
+        ? windowListeners.get(eventName)
+        : documentListeners.get(eventName);
+      assert.ok(listener, 'navigation listener missing: ' + eventName);
+      listener();
+    },
     async settle() {
       await Promise.resolve();
       await Promise.resolve();
@@ -148,4 +159,46 @@ test('leaves GitHub unmodified when the avatar setting is disabled or switched o
   assert.equal(feature.logo.hasAttribute('data-fractured-owner-logo'), false);
   assert.equal(feature.logo.getAttribute('href'), '/');
   assert.equal(feature.logo.getAttribute('aria-label'), 'Homepage');
+});
+
+test('updates the logo during Turbo, PJAX, and history navigation despite stale repo metadata', async () => {
+  const feature = harness(true);
+  await feature.settle();
+
+  for (const [pathname, eventName, owner] of [
+    ['/stellar/stellar-protocol', 'turbo:load', 'stellar'],
+    ['/JFWooten4/example-repo', 'pjax:end', 'JFWooten4'],
+    ['/pony-factor/fractured-GH', 'popstate', 'pony-factor'],
+  ]) {
+    feature.navigate(pathname, eventName);
+    await feature.settle();
+
+    assert.equal(feature.logo.getAttribute('data-fractured-owner-logo'), owner);
+    assert.equal(feature.logo.getAttribute('href'), '/' + owner);
+    assert.equal(feature.logo.getAttribute('aria-label'), owner);
+    assert.equal(
+      feature.logo.querySelector('[data-fractured-owner-avatar]')?.src,
+      'https://github.com/' + owner + '.png?size=64',
+    );
+    assert.equal(feature.logo.children.length, 1, 'must not accumulate stale avatars');
+  }
+});
+
+test('restores GitHub branding when leaving a repository even if metadata remains stale', async () => {
+  const feature = harness(true);
+  await feature.settle();
+
+  for (const pathname of ['/stellar', '/orgs/stellar/repositories', '/settings/profile']) {
+    feature.navigate(pathname);
+    await feature.settle();
+    assert.equal(feature.logo.hasAttribute('data-fractured-owner-logo'), false);
+    assert.equal(feature.logo.getAttribute('href'), '/');
+    assert.equal(feature.logo.getAttribute('aria-label'), 'Homepage');
+    assert.equal(feature.logo.children.length, 0);
+  }
+
+  feature.navigate('/stellar/stellar-protocol');
+  await feature.settle();
+  assert.equal(feature.logo.getAttribute('data-fractured-owner-logo'), 'stellar');
+  assert.equal(feature.logo.getAttribute('href'), '/stellar');
 });
