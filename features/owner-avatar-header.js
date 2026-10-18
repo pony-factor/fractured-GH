@@ -19,57 +19,26 @@
   }
 
   function repositoryOwner() {
-    const repositoryNwoSelectors = [
-      'meta[name="octolytics-dimension-repository_nwo"]',
-      'meta[name="octolytics-dimension-repository_network_root_nwo"]',
-    ];
-
-    for (const selector of repositoryNwoSelectors) {
-      const nwo = document.querySelector(selector)?.getAttribute('content')?.trim();
-      if (!nwo || !nwo.includes('/')) continue;
-
-      const owner = nwo.split('/')[0]?.trim();
-      if (owner) {
-        try {
-          return decodeURIComponent(owner);
-        } catch {
-          return owner;
-        }
-      }
-    }
-
-    const repositoryId = document
-      .querySelector('meta[name="octolytics-dimension-repository_id"]')
-      ?.getAttribute('content')
-      ?.trim();
-
-    if (!repositoryId) return '';
-
+    // GitHub can preserve stale octolytics metadata across Turbo/PJAX navigation,
+    // especially when following a fork back to a different repository owner.
+    // The current route is the source of truth for repository-page branding.
     const parts = location.pathname.split('/').filter(Boolean);
     if (parts.length < 2) return '';
 
     const reservedRoots = new Set([
-      'codespaces',
-      'collections',
-      'events',
-      'explore',
-      'issues',
-      'marketplace',
-      'notifications',
-      'orgs',
-      'pulls',
-      'settings',
-      'sponsors',
-      'topics',
-      'users',
+      'about', 'account', 'apps', 'codespaces', 'collections', 'dashboard',
+      'enterprise', 'events', 'explore', 'features', 'issues', 'login',
+      'marketplace', 'new', 'notifications', 'organizations', 'orgs',
+      'pricing', 'pulls', 'search', 'security', 'sessions', 'settings',
+      'signup', 'site', 'sponsors', 'stars', 'topics', 'trending', 'users',
     ]);
-
     if (reservedRoots.has(parts[0].toLowerCase())) return '';
 
     try {
-      return decodeURIComponent(parts[0]);
+      const owner = decodeURIComponent(parts[0]);
+      return /^[a-z\d](?:[a-z\d-]{0,37}[a-z\d])?$/i.test(owner) ? owner : '';
     } catch {
-      return parts[0];
+      return '';
     }
   }
 
