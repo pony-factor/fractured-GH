@@ -55,6 +55,7 @@
         "features/hide-notification-reason.js",
         "features/hide-empty-development-copy.js",
         "features/wrap-diff-lines.js",
+        "features/spellcheck-image-attachments.js",
         "features/spellcheck-issue-pr-drafts.js"
       ],
       "run_at": "document_start"
