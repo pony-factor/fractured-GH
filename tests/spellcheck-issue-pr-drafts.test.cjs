@@ -26,7 +26,11 @@ function setup({ pathname, submit = 'Comment', bodySelector = 'textarea[name="co
     hasAttribute(name) { return Object.hasOwn(this.attributes, name); }
     addEventListener() {}
     closest(selector) { return selector === 'form, [role="dialog"]' ? this.form : null; }
-    before(button) { this.form.enhancer = button; enhancers.push(button); }
+    before(button) {
+      if (button.className !== 'fractured-spellcheck-enhancer') return;
+      this.form.enhancer = button;
+      enhancers.push(button);
+    }
     querySelector(selector) {
       return selector === '.fractured-spellcheck-enhancer' ? this.enhancer || null : null;
     }
