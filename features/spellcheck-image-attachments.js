@@ -167,9 +167,8 @@
         const before = editor.value;
         editor.focus();
         editor.setSelectionRange?.(before.length, before.length);
-        const result = waitForUpload(editor, before, item.token);
         beginNativeUpload(editor, item.file);
-        const { markdown, url } = await result;
+        const { markdown, url } = await waitForUpload(editor, before, item.token);
         const current = editor.value;
         if (!current.includes(markdown) || !current.includes(item.token)) {
           throw new Error('The draft changed unexpectedly during image upload.');
