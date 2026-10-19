@@ -45,7 +45,7 @@
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
-      .${BUTTON_CLASS} {
+      .${BUTTON_CLASS}, .fractured-rounded-image-button {
         align-items: center;
         background: transparent;
         border: 1px solid var(--borderColor-default, #d0d7de);
@@ -61,15 +61,15 @@
         padding: 0 7px;
         vertical-align: middle;
       }
-      .${BUTTON_CLASS}:hover {
+      .${BUTTON_CLASS}:hover, .fractured-rounded-image-button:hover {
         background: var(--button-default-bgColor-hover, #f3f4f6);
         color: var(--fgColor-default, #1f2328);
       }
-      .${BUTTON_CLASS}:focus-visible {
+      .${BUTTON_CLASS}:focus-visible, .fractured-rounded-image-button:focus-visible {
         outline: 2px solid var(--focus-outlineColor, #0969da);
         outline-offset: 2px;
       }
-      .${BUTTON_CLASS}[disabled] {
+      .${BUTTON_CLASS}[disabled], .fractured-rounded-image-button[disabled] {
         cursor: progress;
         opacity: .6;
       }
@@ -500,7 +500,7 @@
     picker.hidden = true;
     const attach = document.createElement('button');
     attach.type = 'button';
-    attach.className = BUTTON_CLASS + ' fractured-rounded-image-button';
+    attach.className = 'fractured-rounded-image-button';
     attach.textContent = '🖼️';
     attach.title = 'Attach rounded image (upload after spellcheck)';
     attach.setAttribute('aria-label', attach.title);
