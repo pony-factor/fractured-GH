@@ -45,7 +45,7 @@
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
-      .${BUTTON_CLASS} {
+      .${BUTTON_CLASS}, .fractured-rounded-image-button {
         align-items: center;
         background: transparent;
         border: 1px solid var(--borderColor-default, #d0d7de);
@@ -61,15 +61,15 @@
         padding: 0 7px;
         vertical-align: middle;
       }
-      .${BUTTON_CLASS}:hover {
+      .${BUTTON_CLASS}:hover, .fractured-rounded-image-button:hover {
         background: var(--button-default-bgColor-hover, #f3f4f6);
         color: var(--fgColor-default, #1f2328);
       }
-      .${BUTTON_CLASS}:focus-visible {
+      .${BUTTON_CLASS}:focus-visible, .fractured-rounded-image-button:focus-visible {
         outline: 2px solid var(--focus-outlineColor, #0969da);
         outline-offset: 2px;
       }
-      .${BUTTON_CLASS}[disabled] {
+      .${BUTTON_CLASS}[disabled], .fractured-rounded-image-button[disabled] {
         cursor: progress;
         opacity: .6;
       }
@@ -409,7 +409,7 @@
     }
   }
 
-  function applyResult(job, { force = false } = {}) {
+  async function applyResult(job, { force = false } = {}) {
     if (!activeFields || !activeJob || activeJob.id !== job.id) return;
     const result = job.result;
     if (!result || typeof result.title !== 'string' || typeof result.body !== 'string') return;
@@ -425,12 +425,21 @@
     };
     const unchanged = current.title === activeJob.original.title && current.body === activeJob.original.body;
     const diff = draftDiff(activeJob.original, result, activeJob.kind);
+    const images = globalThis.fracturedSpellcheckImages;
+    if (images && !images.validate(activeJob.original.body, result.body)) {
+      showSidebar({
+        status: 'Spellcheck altered an image placeholder. No changes were applied; your staged image remains safe.',
+        error: true, diff,
+      });
+      resetEnhancerButtons();
+      return;
+    }
 
     if (!force && !unchanged) {
       showSidebar({
         status: 'Spellcheck finished, but the draft changed while it was running, so Fractured did not overwrite your newer edits.',
         diff,
-        apply: () => applyResult(job, { force: true }),
+        apply: () => void applyResult(job, { force: true }),
       });
       resetEnhancerButtons();
       return;
@@ -438,17 +447,28 @@
 
     if (activeFields.title) setControlValue(activeFields.title, result.title);
     setControlValue(activeFields.body, result.body);
-    showSidebar({
-      status: diff ? 'Applied the spellcheck changes to your draft.' : 'Spellcheck found no changes.',
-      diff,
-    });
+    try {
+      const uploaded = await images?.finalize(activeFields.body) || 0;
+      if (images?.hasUnresolved(activeFields.body)) {
+        throw new Error('One or more image placeholders still need their original files; attach them again before submitting.');
+      }
+      showSidebar({
+        status: `${diff ? 'Applied spellcheck.' : 'Spellcheck found no changes.'}${uploaded ? ` Uploaded ${uploaded} rounded image${uploaded === 1 ? '' : 's'} and inserted the final GitHub link${uploaded === 1 ? '' : 's'}.` : ''}`,
+        diff,
+      });
+    } catch (error) {
+      showSidebar({
+        status: `Spellcheck applied, but image upload was not completed: ${error.message}`,
+        error: true, diff,
+      });
+    }
     resetEnhancerButtons();
   }
 
   function handleJob(job) {
     if (!activeJob || !job || job.id !== activeJob.id) return;
     if (job.status === 'complete') {
-      applyResult(job);
+      void applyResult(job);
       return;
     }
     if (job.status === 'error') {
@@ -470,7 +490,46 @@
       : 'Enhance title and body with Spellcheck Only';
     button.setAttribute('aria-label', button.title);
     button.addEventListener('click', () => void launchSpellcheck(button, control));
+    // Stage rounded images in the same editor; no network upload happens while
+    // the user writes or while ChatGPT works on the draft.
+    const picker = document.createElement('input');
+    picker.type = 'file';
+    picker.accept = 'image/*';
+    picker.multiple = true;
+    picker.className = 'fractured-rounded-image-picker';
+    picker.hidden = true;
+    const attach = document.createElement('button');
+    attach.type = 'button';
+    attach.className = 'fractured-rounded-image-button';
+    attach.textContent = '🖼️';
+    attach.title = 'Attach rounded image (upload after spellcheck)';
+    attach.setAttribute('aria-label', attach.title);
+    attach.addEventListener('click', () => picker.click());
+    picker.addEventListener('change', async () => {
+      attach.disabled = true;
+      try {
+        for (const file of Array.from(picker.files || [])) {
+          await globalThis.fracturedSpellcheckImages.add(fields.body, file);
+        }
+        showSidebar({ status: 'Image inserted as a local placeholder. Run ✨ Spellcheck Only to upload the rounded PNG and replace the placeholder with its final link.' });
+      } catch (error) {
+        showSidebar({ status: `Could not attach image: ${error.message}`, error: true });
+      } finally {
+        picker.value = '';
+        attach.disabled = false;
+      }
+    });
+    control.before(attach);
+    control.before(picker);
     control.before(button);
+    // Prevent publishing provisional URLs, including with keyboard submission.
+    const scope = scopeFor(control);
+    scope?.addEventListener('submit', (event) => {
+      globalThis.fracturedSpellcheckImages?.preventUnresolvedSubmission(event, fields.body);
+    }, true);
+    control.addEventListener('click', (event) => {
+      globalThis.fracturedSpellcheckImages?.preventUnresolvedSubmission(event, fields.body);
+    }, true);
   }
 
   function scan() {

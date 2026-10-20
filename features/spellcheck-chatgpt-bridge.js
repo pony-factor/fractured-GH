@@ -228,6 +228,7 @@
         ? 'Spellcheck this GitHub pull request comment.'
         : 'Spellcheck this GitHub issue or pull request draft.',
       'Correct spelling, capitalization, punctuation, and grammar only. Preserve meaning, Markdown, links, code, identifiers, and formatting.',
+      'Preserve every fractured-pending-image: placeholder exactly as written; these represent images to upload after spellcheck.',
       'Return only one valid JSON object with exactly the string keys "title" and "body". Do not use Markdown fences or add commentary.',
       `Input JSON: ${input}`,
     ].join('\n');
