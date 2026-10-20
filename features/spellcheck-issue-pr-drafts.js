@@ -47,6 +47,13 @@
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
+      .fractured-spellcheck-actions {
+        align-items: center;
+        display: inline-flex;
+        gap: 8px;
+        margin-inline-end: 8px;
+        vertical-align: middle;
+      }
       .${BUTTON_CLASS}, .fractured-rounded-image-button {
         align-items: center;
         background: transparent;
@@ -58,7 +65,7 @@
         font-size: 14px;
         height: 32px;
         justify-content: center;
-        margin-right: 6px;
+        margin: 0;
         min-width: 32px;
         padding: 0 7px;
         vertical-align: middle;
@@ -190,10 +197,22 @@
 
   function scopeFor(control) {
     const direct = control.closest('form, [role="dialog"]');
-    if (direct && fieldsFor(direct, control)) return direct;
+    // Form/dialog controls must own their editor. Never fall through to an
+    // unrelated composer elsewhere on the issue or PR page.
+    if (direct) return fieldsFor(direct, control) ? direct : null;
 
-    for (let parent = control.parentElement; parent && parent !== document.body; parent = parent.parentElement) {
-      if (fieldsFor(parent, control)) return parent;
+    // Some GitHub composers do not use a form. Search only the nearby editor
+    // wrapper, and stop at published comment cards so their Reply/Comment
+    // menus cannot borrow the separate new-comment editor farther down.
+    const publishedComment = '.timeline-comment, .js-comment, .react-issue-comment, '
+      + '[data-testid="issue-comment"], [data-testid="comment-view"], [data-testid="comment-container"]';
+    let depth = 0;
+    for (let parent = control.parentElement;
+      parent && parent !== document.body && depth < 5;
+      parent = parent.parentElement, depth += 1) {
+      if (parent.matches?.(publishedComment)) break;
+      const fields = fieldsFor(parent, control);
+      if (fields && visible(fields.body)) return parent;
     }
     return null;
   }
@@ -206,7 +225,10 @@
 
   function isSubmitControl(control) {
     const text = controlText(control);
-    return /\b(create|submit|open|update|save|comment|reply|review)\b/i.test(text)
+    // "Comment actions", "Quote reply", etc. on published comments are not
+    // submission buttons; their text used to match the loose word search.
+    return (/^(create|submit|open|update|save)\b/i.test(text)
+      || /^(comment|reply|add single comment|start a review)$/i.test(text))
       && !/\b(cancel|preview|close)\b/i.test(text);
   }
 
@@ -618,9 +640,22 @@
         attach.disabled = false;
       }
     });
-    control.before(attach);
-    control.before(picker);
-    control.before(button);
+    // Treat the two draft actions as one toolbar group. Match the native
+    // flex/grid gap when present; otherwise provide the same 8px gap before
+    // GitHub's submit control, without double-spacing in flex toolbars.
+    const actions = document.createElement('span');
+    actions.className = 'fractured-spellcheck-actions';
+    actions.append(attach, picker, button);
+    const layout = control.parentElement && typeof getComputedStyle === 'function'
+      ? getComputedStyle(control.parentElement) : null;
+    if (layout && /^(inline-)?(flex|grid)$/.test(layout.display)) {
+      const nativeGap = parseFloat(layout.columnGap);
+      if (nativeGap > 0) {
+        actions.style.gap = `${nativeGap}px`;
+        actions.style.marginInlineEnd = '0';
+      }
+    }
+    control.before(actions);
     // Prevent publishing provisional URLs, including with keyboard submission.
     const scope = scopeFor(control);
     scope?.addEventListener('submit', (event) => {
