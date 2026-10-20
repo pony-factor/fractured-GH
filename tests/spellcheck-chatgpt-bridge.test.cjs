@@ -7,7 +7,7 @@ const vm = require('node:vm');
 const script = fs.readFileSync(path.join(__dirname, '../features/writing/spellcheck-chatgpt-bridge.js'), 'utf8')
   .replace('const COMPOSER_TIMEOUT_MS = 30000;', 'const COMPOSER_TIMEOUT_MS = 1;')
   .replace('await pause(250);\n        await closeBridgeTab();', 'await pause(0);\n        await closeBridgeTab();')
-  .replace(/  void run\(\)\.catch\([\s\S]*?\n  \}\);(?=\n\}\)\(\);)/, '  globalThis.bridge = { run, writeJob };');
+  .replace(/  void run\(\)\.catch\([\s\S]*?\n  \}\);(?=\n\}\)\(\);)/, '  globalThis.bridge = { run, writeJob, buildPrompt, shouldGenerateTitle };');
 
 function harness({ getError, setError, invalidateOnSet = false } = {}) {
   const writes = [];
@@ -190,4 +190,29 @@ test('reports a timeout when no valid response arrives', async () => {
   const result = app.wait(0);
   app.timeout();
   await assert.rejects(result, /did not return a response in time/);
+});
+
+test('generates a title only when a draft has no title but has a body', () => {
+  const bridge = harness();
+  const untitled = { kind: 'draft', original: { title: '  ', body: '## Summary\nFix the image picker.' } };
+  assert.equal(bridge.shouldGenerateTitle(untitled), true);
+  const prompt = bridge.buildPrompt(untitled);
+  assert.match(prompt, /Generate a title and proofread/);
+  assert.match(prompt, /title is blank: generate a concise/);
+  assert.match(prompt, /Preserve every fractured-pending-image: placeholder/);
+  assert.match(prompt, /"title" and "body"/);
+});
+
+test('preserves spellcheck-only instructions for titled drafts and comments', () => {
+  const bridge = harness();
+  for (const job of [
+    { kind: 'draft', original: { title: 'Existing title', body: 'Bodi' } },
+    { kind: 'comment', original: { title: '', body: 'Commment text' } },
+    { kind: 'draft', original: { title: '', body: '   ' } },
+  ]) {
+    assert.equal(bridge.shouldGenerateTitle(job), false);
+    const prompt = bridge.buildPrompt(job);
+    assert.match(prompt, /Correct spelling, capitalization, punctuation, and grammar only/);
+    assert.doesNotMatch(prompt, /title is blank: generate/);
+  }
 });
