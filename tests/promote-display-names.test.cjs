@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const source = fs.readFileSync(
-  path.join(__dirname, '../features/promote-display-names.js'), 'utf8',
+  path.join(__dirname, '../features/people/promote-display-names.js'), 'utf8',
 );
 
 function startFeature(initial = {}, dom = {}, runtime = {}) {

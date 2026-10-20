@@ -168,7 +168,10 @@
   }
 
   function assistantMessages() {
-    return [...document.querySelectorAll('[data-message-author-role="assistant"]')];
+    const legacy = [...document.querySelectorAll('[data-message-author-role="assistant"]')];
+    if (legacy.length) return legacy;
+    return [...document.querySelectorAll('[data-conversation-role="assistant"]')]
+      .map((heading) => heading.parentElement);
   }
 
   function latestAssistantText(afterCount) {
@@ -179,20 +182,37 @@
   }
 
   async function waitForResponse(afterCount) {
-    const deadline = Date.now() + RESPONSE_TIMEOUT_MS;
-    let last = '';
-    let stableSince = 0;
-
-    while (Date.now() < deadline) {
-      const text = latestAssistantText(afterCount).trim();
-      if (text !== last) {
-        last = text;
-        stableSince = Date.now();
-      }
-      if (text && !stopButton() && Date.now() - stableSince >= 1200) return text;
-      await pause(250);
-    }
-    throw new Error('Spellcheck Only did not return a response in time.');
+    // Background tabs throttle polling timers. Observe the streamed response so
+    // a completed result is collected while the user stays on GitHub.
+    return new Promise((resolve, reject) => {
+      let timeout;
+      const finish = (text) => {
+        observer.disconnect();
+        window.clearTimeout(timeout);
+        resolve(text);
+      };
+      const check = () => {
+        const text = latestAssistantText(afterCount).trim();
+        if (!text) return;
+        try {
+          // A complete JSON object is the response contract; partial streamed
+          // text must never be applied to the original editor.
+          parseResult(text);
+          finish(text);
+        } catch {
+          // Keep observing until the JSON response is complete.
+        }
+      };
+      const observer = new MutationObserver(check);
+      observer.observe(document.documentElement, {
+        childList: true, subtree: true, characterData: true,
+      });
+      timeout = window.setTimeout(() => {
+        observer.disconnect();
+        reject(new Error('Spellcheck Only did not return a response in time.'));
+      }, RESPONSE_TIMEOUT_MS);
+      check();
+    });
   }
 
   function parseResult(text) {
@@ -225,7 +245,7 @@
     });
     return [
       job.kind === 'comment'
-        ? 'Spellcheck this GitHub pull request comment.'
+        ? 'Spellcheck this GitHub issue or pull request comment.'
         : 'Spellcheck this GitHub issue or pull request draft.',
       'Correct spelling, capitalization, punctuation, and grammar only. Preserve meaning, Markdown, links, code, identifiers, and formatting.',
       'Preserve every fractured-pending-image: placeholder exactly as written; these represent images to upload after spellcheck.',
@@ -234,8 +254,26 @@
     ].join('\n');
   }
 
+  // Browser extension reloads invalidate APIs in scripts from already-open tabs.
+  // A lost context is not a spellcheck failure that can be written to storage.
+  function isExtensionContextInvalidated(error) {
+    if (/Extension context invalidated/i.test(String(error?.message ?? error ?? ''))) return true;
+    try {
+      return !chrome.runtime?.id;
+    } catch {
+      return true;
+    }
+  }
+
   async function writeJob(next) {
-    await chrome.storage.local.set({ [JOB_KEY]: next });
+    try {
+      if (isExtensionContextInvalidated()) return false;
+      await chrome.storage.local.set({ [JOB_KEY]: next });
+      return true;
+    } catch (error) {
+      if (isExtensionContextInvalidated(error)) return false;
+      throw error;
+    }
   }
 
   async function closeBridgeTab() {
@@ -247,11 +285,14 @@
   }
 
   async function run() {
-    const stored = await chrome.storage.local.get(JOB_KEY);
-    const job = stored[JOB_KEY];
-    if (!job || job.id !== jobId || job.status !== 'pending') return;
-
+    let job;
+    let started = false;
     try {
+      if (isExtensionContextInvalidated()) return;
+      const stored = await chrome.storage.local.get(JOB_KEY);
+      job = stored?.[JOB_KEY];
+      if (!job || job.id !== jobId || job.status !== 'pending') return;
+      started = true;
       const composer = await waitUntil(composerInput, COMPOSER_TIMEOUT_MS);
       if (!composer) throw new Error('ChatGPT composer was not available for Spellcheck Only.');
       if (!await activatePlugin(composer)) throw new Error('Fractured could not activate the Spellcheck Only plugin.');
@@ -276,17 +317,34 @@
         result,
       });
     } catch (error) {
-      await writeJob({
-        ...job,
-        status: 'error',
-        completedAt: Date.now(),
-        error: error?.message || 'Spellcheck Only failed.',
-      });
+      if (isExtensionContextInvalidated(error)) return;
+      if (job) {
+        try {
+          await writeJob({
+            ...job,
+            status: 'error',
+            completedAt: Date.now(),
+            error: error?.message || 'Spellcheck Only failed.',
+          });
+        } catch (storageError) {
+          if (!isExtensionContextInvalidated(storageError)) {
+            console.warn('Fractured could not save the Spellcheck Only error:', storageError);
+          }
+        }
+      } else {
+        console.warn('Fractured could not load the Spellcheck Only job:', error);
+      }
     } finally {
-      await pause(250);
-      await closeBridgeTab();
+      if (started && !isExtensionContextInvalidated()) {
+        await pause(250);
+        await closeBridgeTab();
+      }
     }
   }
 
-  void run();
+  void run().catch((error) => {
+    if (!isExtensionContextInvalidated(error)) {
+      console.error('Fractured spellcheck bridge failed:', error);
+    }
+  });
 })();

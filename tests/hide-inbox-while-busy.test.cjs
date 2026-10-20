@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const source = fs.readFileSync(path.join(__dirname, '../features/hide-inbox-while-busy.js'), 'utf8');
+const source = fs.readFileSync(path.join(__dirname, '../features/notifications/hide-inbox-while-busy.js'), 'utf8');
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 
 async function startFeature(fetch) {

@@ -6,6 +6,8 @@
   const BUTTON_BOUND = 'data-fractured-spellcheck-bound';
   const SIDEBAR_ID = 'fractured-spellcheck-sidebar';
   const STYLE_ID = 'fractured-spellcheck-styles';
+  const WRAP_KEY = 'spellcheckWrapDiffLines';
+  let wrapDiffLines = true;
 
   const TITLE_SELECTORS = [
     'input[name="issue[title]"]',
@@ -45,6 +47,13 @@
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
+      .fractured-spellcheck-actions {
+        align-items: center;
+        display: inline-flex;
+        gap: 8px;
+        margin-inline-end: 8px;
+        vertical-align: middle;
+      }
       .${BUTTON_CLASS}, .fractured-rounded-image-button {
         align-items: center;
         background: transparent;
@@ -56,7 +65,7 @@
         font-size: 14px;
         height: 32px;
         justify-content: center;
-        margin-right: 6px;
+        margin: 0;
         min-width: 32px;
         padding: 0 7px;
         vertical-align: middle;
@@ -124,10 +133,15 @@
         margin: 0;
         overflow: auto;
         padding: 8px;
-        white-space: pre;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
       }
+      #${SIDEBAR_ID}[data-wrap="false"] .fractured-spellcheck-diff { white-space: pre; overflow-wrap: normal; }
+      #${SIDEBAR_ID} .fractured-spellcheck-wrap { align-items: center; display: flex; gap: 5px; font-size: 12px; }
       #${SIDEBAR_ID} .fractured-diff-add { background: rgba(46,160,67,.15); display: block; }
       #${SIDEBAR_ID} .fractured-diff-del { background: rgba(248,81,73,.15); display: block; }
+      #${SIDEBAR_ID} .fractured-diff-add .fractured-diff-character { background: rgba(46,160,67,.4); border-radius: 2px; }
+      #${SIDEBAR_ID} .fractured-diff-del .fractured-diff-character { background: rgba(248,81,73,.4); border-radius: 2px; }
       #${SIDEBAR_ID} .fractured-diff-meta { color: var(--fgColor-accent, #0969da); display: block; }
       #${SIDEBAR_ID} .fractured-spellcheck-apply {
         margin-bottom: 10px;
@@ -164,8 +178,8 @@
   }
 
   function commentFields(scope, control) {
-    // Comment composers have a body but no title. Keep this path limited to PR pages.
-    if (!/^\/[^/]+\/[^/]+\/pull\/\d+(?:\/|$)/.test(location.pathname)
+    // Comment composers have a body but no title on both issue and PR pages.
+    if (!/^\/[^/]+\/[^/]+\/(?:issues|pull)\/\d+(?:\/|$)/.test(location.pathname)
       || !/\b(comment|reply|review)\b/i.test(controlText(control))) return null;
 
     let body = pickField(scope, COMMENT_SELECTORS);
@@ -183,10 +197,22 @@
 
   function scopeFor(control) {
     const direct = control.closest('form, [role="dialog"]');
-    if (direct && fieldsFor(direct, control)) return direct;
+    // Form/dialog controls must own their editor. Never fall through to an
+    // unrelated composer elsewhere on the issue or PR page.
+    if (direct) return fieldsFor(direct, control) ? direct : null;
 
-    for (let parent = control.parentElement; parent && parent !== document.body; parent = parent.parentElement) {
-      if (fieldsFor(parent, control)) return parent;
+    // Some GitHub composers do not use a form. Search only the nearby editor
+    // wrapper, and stop at published comment cards so their Reply/Comment
+    // menus cannot borrow the separate new-comment editor farther down.
+    const publishedComment = '.timeline-comment, .js-comment, .react-issue-comment, '
+      + '[data-testid="issue-comment"], [data-testid="comment-view"], [data-testid="comment-container"]';
+    let depth = 0;
+    for (let parent = control.parentElement;
+      parent && parent !== document.body && depth < 5;
+      parent = parent.parentElement, depth += 1) {
+      if (parent.matches?.(publishedComment)) break;
+      const fields = fieldsFor(parent, control);
+      if (fields && visible(fields.body)) return parent;
     }
     return null;
   }
@@ -199,7 +225,10 @@
 
   function isSubmitControl(control) {
     const text = controlText(control);
-    return /\b(create|submit|open|update|save|comment|reply|review)\b/i.test(text)
+    // "Comment actions", "Quote reply", etc. on published comments are not
+    // submission buttons; their text used to match the loose word search.
+    return (/^(create|submit|open|update|save)\b/i.test(text)
+      || /^(comment|reply|add single comment|start a review)$/i.test(text))
       && !/\b(cancel|preview|close)\b/i.test(text);
   }
 
@@ -229,17 +258,68 @@
 
     aside = document.createElement('aside');
     aside.id = SIDEBAR_ID;
+    aside.setAttribute('data-wrap', String(wrapDiffLines));
     aside.setAttribute('aria-live', 'polite');
     aside.innerHTML = `
       <div class="fractured-spellcheck-header">
         <strong>✨ Spellcheck Only</strong>
+        <label class="fractured-spellcheck-wrap"><input type="checkbox"> Wrap lines</label>
         <button class="fractured-spellcheck-close" type="button" aria-label="Close spellcheck changes">×</button>
       </div>
       <div class="fractured-spellcheck-content"></div>
     `;
     aside.querySelector('.fractured-spellcheck-close').addEventListener('click', () => aside.remove());
+    const wrapInput = aside.querySelector('.fractured-spellcheck-wrap input');
+    wrapInput.checked = wrapDiffLines;
+    wrapInput.addEventListener('change', () => {
+      setDiffWrap(wrapInput.checked);
+      void chrome.storage.local.set({ [WRAP_KEY]: wrapDiffLines });
+    });
     document.body.append(aside);
     return aside;
+  }
+
+  function setDiffWrap(enabled) {
+    wrapDiffLines = enabled !== false;
+    const aside = document.getElementById(SIDEBAR_ID);
+    if (!aside) return;
+    aside.setAttribute('data-wrap', String(wrapDiffLines));
+    aside.querySelector('.fractured-spellcheck-wrap input').checked = wrapDiffLines;
+  }
+
+  function changedCharacters(before, after) {
+    const a = Array.from(before);
+    const b = Array.from(after);
+    const removed = new Set();
+    const added = new Set();
+    let start = 0;
+    while (start < a.length && start < b.length && a[start] === b[start]) start += 1;
+    let endA = a.length;
+    let endB = b.length;
+    while (endA > start && endB > start && a[endA - 1] === b[endB - 1]) { endA -= 1; endB -= 1; }
+    const rows = endA - start;
+    const cols = endB - start;
+    // Bound memory for unusually large replacements while retaining shared edges.
+    if (rows * cols > 250000) {
+      for (let i = start; i < endA; i += 1) removed.add(i);
+      for (let j = start; j < endB; j += 1) added.add(j);
+      return { removed, added };
+    }
+    const table = Array.from({ length: rows + 1 }, () => new Uint32Array(cols + 1));
+    for (let i = rows - 1; i >= 0; i -= 1) {
+      for (let j = cols - 1; j >= 0; j -= 1) {
+        table[i][j] = a[start + i] === b[start + j]
+          ? table[i + 1][j + 1] + 1 : Math.max(table[i + 1][j], table[i][j + 1]);
+      }
+    }
+    let i = 0;
+    let j = 0;
+    while (i < rows || j < cols) {
+      if (i < rows && j < cols && a[start + i] === b[start + j]) { i += 1; j += 1; }
+      else if (j < cols && (i >= rows || table[i][j + 1] >= table[i + 1][j])) { added.add(start + j); j += 1; }
+      else { removed.add(start + i); i += 1; }
+    }
+    return { removed, added };
   }
 
   function lineClass(line) {
@@ -253,10 +333,46 @@
 
   function renderDiff(pre, text) {
     pre.replaceChildren();
-    for (const line of text.split('\n')) {
+    const lines = text.split('\n');
+    const highlights = new Map();
+    for (let i = 0; i < lines.length;) {
+      if (!/^fractured-diff-(add|del)$/.test(lineClass(lines[i]))) { i += 1; continue; }
+      const additions = [];
+      const deletions = [];
+      while (i < lines.length && /^fractured-diff-(add|del)$/.test(lineClass(lines[i]))) {
+        (lines[i][0] === '+' ? additions : deletions).push(i++);
+      }
+      for (let pair = 0; pair < Math.max(additions.length, deletions.length); pair += 1) {
+        const del = deletions[pair];
+        const add = additions[pair];
+        const { removed, added } = changedCharacters(del === undefined ? '' : lines[del].slice(1), add === undefined ? '' : lines[add].slice(1));
+        if (del !== undefined) highlights.set(del, removed);
+        if (add !== undefined) highlights.set(add, added);
+      }
+    }
+    for (const [index, line] of lines.entries()) {
       const span = document.createElement('span');
       span.className = lineClass(line);
-      span.textContent = `${line}\n`;
+      const changed = highlights.get(index);
+      if (changed?.size) {
+        span.append(document.createTextNode(line[0]));
+        let segment = '';
+        let marked = false;
+        const flush = () => {
+          if (!segment) return;
+          const part = document.createElement('span');
+          if (marked) part.className = 'fractured-diff-character';
+          part.textContent = segment;
+          span.append(part);
+          segment = '';
+        };
+        Array.from(line.slice(1)).forEach((character, offset) => {
+          if (changed.has(offset) !== marked) { flush(); marked = changed.has(offset); }
+          segment += character;
+        });
+        flush();
+        span.append(document.createTextNode('\n'));
+      } else span.textContent = `${line}\n`;
       pre.append(span);
     }
   }
@@ -350,9 +466,14 @@
   }
 
   function draftDiff(original, result, kind = 'draft') {
+    if (kind === 'comment') {
+      if (original.body === result.body) return '';
+      return lineOperations(original.body, result.body)
+        .map(([prefix, line]) => `${prefix}${line}`).join('\n');
+    }
     return [
-      kind === 'comment' ? '' : fileDiff('title.txt', original.title, result.title),
-      fileDiff(kind === 'comment' ? 'comment.md' : 'body.md', original.body, result.body),
+      fileDiff('title.txt', original.title, result.title),
+      fileDiff('body.md', original.body, result.body),
     ].filter(Boolean).join('\n');
   }
 
@@ -388,7 +509,7 @@
     control.disabled = true;
     control.textContent = '…';
     showSidebar({ status: fields.kind === 'comment'
-      ? 'Running Spellcheck Only on the comment…'
+      ? 'Correcting the comment…'
       : 'Running Spellcheck Only on the title and body…' });
 
     await chrome.storage.local.set({ [JOB_KEY]: job });
@@ -519,9 +640,22 @@
         attach.disabled = false;
       }
     });
-    control.before(attach);
-    control.before(picker);
-    control.before(button);
+    // Treat the two draft actions as one toolbar group. Match the native
+    // flex/grid gap when present; otherwise provide the same 8px gap before
+    // GitHub's submit control, without double-spacing in flex toolbars.
+    const actions = document.createElement('span');
+    actions.className = 'fractured-spellcheck-actions';
+    actions.append(attach, picker, button);
+    const layout = control.parentElement && typeof getComputedStyle === 'function'
+      ? getComputedStyle(control.parentElement) : null;
+    if (layout && /^(inline-)?(flex|grid)$/.test(layout.display)) {
+      const nativeGap = parseFloat(layout.columnGap);
+      if (nativeGap > 0) {
+        actions.style.gap = `${nativeGap}px`;
+        actions.style.marginInlineEnd = '0';
+      }
+    }
+    control.before(actions);
     // Prevent publishing provisional URLs, including with keyboard submission.
     const scope = scopeFor(control);
     scope?.addEventListener('submit', (event) => {
@@ -555,9 +689,11 @@
   }
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName !== 'local' || !changes[JOB_KEY]) return;
-    handleJob(changes[JOB_KEY].newValue);
+    if (areaName !== 'local') return;
+    if (changes[WRAP_KEY]) setDiffWrap(changes[WRAP_KEY].newValue);
+    if (changes[JOB_KEY]) handleJob(changes[JOB_KEY].newValue);
   });
+  chrome.storage.local?.get?.(WRAP_KEY).then((stored) => setDiffWrap(stored[WRAP_KEY]));
 
   const observer = new MutationObserver(scheduleScan);
   observer.observe(document.documentElement, { childList: true, subtree: true });

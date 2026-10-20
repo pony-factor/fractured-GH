@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const source = fs.readFileSync(
-  path.join(__dirname, '../features/profile-name-cache.js'), 'utf8',
+  path.join(__dirname, '../features/people/profile-name-cache.js'), 'utf8',
 );
 
 function startCache(storage, opts = {}) {

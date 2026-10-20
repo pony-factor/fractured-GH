@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const source = fs.readFileSync(
-  path.join(__dirname, '../features/owner-avatar-header.js'), 'utf8',
+  path.join(__dirname, '../features/people/owner-avatar-header.js'), 'utf8',
 );
 
 function harness(initiallyEnabled) {

@@ -4,7 +4,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const test = require('node:test');
 
-const source = fs.readFileSync(path.join(__dirname, '../features/relative-times.js'), 'utf8');
+const source = fs.readFileSync(path.join(__dirname, '../features/interface/relative-times.js'), 'utf8');
 
 function fixture(blockTooltips) {
   const updates = [];
