@@ -484,10 +484,45 @@
     });
   }
 
+  function previewIsSelected(scope) {
+    return [...scope.querySelectorAll('button, [role="tab"]')].some((tab) =>
+      /^Preview$/i.test(controlText(tab))
+      && (tab.getAttribute('aria-selected') === 'true'
+        || tab.getAttribute('aria-pressed') === 'true'
+        || tab.getAttribute('data-state') === 'active'
+        || tab.matches?.('[aria-current="page"], .selected, .active')));
+  }
+
+  async function writableFieldsFor(submitControl) {
+    let scope = scopeFor(submitControl) || submitControl.closest('form, [role="dialog"]');
+    if (!scope) return null;
+
+    let fields = fieldsFor(scope, submitControl);
+    if (fields && visible(fields.body) && !previewIsSelected(scope)) return fields;
+
+    // GitHub hides or replaces the Markdown textarea while Preview is open.
+    // Return to Write before reading it, so spelling is checked against the
+    // editable source rather than an absent or stale preview.
+    const writeTab = [...scope.querySelectorAll('button, [role="tab"], a')]
+      .find((tab) => /^Write$/i.test(controlText(tab)));
+    if (!writeTab) return fields && visible(fields.body) ? fields : null;
+
+    writeTab.click();
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      scope = scopeFor(submitControl) || submitControl.closest('form, [role="dialog"]') || scope;
+      fields = fieldsFor(scope, submitControl);
+      if (fields && visible(fields.body)) return fields;
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    }
+    return null;
+  }
+
   async function launchSpellcheck(control, submitControl) {
-    const scope = scopeFor(submitControl);
-    const fields = scope && fieldsFor(scope, submitControl);
-    if (!fields) return;
+    const fields = await writableFieldsFor(submitControl);
+    if (!fields) {
+      showSidebar({ status: 'Switch to Write to spellcheck this draft.', error: true });
+      return;
+    }
 
     const original = {
       title: fields.title?.value ?? '',
