@@ -159,7 +159,7 @@ test('preserves spellcheck on issue title and description drafts', () => {
     draft: true,
   });
   assert.equal(app.enhancers.length, 1);
-  assert.equal(app.enhancers[0].title, 'Enhance title and body with Spellcheck Only');
+  assert.equal(app.enhancers[0].title, 'Spellcheck title and body; generate a title if blank');
 });
 
 test('adds spellcheck to an existing issue comment', () => {
