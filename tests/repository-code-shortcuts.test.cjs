@@ -8,7 +8,12 @@ const source = fs.readFileSync(path.join(__dirname,
   '../features/repository-code-shortcuts.js'), 'utf8');
 
 function setup(pathname = '/pony-factor/fractured-GH') {
-  const location = { origin: 'https://github.com', pathname };
+  const navigations = [];
+  const location = {
+    origin: 'https://github.com', pathname,
+    get href() { return this.origin + this.pathname; },
+    assign(url) { navigations.push(url); },
+  };
   const settings = {
     openCodeInVsCodeWeb: true,
     hideRepositoryTagsShortcut: true,
@@ -98,8 +103,7 @@ function setup(pathname = '/pony-factor/fractured-GH') {
     },
   });
   async function settle() {
-    await Promise.resolve();
-    await Promise.resolve();
+    await new Promise(resolve => setImmediate(resolve));
     while (frames.length) frames.shift()();
   }
   function click(target) {
@@ -111,8 +115,19 @@ function setup(pathname = '/pony-factor/fractured-GH') {
     });
     return { prevented, stopped };
   }
+  function keydown(overrides = {}) {
+    let prevented = false, stopped = false;
+    events.keydown({
+      key: '.', target: code,
+      preventDefault() { prevented = true; },
+      stopImmediatePropagation() { stopped = true; },
+      ...overrides,
+    });
+    return { prevented, stopped };
+  }
   return {
     code, tag, warning, unrelated, settings, location, opens, click, settle,
+    keydown, navigations,
     async changeSettings() {
       onStorageChange({ openCodeInVsCodeWeb: {}, hideRepositoryTagsShortcut: {},
         hideUnprotectedBranchWarning: {} }, 'local');
@@ -131,6 +146,40 @@ test('Code opens vscode.dev instead of the GitHub dropdown', async () => {
     'https://vscode.dev/github/pony-factor/fractured-GH', '_blank', 'noopener,noreferrer',
   ]);
   assert.deepEqual(app.click(app.unrelated), { prevented: false, stopped: false });
+});
+
+test('period opens the current repository, branch, file or PR in github.dev', async () => {
+  for (const pathname of ['/pony-factor/fractured-GH',
+    '/pony-factor/fractured-GH/tree/my-branch',
+    '/pony-factor/fractured-GH/blob/main/README.md?plain=1#L12',
+    '/pony-factor/fractured-GH/pull/42']) {
+    const app = setup(pathname);
+    await app.settle();
+    assert.deepEqual(app.keydown(), { prevented: true, stopped: true });
+    assert.deepEqual(app.navigations, ['https://github.dev' + pathname]);
+    assert.equal(app.opens.length, 0);
+  }
+});
+
+test('period leaves typing, modified keys, disabled settings and other pages alone', async () => {
+  const app = setup();
+  await app.settle();
+  for (const overrides of [
+    { target: { closest() { return {}; } } },
+    { target: { isContentEditable: true } },
+    { target: app.code, composedPath() { return [{ isContentEditable: true }]; } },
+    { ctrlKey: true }, { metaKey: true }, { altKey: true }, { shiftKey: true },
+    { repeat: true }, { isComposing: true }, { defaultPrevented: true }, { key: 'a' },
+  ]) {
+    assert.deepEqual(app.keydown(overrides), { prevented: false, stopped: false });
+  }
+  app.location.pathname = '/pony-factor/fractured-GH-other';
+  assert.deepEqual(app.keydown(), { prevented: false, stopped: false });
+  app.location.pathname = '/pony-factor/fractured-GH';
+  app.settings.openCodeInVsCodeWeb = false;
+  await app.changeSettings();
+  assert.deepEqual(app.keydown(), { prevented: false, stopped: false });
+  assert.deepEqual(app.navigations, []);
 });
 
 test('hides only the tag icon and the unprotected-branch banner', async () => {

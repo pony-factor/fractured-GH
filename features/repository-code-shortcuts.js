@@ -12,12 +12,14 @@
   let settings = { ...DEFAULTS };
   let scheduled = false;
 
-  function currentRepository() {
+  function currentRepository(codeOnly = true) {
     const repository = document.querySelector('meta[name="octolytics-dimension-repository_nwo"]')
       ?.getAttribute('content');
     if (!repository || !/^[\w.-]+\/[\w.-]+$/.test(repository)) return null;
     const prefix = '/' + repository.toLowerCase();
     const pathname = location.pathname.replace(/\/+$/, '').toLowerCase();
+    if (!codeOnly) return pathname === prefix || pathname.startsWith(prefix + '/')
+      ? repository : null;
     if (pathname !== prefix && !pathname.startsWith(prefix + '/tree/')
       && !pathname.startsWith(prefix + '/blob/')) return null;
     return repository;
@@ -108,6 +110,25 @@
     event.preventDefault();
     event.stopImmediatePropagation();
     window.open('https://vscode.dev/github/' + repository, '_blank', 'noopener,noreferrer');
+  }, true);
+
+  // Use the character rather than a physical key code so alternate keyboard
+  // layouts can open the editor too. Keep the current branch/file/PR URL.
+  document.addEventListener('keydown', event => {
+    if (!settings.openCodeInVsCodeWeb || event.key !== '.' || event.ctrlKey
+      || event.metaKey || event.altKey || event.shiftKey || event.repeat
+      || event.isComposing || event.defaultPrevented) return;
+    const target = event.composedPath?.()[0] || event.target;
+    if (target?.isContentEditable || target?.closest?.(
+      'input, textarea, select, [contenteditable]:not([contenteditable="false"]), '
+      + '[role="textbox"], [role="combobox"], .monaco-editor, .cm-editor',
+    )) return;
+    if (!currentRepository(false)) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const url = new URL(location.href);
+    url.hostname = 'github.dev';
+    location.assign(url.href);
   }, true);
 
   const style = document.createElement('style');
