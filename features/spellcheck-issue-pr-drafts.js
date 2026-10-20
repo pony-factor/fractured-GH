@@ -388,7 +388,7 @@
     control.disabled = true;
     control.textContent = '…';
     showSidebar({ status: fields.kind === 'comment'
-      ? 'Running Spellcheck Only on the comment…'
+      ? 'Correcting the comment…'
       : 'Running Spellcheck Only on the title and body…' });
 
     await chrome.storage.local.set({ [JOB_KEY]: job });
