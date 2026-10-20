@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const source = fs.readFileSync(
-  path.join(__dirname, '../features/hide-unused-repository-tabs.js'), 'utf8',
+  path.join(__dirname, '../features/repositories/hide-unused-repository-tabs.js'), 'utf8',
 );
 
 function makeLink(label, route, owner = 'pony-factor', repo = 'fractured-GH') {

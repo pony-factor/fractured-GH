@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const source = fs.readFileSync(path.join(__dirname, '../features/user-nicknames.js'), 'utf8');
+const source = fs.readFileSync(path.join(__dirname, '../features/people/user-nicknames.js'), 'utf8');
 
 test('profile nickname applies synchronously without a cached or fetched display name', () => {
   const original = { textContent: ' New GitHub Name ' };

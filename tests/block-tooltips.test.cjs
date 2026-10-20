@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const source = fs.readFileSync(
-  path.join(__dirname, '../features/block-tooltips.js'), 'utf8',
+  path.join(__dirname, '../features/interface/block-tooltips.js'), 'utf8',
 );
 
 class FakeElement {
