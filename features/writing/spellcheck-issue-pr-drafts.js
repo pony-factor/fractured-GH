@@ -8,6 +8,8 @@
   const STYLE_ID = 'fractured-spellcheck-styles';
   const WRAP_KEY = 'spellcheckWrapDiffLines';
   let wrapDiffLines = true;
+  let sidebarUrl = null;
+  let sidebarFields = null;
 
   const TITLE_SELECTORS = [
     'input[name="issue[title]"]',
@@ -268,7 +270,7 @@
       </div>
       <div class="fractured-spellcheck-content"></div>
     `;
-    aside.querySelector('.fractured-spellcheck-close').addEventListener('click', () => aside.remove());
+    aside.querySelector('.fractured-spellcheck-close').addEventListener('click', dismissSidebar);
     const wrapInput = aside.querySelector('.fractured-spellcheck-wrap input');
     wrapInput.checked = wrapDiffLines;
     wrapInput.addEventListener('change', () => {
@@ -377,7 +379,26 @@
     }
   }
 
+  function dismissSidebar() {
+    document.getElementById(SIDEBAR_ID)?.remove();
+    sidebarUrl = null;
+    sidebarFields = null;
+    activeJob = null;
+    activeFields = null;
+    resetEnhancerButtons();
+  }
+
+  function checkSidebarContext() {
+    if (sidebarUrl === null) return;
+    if (sidebarUrl !== location.href || (sidebarFields && (
+      !sidebarFields.body.isConnected
+      || (sidebarFields.title && !sidebarFields.title.isConnected)
+      || (!sidebarFields.body.value && !sidebarFields.title?.value)
+    ))) dismissSidebar();
+  }
+
   function showSidebar({ status, diff = '', error = false, apply = null }) {
+    sidebarUrl = location.href;
     const aside = sidebar();
     const content = aside.querySelector('.fractured-spellcheck-content');
     content.replaceChildren();
@@ -498,6 +519,7 @@
 
     activeJob = job;
     activeFields = fields;
+    sidebarFields = fields;
     control.disabled = true;
     control.textContent = '…';
     showSidebar({ status: fields.kind === 'comment'
@@ -562,6 +584,8 @@
     setControlValue(activeFields.body, result.body);
     try {
       const uploaded = await images?.finalize(activeFields.body) || 0;
+      checkSidebarContext();
+      if (activeJob?.id !== job.id) return;
       if (images?.hasUnresolved(activeFields.body)) {
         throw new Error('One or more image placeholders still need their original files; attach them again before submitting.');
       }
@@ -570,6 +594,7 @@
         diff,
       });
     } catch (error) {
+      if (activeJob?.id !== job.id) return;
       showSidebar({
         status: `Spellcheck applied, but image upload was not completed: ${error.message}`,
         error: true, diff,
@@ -579,6 +604,7 @@
   }
 
   function handleJob(job) {
+    checkSidebarContext();
     if (!activeJob || !job || job.id !== activeJob.id) return;
     if (job.status === 'complete') {
       void applyResult(job);
@@ -619,6 +645,7 @@
     attach.setAttribute('aria-label', attach.title);
     attach.addEventListener('click', () => picker.click());
     picker.addEventListener('change', async () => {
+      sidebarFields = fields;
       attach.disabled = true;
       try {
         for (const file of Array.from(picker.files || [])) {
@@ -659,6 +686,7 @@
   }
 
   function scan() {
+    checkSidebarContext();
     injectStyles();
     const controls = document.querySelectorAll('button, input[type="submit"]');
     for (const control of controls) {
@@ -691,6 +719,14 @@
   observer.observe(document.documentElement, { childList: true, subtree: true });
   document.addEventListener('turbo:load', scheduleScan);
   document.addEventListener('pjax:end', scheduleScan);
+  document.addEventListener('turbo:before-cache', dismissSidebar);
+  document.addEventListener('turbo:submit-end', (event) => {
+    if (event.detail?.success && sidebarFields
+      && event.target.contains(sidebarFields.body)) dismissSidebar();
+  });
+  document.addEventListener('input', scheduleScan, true);
+  document.addEventListener('change', scheduleScan, true);
   window.addEventListener('popstate', scheduleScan);
+  window.addEventListener('pagehide', dismissSidebar);
   scan();
 })();
