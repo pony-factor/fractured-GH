@@ -162,11 +162,21 @@ test('preserves spellcheck on issue title and description drafts', () => {
   assert.equal(app.enhancers[0].title, 'Enhance title and body with Spellcheck Only');
 });
 
-test('does not add comment-only spellcheck to issues or unrelated actions', () => {
+test('adds spellcheck to an existing issue comment', () => {
   const issue = setup({ pathname: '/pony-factor/fractured-GH/issues/51' });
+  assert.equal(issue.enhancers.length, 1);
+  assert.equal(issue.enhancers[0].title, 'Spellcheck this comment');
+  issue.events['turbo:load']();
+  assert.equal(issue.enhancers.length, 1);
+});
+
+test('does not add comment-only spellcheck to unrelated pages or actions', () => {
+  const unrelated = setup({ pathname: '/pony-factor/fractured-GH/discussions/51' });
   const cancel = setup({ pathname: '/pony-factor/fractured-GH/pull/51', submit: 'Cancel' });
-  assert.equal(issue.enhancers.length, 0);
+  const close = setup({ pathname: '/pony-factor/fractured-GH/issues/51', submit: 'Close with comment' });
+  assert.equal(unrelated.enhancers.length, 0);
   assert.equal(cancel.enhancers.length, 0);
+  assert.equal(close.enhancers.length, 0);
 });
 
 test('never adds draft controls to published comment headers or their reply menus', () => {
