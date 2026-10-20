@@ -168,7 +168,10 @@
   }
 
   function assistantMessages() {
-    return [...document.querySelectorAll('[data-message-author-role="assistant"]')];
+    const legacy = [...document.querySelectorAll('[data-message-author-role="assistant"]')];
+    if (legacy.length) return legacy;
+    return [...document.querySelectorAll('[data-conversation-role="assistant"]')]
+      .map((heading) => heading.parentElement);
   }
 
   function latestAssistantText(afterCount) {
@@ -179,20 +182,37 @@
   }
 
   async function waitForResponse(afterCount) {
-    const deadline = Date.now() + RESPONSE_TIMEOUT_MS;
-    let last = '';
-    let stableSince = 0;
-
-    while (Date.now() < deadline) {
-      const text = latestAssistantText(afterCount).trim();
-      if (text !== last) {
-        last = text;
-        stableSince = Date.now();
-      }
-      if (text && !stopButton() && Date.now() - stableSince >= 1200) return text;
-      await pause(250);
-    }
-    throw new Error('Spellcheck Only did not return a response in time.');
+    // Background tabs throttle polling timers. Observe the streamed response so
+    // a completed result is collected while the user stays on GitHub.
+    return new Promise((resolve, reject) => {
+      let timeout;
+      const finish = (text) => {
+        observer.disconnect();
+        window.clearTimeout(timeout);
+        resolve(text);
+      };
+      const check = () => {
+        const text = latestAssistantText(afterCount).trim();
+        if (!text) return;
+        try {
+          // A complete JSON object is the response contract; partial streamed
+          // text must never be applied to the original editor.
+          parseResult(text);
+          finish(text);
+        } catch {
+          // Keep observing until the JSON response is complete.
+        }
+      };
+      const observer = new MutationObserver(check);
+      observer.observe(document.documentElement, {
+        childList: true, subtree: true, characterData: true,
+      });
+      timeout = window.setTimeout(() => {
+        observer.disconnect();
+        reject(new Error('Spellcheck Only did not return a response in time.'));
+      }, RESPONSE_TIMEOUT_MS);
+      check();
+    });
   }
 
   function parseResult(text) {
@@ -225,7 +245,7 @@
     });
     return [
       job.kind === 'comment'
-        ? 'Spellcheck this GitHub pull request comment.'
+        ? 'Spellcheck this GitHub issue or pull request comment.'
         : 'Spellcheck this GitHub issue or pull request draft.',
       'Correct spelling, capitalization, punctuation, and grammar only. Preserve meaning, Markdown, links, code, identifiers, and formatting.',
       'Preserve every fractured-pending-image: placeholder exactly as written; these represent images to upload after spellcheck.',
