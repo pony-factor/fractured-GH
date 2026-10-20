@@ -234,8 +234,26 @@
     ].join('\n');
   }
 
+  // Browser extension reloads invalidate APIs in scripts from already-open tabs.
+  // A lost context is not a spellcheck failure that can be written to storage.
+  function isExtensionContextInvalidated(error) {
+    if (/Extension context invalidated/i.test(String(error?.message ?? error ?? ''))) return true;
+    try {
+      return !chrome.runtime?.id;
+    } catch {
+      return true;
+    }
+  }
+
   async function writeJob(next) {
-    await chrome.storage.local.set({ [JOB_KEY]: next });
+    try {
+      if (isExtensionContextInvalidated()) return false;
+      await chrome.storage.local.set({ [JOB_KEY]: next });
+      return true;
+    } catch (error) {
+      if (isExtensionContextInvalidated(error)) return false;
+      throw error;
+    }
   }
 
   async function closeBridgeTab() {
@@ -247,11 +265,14 @@
   }
 
   async function run() {
-    const stored = await chrome.storage.local.get(JOB_KEY);
-    const job = stored[JOB_KEY];
-    if (!job || job.id !== jobId || job.status !== 'pending') return;
-
+    let job;
+    let started = false;
     try {
+      if (isExtensionContextInvalidated()) return;
+      const stored = await chrome.storage.local.get(JOB_KEY);
+      job = stored?.[JOB_KEY];
+      if (!job || job.id !== jobId || job.status !== 'pending') return;
+      started = true;
       const composer = await waitUntil(composerInput, COMPOSER_TIMEOUT_MS);
       if (!composer) throw new Error('ChatGPT composer was not available for Spellcheck Only.');
       if (!await activatePlugin(composer)) throw new Error('Fractured could not activate the Spellcheck Only plugin.');
@@ -276,17 +297,34 @@
         result,
       });
     } catch (error) {
-      await writeJob({
-        ...job,
-        status: 'error',
-        completedAt: Date.now(),
-        error: error?.message || 'Spellcheck Only failed.',
-      });
+      if (isExtensionContextInvalidated(error)) return;
+      if (job) {
+        try {
+          await writeJob({
+            ...job,
+            status: 'error',
+            completedAt: Date.now(),
+            error: error?.message || 'Spellcheck Only failed.',
+          });
+        } catch (storageError) {
+          if (!isExtensionContextInvalidated(storageError)) {
+            console.warn('Fractured could not save the Spellcheck Only error:', storageError);
+          }
+        }
+      } else {
+        console.warn('Fractured could not load the Spellcheck Only job:', error);
+      }
     } finally {
-      await pause(250);
-      await closeBridgeTab();
+      if (started && !isExtensionContextInvalidated()) {
+        await pause(250);
+        await closeBridgeTab();
+      }
     }
   }
 
-  void run();
+  void run().catch((error) => {
+    if (!isExtensionContextInvalidated(error)) {
+      console.error('Fractured spellcheck bridge failed:', error);
+    }
+  });
 })();
