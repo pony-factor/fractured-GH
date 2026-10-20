@@ -350,9 +350,14 @@
   }
 
   function draftDiff(original, result, kind = 'draft') {
+    if (kind === 'comment') {
+      if (original.body === result.body) return '';
+      return lineOperations(original.body, result.body)
+        .map(([prefix, line]) => `${prefix}${line}`).join('\n');
+    }
     return [
-      kind === 'comment' ? '' : fileDiff('title.txt', original.title, result.title),
-      fileDiff(kind === 'comment' ? 'comment.md' : 'body.md', original.body, result.body),
+      fileDiff('title.txt', original.title, result.title),
+      fileDiff('body.md', original.body, result.body),
     ].filter(Boolean).join('\n');
   }
 
