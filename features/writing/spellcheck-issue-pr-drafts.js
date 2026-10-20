@@ -323,7 +323,7 @@
   }
 
   function lineClass(line) {
-    if (line.startsWith('+++') || line.startsWith('---') || line.startsWith('diff --git') || line.startsWith('@@')) {
+    if (line === 'Title' || line === 'Body') {
       return 'fractured-diff-meta';
     }
     if (line.startsWith('+')) return 'fractured-diff-add';
@@ -453,16 +453,8 @@
 
   function fileDiff(name, before, after) {
     if (String(before ?? '') === String(after ?? '')) return '';
-    const oldLines = splitLines(before);
-    const newLines = splitLines(after);
-    const header = [
-      `diff --git a/${name} b/${name}`,
-      `--- a/${name}`,
-      `+++ b/${name}`,
-      `@@ -1,${oldLines.length} +1,${newLines.length} @@`,
-    ];
     const body = lineOperations(before, after).map(([prefix, line]) => `${prefix}${line}`);
-    return [...header, ...body].join('\n');
+    return [name, ...body].join('\n');
   }
 
   function draftDiff(original, result, kind = 'draft') {
@@ -472,8 +464,8 @@
         .map(([prefix, line]) => `${prefix}${line}`).join('\n');
     }
     return [
-      fileDiff('title.txt', original.title, result.title),
-      fileDiff('body.md', original.body, result.body),
+      fileDiff('Title', original.title, result.title),
+      fileDiff('Body', original.body, result.body),
     ].filter(Boolean).join('\n');
   }
 
