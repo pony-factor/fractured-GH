@@ -149,3 +149,21 @@ test('a removed placeholder is not uploaded or appended to the final draft', asy
   assert.equal(await app.api.finalize(app.editor), 0);
   assert.equal(app.uploadCount, 0);
 });
+
+test('undo can re-stage rounded files after spellcheck finalized their URLs', async () => {
+  const app = setup();
+  await app.api.add(app.editor, { name: 'Screenshot.jpg', type: 'image/jpeg' });
+  const original = app.editor.value;
+  const staged = app.api.snapshotPending(app.editor);
+  assert.equal(staged.length, 1);
+
+  assert.equal(await app.api.finalize(app.editor), 1);
+  assert.equal(app.api.snapshotPending(app.editor).length, 0);
+
+  app.editor.value = original;
+  app.api.restorePending(app.editor, staged);
+  assert.equal(app.api.snapshotPending(app.editor).length, 1);
+  assert.equal(await app.api.finalize(app.editor), 1, 'restored files can be uploaded again');
+  assert.equal(app.uploadCount, 2);
+  assert.equal(app.api.hasUnresolved(app.editor), false);
+});
