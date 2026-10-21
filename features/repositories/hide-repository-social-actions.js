@@ -59,11 +59,13 @@
       }
     }
 
-    // On private repositories, GitHub can render Fork as a disabled control
-    // outside the normal action group. Honor the Fork visibility preference.
+    // A disabled Fork can be a tooltip-trigger button rather than a native
+    // disabled button, and newer headers can sit outside the legacy container.
     if (settings.hideRepositoryFork ?? settings.hideRepositorySocialActions) {
       for (const control of document.querySelectorAll(
-        '#repository-container-header button:disabled, #repository-container-header [aria-disabled="true"]',
+        '#repository-container-header button, #repository-container-header [role="button"], '
+        + '[data-testid="repo-header-actions"] button, [class*="RepoHeaderActions"] button, '
+        + '#fork-button, button[aria-label*="fork" i], [role="button"][aria-label*="fork" i]',
       )) {
         const labels = [
           control.getAttribute('aria-label'),
