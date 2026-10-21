@@ -189,6 +189,20 @@
     return uploaded;
   }
 
+  function snapshotPending(editor) {
+    return [...pending.entries()]
+      .filter(([, item]) => item.editor === editor && editor.value.includes(item.token))
+      .map(([id, item]) => ({ id, item }));
+  }
+
+  function restorePending(editor, snapshot = []) {
+    for (const { id, item } of snapshot) {
+      if (item.editor === editor && editor.value.includes(item.token)) {
+        pending.set(id, { ...item, status: 'pending' });
+      }
+    }
+  }
+
   function hasUnresolved(editor) {
     return markers(editor.value).length > 0;
   }
@@ -201,6 +215,6 @@
   }
 
   globalThis.fracturedSpellcheckImages = {
-    add, finalize, validate, hasUnresolved, preventUnresolvedSubmission,
+    add, finalize, validate, snapshotPending, restorePending, hasUnresolved, preventUnresolvedSubmission,
   };
 })();
