@@ -628,6 +628,15 @@
     };
     const unchanged = current.title === original.title && current.body === original.body;
     const diff = draftDiff(original, result, activeJob.kind);
+    const links = globalThis.fracturedSpellcheckLinks;
+    if (!links?.sameLinks(original, result)) {
+      showSidebar({
+        status: 'Spellcheck changed or added a Markdown link or URL. No changes were applied to your draft.',
+        error: true, diff,
+      });
+      resetEnhancerButtons();
+      return;
+    }
     const images = globalThis.fracturedSpellcheckImages;
     if (images && !images.validate(original.body, result.body)) {
       showSidebar({
