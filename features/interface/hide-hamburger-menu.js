@@ -13,7 +13,10 @@
     style.textContent = `
       :is(.AppHeader, header[role="banner"], header.GlobalNav,
           [aria-label="Global navigation menu"], [data-component="AppHeader"], #global-nav)
-      :is(button, [role="button"]):is([aria-label="Open menu"], [aria-label="Open global navigation menu"]) {
+      :is(button, [role="button"]):is(
+        [aria-label="Open menu"], [aria-label="Open global navigation menu"],
+        :has(svg.octicon-three-bars)
+      ) {
         display: none !important;
       }
     `;
