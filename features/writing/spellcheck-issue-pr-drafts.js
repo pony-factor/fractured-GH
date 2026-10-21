@@ -590,7 +590,9 @@
     control.textContent = '…';
     showSidebar({ status: fields.kind === 'comment'
       ? 'Correcting the comment…'
-      : 'Running Spellcheck Only on the title and body…' });
+      : !original.title.trim() && original.body.trim()
+        ? 'Generating a title and proofreading the body…'
+        : 'Running Spellcheck Only on the title and body…' });
 
     await chrome.storage.local.set({ [JOB_KEY]: job });
     try {
@@ -616,6 +618,15 @@
     if (!result || typeof result.title !== 'string' || typeof result.body !== 'string') return;
     const fields = activeFields;
     const original = activeJob.original;
+    if (fields.title && !original.title.trim()
+      && original.body.trim() && !result.title.trim()) {
+      showSidebar({
+        status: 'ChatGPT did not generate a title. The GitHub draft was left unchanged.',
+        error: true,
+      });
+      resetEnhancerButtons();
+      return;
+    }
 
     if (!fields.body.isConnected || (fields.title && !fields.title.isConnected)) {
       showSidebar({ status: 'The original editor was closed before spellcheck finished. No changes were applied.', error: true });
@@ -703,7 +714,7 @@
     button.textContent = '✨';
     button.title = fields.kind === 'comment'
       ? 'Spellcheck this comment'
-      : 'Enhance title and body with Spellcheck Only';
+      : 'Spellcheck title and body; generate a title if blank';
     button.setAttribute('aria-label', button.title);
     button.addEventListener('click', () => void launchSpellcheck(button, control));
     // Stage rounded images in the same editor; no network upload happens while
