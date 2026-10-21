@@ -19,6 +19,12 @@
   font-weight: 400;
 }
 
+/* Include the PR reviewer heading and identities, including suggestions. */
+form[aria-label="Select reviewers"],
+form[aria-label="Select reviewers"] :is(a, span, strong, button) {
+  font-family: "Celestia Medium Redux", "Mona Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+
 /* Give the repository name beside the owner avatar more prominence. */
 :is(
   .AppHeader-context-item-label,
