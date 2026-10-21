@@ -19,6 +19,7 @@ const hideRepositoryForkInput = document.getElementById('hide-repository-fork');
 const hideRepositoryPinsInput = document.getElementById('hide-repository-pins');
 const hideRepositoryOverviewNameInput = document.getElementById('hide-repository-overview-name');
 const hideMyNavigationLinksInput = document.getElementById('hide-my-navigation-links');
+const hideHamburgerMenuInput = document.getElementById('hide-hamburger-menu');
 const hideSuggestedWorkflowsInput = document.getElementById('hide-suggested-workflows');
 const hideRepositoryLanguagesInput = document.getElementById('hide-repository-languages');
 const hideRepositoryInsightsInput = document.getElementById('hide-repository-insights');
@@ -341,6 +342,7 @@ async function loadSettings() {
     hideRepositoryPins: true,
     hideRepositoryOverviewName: false,
     hideMyNavigationLinks: false,
+    hideHamburgerMenu: false,
     hideSuggestedWorkflows: false,
     hideRepositoryLanguages: false,
     hideRepositoryInsights: false,
@@ -377,6 +379,7 @@ async function loadSettings() {
   hideRepositoryPinsInput.checked = Boolean(settings.hideRepositoryPins);
   hideRepositoryOverviewNameInput.checked = Boolean(settings.hideRepositoryOverviewName);
   hideMyNavigationLinksInput.checked = Boolean(settings.hideMyNavigationLinks);
+  hideHamburgerMenuInput.checked = Boolean(settings.hideHamburgerMenu);
   hideSuggestedWorkflowsInput.checked = Boolean(settings.hideSuggestedWorkflows);
   hideRepositoryLanguagesInput.checked = Boolean(settings.hideRepositoryLanguages);
   hideRepositoryInsightsInput.checked = Boolean(settings.hideRepositoryInsights);
@@ -447,6 +450,7 @@ async function saveSettings() {
     hideRepositoryPins: hideRepositoryPinsInput.checked,
     hideRepositoryOverviewName: hideRepositoryOverviewNameInput.checked,
     hideMyNavigationLinks: hideMyNavigationLinksInput.checked,
+    hideHamburgerMenu: hideHamburgerMenuInput.checked,
     hideSuggestedWorkflows: hideSuggestedWorkflowsInput.checked,
     hideRepositoryLanguages: hideRepositoryLanguagesInput.checked,
     hideRepositoryInsights: hideRepositoryInsightsInput.checked,
@@ -488,6 +492,7 @@ hideRepositoryForkInput.addEventListener('change', () => void saveSettings());
 hideRepositoryPinsInput.addEventListener('change', () => void saveSettings());
 hideRepositoryOverviewNameInput.addEventListener('change', () => void saveSettings());
 hideMyNavigationLinksInput.addEventListener('change', () => void saveSettings());
+hideHamburgerMenuInput.addEventListener('change', () => void saveSettings());
 hideSuggestedWorkflowsInput.addEventListener('change', () => void saveSettings());
 hideRepositoryLanguagesInput.addEventListener('change', () => void saveSettings());
 hideRepositoryInsightsInput.addEventListener('change', () => void saveSettings());

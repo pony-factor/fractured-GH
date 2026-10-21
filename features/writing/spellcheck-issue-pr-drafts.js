@@ -119,10 +119,24 @@
         overflow: auto;
         padding: 10px 12px 12px;
       }
+      #${SIDEBAR_ID} .fractured-spellcheck-status-row {
+        align-items: center;
+        display: flex;
+        gap: 8px;
+        justify-content: space-between;
+        margin-bottom: 9px;
+      }
       #${SIDEBAR_ID} .fractured-spellcheck-status {
         color: var(--fgColor-muted, #59636e);
+        flex: 1;
         font-size: 12px;
-        margin: 0 0 9px;
+        margin: 0;
+        min-width: 0;
+      }
+      #${SIDEBAR_ID} .fractured-spellcheck-undo {
+        flex-shrink: 0;
+        font-size: 12px;
+        padding: 2px 8px;
       }
       #${SIDEBAR_ID} .fractured-spellcheck-error { color: var(--fgColor-danger, #cf222e); }
       #${SIDEBAR_ID} .fractured-spellcheck-diff {
@@ -377,15 +391,27 @@
     }
   }
 
-  function showSidebar({ status, diff = '', error = false, apply = null }) {
+  function showSidebar({ status, diff = '', error = false, apply = null, undo = null }) {
     const aside = sidebar();
     const content = aside.querySelector('.fractured-spellcheck-content');
     content.replaceChildren();
 
+    const statusRow = document.createElement('div');
+    statusRow.className = 'fractured-spellcheck-status-row';
     const statusNode = document.createElement('p');
     statusNode.className = `fractured-spellcheck-status${error ? ' fractured-spellcheck-error' : ''}`;
     statusNode.textContent = status;
-    content.append(statusNode);
+    statusRow.append(statusNode);
+    if (undo) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'Button--secondary Button--small fractured-spellcheck-undo';
+      button.textContent = 'Undo';
+      button.title = 'Restore the draft as it was before spellcheck';
+      button.addEventListener('click', undo);
+      statusRow.append(button);
+    }
+    content.append(statusRow);
 
     if (apply) {
       const button = document.createElement('button');
@@ -477,6 +503,25 @@
     ].filter(Boolean).join('\n');
   }
 
+  function undoSpellcheck(fields, original, applied, pendingImages) {
+    if (!fields.body.isConnected || (fields.title && !fields.title.isConnected)) {
+      showSidebar({ status: 'Cannot undo: the original editor is no longer open.', error: true });
+      return;
+    }
+    const changedAfter = (fields.title?.value ?? '') !== applied.title
+      || fields.body.value !== applied.body;
+    if (changedAfter && !window.confirm(
+      'You edited the draft after spellcheck. Undo will also discard those newer edits. Restore the original draft?',
+    )) return;
+
+    if (fields.title) setControlValue(fields.title, original.title);
+    setControlValue(fields.body, original.body);
+    // Finalized images no longer have active staging entries. Restore their
+    // rounded files so original pending-image placeholders remain usable.
+    globalThis.fracturedSpellcheckImages?.restorePending?.(fields.body, pendingImages);
+    showSidebar({ status: 'Undid spellcheck. Restored the original draft.' });
+  }
+
   function resetEnhancerButtons() {
     document.querySelectorAll(`.${BUTTON_CLASS}`).forEach((button) => {
       button.disabled = false;
@@ -484,10 +529,45 @@
     });
   }
 
+  function previewIsSelected(scope) {
+    return [...scope.querySelectorAll('button, [role="tab"]')].some((tab) =>
+      /^Preview$/i.test(controlText(tab))
+      && (tab.getAttribute('aria-selected') === 'true'
+        || tab.getAttribute('aria-pressed') === 'true'
+        || tab.getAttribute('data-state') === 'active'
+        || tab.matches?.('[aria-current="page"], .selected, .active')));
+  }
+
+  async function writableFieldsFor(submitControl) {
+    let scope = scopeFor(submitControl) || submitControl.closest('form, [role="dialog"]');
+    if (!scope) return null;
+
+    let fields = fieldsFor(scope, submitControl);
+    if (fields && visible(fields.body) && !previewIsSelected(scope)) return fields;
+
+    // GitHub hides or replaces the Markdown textarea while Preview is open.
+    // Return to Write before reading it, so spelling is checked against the
+    // editable source rather than an absent or stale preview.
+    const writeTab = [...scope.querySelectorAll('button, [role="tab"], a')]
+      .find((tab) => /^Write$/i.test(controlText(tab)));
+    if (!writeTab) return fields && visible(fields.body) ? fields : null;
+
+    writeTab.click();
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      scope = scopeFor(submitControl) || submitControl.closest('form, [role="dialog"]') || scope;
+      fields = fieldsFor(scope, submitControl);
+      if (fields && visible(fields.body)) return fields;
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    }
+    return null;
+  }
+
   async function launchSpellcheck(control, submitControl) {
-    const scope = scopeFor(submitControl);
-    const fields = scope && fieldsFor(scope, submitControl);
-    if (!fields) return;
+    const fields = await writableFieldsFor(submitControl);
+    if (!fields) {
+      showSidebar({ status: 'Switch to Write to spellcheck this draft.', error: true });
+      return;
+    }
 
     const original = {
       title: fields.title?.value ?? '',
@@ -534,20 +614,22 @@
     if (!activeFields || !activeJob || activeJob.id !== job.id) return;
     const result = job.result;
     if (!result || typeof result.title !== 'string' || typeof result.body !== 'string') return;
+    const fields = activeFields;
+    const original = activeJob.original;
 
-    if (!activeFields.body.isConnected || (activeFields.title && !activeFields.title.isConnected)) {
+    if (!fields.body.isConnected || (fields.title && !fields.title.isConnected)) {
       showSidebar({ status: 'The original editor was closed before spellcheck finished. No changes were applied.', error: true });
       resetEnhancerButtons();
       return;
     }
     const current = {
-      title: activeFields.title?.value ?? '',
-      body: activeFields.body.value,
+      title: fields.title?.value ?? '',
+      body: fields.body.value,
     };
-    const unchanged = current.title === activeJob.original.title && current.body === activeJob.original.body;
-    const diff = draftDiff(activeJob.original, result, activeJob.kind);
+    const unchanged = current.title === original.title && current.body === original.body;
+    const diff = draftDiff(original, result, activeJob.kind);
     const links = globalThis.fracturedSpellcheckLinks;
-    if (!links?.sameLinks(activeJob.original, result)) {
+    if (!links?.sameLinks(original, result)) {
       showSidebar({
         status: 'Spellcheck changed or added a Markdown link or URL. No changes were applied to your draft.',
         error: true, diff,
@@ -556,7 +638,7 @@
       return;
     }
     const images = globalThis.fracturedSpellcheckImages;
-    if (images && !images.validate(activeJob.original.body, result.body)) {
+    if (images && !images.validate(original.body, result.body)) {
       showSidebar({
         status: 'Spellcheck altered an image placeholder. No changes were applied; your staged image remains safe.',
         error: true, diff,
@@ -575,23 +657,27 @@
       return;
     }
 
-    if (activeFields.title) setControlValue(activeFields.title, result.title);
-    setControlValue(activeFields.body, result.body);
+    const pendingImages = images?.snapshotPending?.(fields.body) || [];
+    if (fields.title) setControlValue(fields.title, result.title);
+    setControlValue(fields.body, result.body);
+    let status;
+    let error = false;
     try {
-      const uploaded = await images?.finalize(activeFields.body) || 0;
-      if (images?.hasUnresolved(activeFields.body)) {
+      const uploaded = await images?.finalize(fields.body) || 0;
+      if (images?.hasUnresolved(fields.body)) {
         throw new Error('One or more image placeholders still need their original files; attach them again before submitting.');
       }
-      showSidebar({
-        status: `${diff ? 'Applied spellcheck.' : 'Spellcheck found no changes.'}${uploaded ? ` Uploaded ${uploaded} rounded image${uploaded === 1 ? '' : 's'} and inserted the final GitHub link${uploaded === 1 ? '' : 's'}.` : ''}`,
-        diff,
-      });
-    } catch (error) {
-      showSidebar({
-        status: `Spellcheck applied, but image upload was not completed: ${error.message}`,
-        error: true, diff,
-      });
+      status = `${diff ? 'Applied spellcheck.' : 'Spellcheck found no changes.'}${uploaded ? ` Uploaded ${uploaded} rounded image${uploaded === 1 ? '' : 's'} and inserted the final GitHub link${uploaded === 1 ? '' : 's'}.` : ''}`;
+    } catch (uploadError) {
+      status = `Spellcheck applied, but image upload was not completed: ${uploadError.message}`;
+      error = true;
     }
+    const applied = { title: fields.title?.value ?? '', body: fields.body.value };
+    const hasChanges = applied.title !== original.title || applied.body !== original.body;
+    showSidebar({
+      status, error, diff,
+      undo: hasChanges ? () => undoSpellcheck(fields, original, applied, pendingImages) : null,
+    });
     resetEnhancerButtons();
   }
 
