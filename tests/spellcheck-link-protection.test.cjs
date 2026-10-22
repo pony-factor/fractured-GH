@@ -158,3 +158,43 @@ test('does not mistake similarly named HTML elements for image tags', () => {
   const original = { title: '', body: '<image alt="a"> <imgur src="x"> <img missing closing' };
   assert.equal(api.protect(original).entries.length, 0);
 });
+
+test('preserves scheme-less raw GitHub URLs exactly as supplied', () => {
+  const api = links();
+  const original = { title: 'Raw github.com/pony-factor/fractured-GH', body:
+    'Use github.com/pony-factor/fractured-GH/pull/66, www.github.com/org/repo and '
+    + 'https://github.com/user-attachments/assets/a-b-c raw. Fix teh typo.' };
+  const masked = api.protect(original);
+  assert.equal(masked.entries.length, 4);
+  assert.doesNotMatch(masked.masked.body, /github\.com|https?:\/\//);
+  const result = api.restore(masked, {
+    title: masked.masked.title,
+    body: masked.masked.body.replace('teh typo', 'the typo'),
+  });
+  assert.equal(result.title, original.title);
+  assert.equal(result.body, original.body.replace('teh typo', 'the typo'));
+});
+
+test('rejects changing bare links into bracketed, bold, or inline-code links', () => {
+  const api = links();
+  for (const url of ['https://github.com/pony-factor/fractured-GH', 'github.com/pony-factor/fractured-GH']) {
+    const original = { title: '', body: 'Read ' + url + ' for context.' };
+    const protectedDraft = api.protect(original);
+    const token = protectedDraft.entries[0].token;
+    for (const wrapper of [`[${token}]`, `\`${token}\``, `**${token}**`, `<${token}>`]) {
+      const body = protectedDraft.masked.body.replace(token, wrapper);
+      assert.throws(() => api.restore(protectedDraft, { title: '', body }),
+        /introduced or changed|protected Markdown link/);
+    }
+  }
+});
+
+test('keeps original link enclosure unchanged when already authored that way', () => {
+  const api = links();
+  const original = { title: '', body: 'Here is [github.com/pony-factor/fractured-GH] and `https://github.com/foo`.' };
+  const protectedDraft = api.protect(original);
+  assert.equal(protectedDraft.entries.length, 2);
+  assert.equal(api.restore(protectedDraft, protectedDraft.masked).body, original.body);
+  assert.equal(api.sameLinks(original, original), true);
+  assert.equal(api.sameLinks(original, { title: '', body: original.body.replace('[github.com/pony-factor/fractured-GH]', 'github.com/pony-factor/fractured-GH') }), false);
+});

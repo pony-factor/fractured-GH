@@ -62,7 +62,9 @@
     }
     const autolink = /^<https?:\/\/[^<>\s]+>/.exec(rest);
     if (autolink) return at + autolink[0].length;
-    const url = /^https?:\/\/[^\s<>"'`]+/.exec(rest);
+    // GitHub issues also auto-link scheme-less github.com and www URLs.
+    // Preserve those exact bytes just like fully-qualified raw URLs.
+    const url = /^(?:https?:\/\/[^\s<>"'`]+|www\.[^\s<>"'`]+|github\.com(?![\w.-])(?:\/[^\s<>"'`]+)?)/i.exec(rest);
     if (!url) return -1;
     let literal = url[0];
     while (/[.,;:!?]$/.test(literal)) literal = literal.slice(0, -1);
@@ -73,6 +75,16 @@
       literal = literal.slice(0, -1);
     }
     return literal.length > 'https://'.length ? at + literal.length : -1;
+  }
+  // A raw URL is not interchangeable with a Markdown-wrapped or code-formatted
+  // URL, even when the destination bytes are unchanged. Capture the adjacent
+  // markup (but not ordinary sentence punctuation) for each bare link.
+  function rawLinkPresentation(text, start, end) {
+    const before = text.slice(0, start);
+    const after = text.slice(end);
+    const opening = /(?:\\?\[|<|`+|\*+|_+)$/.exec(before)?.[0] || '';
+    const closing = /^(?:\\?\]|>|`+|\*+|_+)/.exec(after)?.[0] || '';
+    return opening + '\0' + closing;
   }
   function protect(original) {
     const source = { title: String(original?.title ?? ''), body: String(original?.body ?? '') };
@@ -87,7 +99,10 @@
         const end = protectedEnd(value, i);
         if (end <= i) { output += value[i]; i += 1; continue; }
         const token = `${marker}${entries.length}END`;
-        entries.push({ token, literal: value.slice(i, end), field });
+        const literal = value.slice(i, end);
+        const presentation = /^(?:https?:\/\/|www\.|github\.com(?:\/|$))/i.test(literal)
+          ? rawLinkPresentation(value, i, end) : null;
+        entries.push({ token, literal, field, presentation });
         output += token;
         i = end;
       }
@@ -97,8 +112,10 @@
   }
   // Also compares complete native HTML image tags, not just Markdown links.
   function sameLinks(before, after) {
-    const first = protect(before).entries.map(({ field, literal }) => `${field}:${literal}`);
-    const second = protect(after).entries.map(({ field, literal }) => `${field}:${literal}`);
+    const signature = ({ field, literal, presentation }) =>
+      JSON.stringify([field, literal, presentation]);
+    const first = protect(before).entries.map(signature);
+    const second = protect(after).entries.map(signature);
     return first.length === second.length && first.every((value, i) => value === second[i]);
   }
   function restore(protectedDraft, response) {
