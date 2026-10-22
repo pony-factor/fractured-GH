@@ -8,6 +8,8 @@
   const STYLE_ID = 'fractured-spellcheck-styles';
   const WRAP_KEY = 'spellcheckWrapDiffLines';
   let wrapDiffLines = true;
+  let sidebarUrl = null;
+  let sidebarFields = null;
 
   const TITLE_SELECTORS = [
     'input[name="issue[title]"]',
@@ -282,7 +284,7 @@
       </div>
       <div class="fractured-spellcheck-content"></div>
     `;
-    aside.querySelector('.fractured-spellcheck-close').addEventListener('click', () => aside.remove());
+    aside.querySelector('.fractured-spellcheck-close').addEventListener('click', dismissSidebar);
     const wrapInput = aside.querySelector('.fractured-spellcheck-wrap input');
     wrapInput.checked = wrapDiffLines;
     wrapInput.addEventListener('change', () => {
@@ -337,7 +339,7 @@
   }
 
   function lineClass(line) {
-    if (line.startsWith('+++') || line.startsWith('---') || line.startsWith('diff --git') || line.startsWith('@@')) {
+    if (line === 'Title' || line === 'Body') {
       return 'fractured-diff-meta';
     }
     if (line.startsWith('+')) return 'fractured-diff-add';
@@ -391,7 +393,26 @@
     }
   }
 
+  function dismissSidebar() {
+    document.getElementById(SIDEBAR_ID)?.remove();
+    sidebarUrl = null;
+    sidebarFields = null;
+    activeJob = null;
+    activeFields = null;
+    resetEnhancerButtons();
+  }
+
+  function checkSidebarContext() {
+    if (sidebarUrl === null) return;
+    if (sidebarUrl !== location.href || (sidebarFields && (
+      !sidebarFields.body.isConnected
+      || (sidebarFields.title && !sidebarFields.title.isConnected)
+      || (!sidebarFields.body.value && !sidebarFields.title?.value)
+    ))) dismissSidebar();
+  }
+
   function showSidebar({ status, diff = '', error = false, apply = null, undo = null }) {
+    sidebarUrl = location.href;
     const aside = sidebar();
     const content = aside.querySelector('.fractured-spellcheck-content');
     content.replaceChildren();
@@ -479,16 +500,8 @@
 
   function fileDiff(name, before, after) {
     if (String(before ?? '') === String(after ?? '')) return '';
-    const oldLines = splitLines(before);
-    const newLines = splitLines(after);
-    const header = [
-      `diff --git a/${name} b/${name}`,
-      `--- a/${name}`,
-      `+++ b/${name}`,
-      `@@ -1,${oldLines.length} +1,${newLines.length} @@`,
-    ];
     const body = lineOperations(before, after).map(([prefix, line]) => `${prefix}${line}`);
-    return [...header, ...body].join('\n');
+    return [name, ...body].join('\n');
   }
 
   function draftDiff(original, result, kind = 'draft') {
@@ -498,8 +511,8 @@
         .map(([prefix, line]) => `${prefix}${line}`).join('\n');
     }
     return [
-      fileDiff('title.txt', original.title, result.title),
-      fileDiff('body.md', original.body, result.body),
+      fileDiff('Title', original.title, result.title),
+      fileDiff('Body', original.body, result.body),
     ].filter(Boolean).join('\n');
   }
 
@@ -586,6 +599,7 @@
 
     activeJob = job;
     activeFields = fields;
+    sidebarFields = fields;
     control.disabled = true;
     control.textContent = '…';
     showSidebar({ status: fields.kind === 'comment'
@@ -675,14 +689,19 @@
     let error = false;
     try {
       const uploaded = await images?.finalize(fields.body) || 0;
+      checkSidebarContext();
+      if (activeJob?.id !== job.id) return;
       if (images?.hasUnresolved(fields.body)) {
         throw new Error('One or more image placeholders still need their original files; attach them again before submitting.');
       }
       status = `${diff ? 'Applied spellcheck.' : 'Spellcheck found no changes.'}${uploaded ? ` Uploaded ${uploaded} rounded image${uploaded === 1 ? '' : 's'} and inserted the final GitHub link${uploaded === 1 ? '' : 's'}.` : ''}`;
     } catch (uploadError) {
+      if (activeJob?.id !== job.id) return;
       status = `Spellcheck applied, but image upload was not completed: ${uploadError.message}`;
       error = true;
     }
+    checkSidebarContext();
+    if (activeJob?.id !== job.id) return;
     const applied = { title: fields.title?.value ?? '', body: fields.body.value };
     const hasChanges = applied.title !== original.title || applied.body !== original.body;
     showSidebar({
@@ -693,6 +712,7 @@
   }
 
   function handleJob(job) {
+    checkSidebarContext();
     if (!activeJob || !job || job.id !== activeJob.id) return;
     if (job.status === 'complete') {
       void applyResult(job);
@@ -733,6 +753,7 @@
     attach.setAttribute('aria-label', attach.title);
     attach.addEventListener('click', () => picker.click());
     picker.addEventListener('change', async () => {
+      sidebarFields = fields;
       attach.disabled = true;
       try {
         for (const file of Array.from(picker.files || [])) {
@@ -773,6 +794,7 @@
   }
 
   function scan() {
+    checkSidebarContext();
     injectStyles();
     const controls = document.querySelectorAll('button, input[type="submit"]');
     for (const control of controls) {
@@ -805,6 +827,14 @@
   observer.observe(document.documentElement, { childList: true, subtree: true });
   document.addEventListener('turbo:load', scheduleScan);
   document.addEventListener('pjax:end', scheduleScan);
+  document.addEventListener('turbo:before-cache', dismissSidebar);
+  document.addEventListener('turbo:submit-end', (event) => {
+    if (event.detail?.success && sidebarFields
+      && event.target.contains(sidebarFields.body)) dismissSidebar();
+  });
+  document.addEventListener('input', scheduleScan, true);
+  document.addEventListener('change', scheduleScan, true);
   window.addEventListener('popstate', scheduleScan);
+  window.addEventListener('pagehide', dismissSidebar);
   scan();
 })();
