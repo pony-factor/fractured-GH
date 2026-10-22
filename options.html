@@ -340,9 +340,27 @@
         <details class="settings-foldout" open>
           <summary>
             <span>Pull requests</span>
-            <span class="summary-meta">Milestone + contribution notices</span>
+            <span class="summary-meta">Header buttons + notices + milestone</span>
           </summary>
           <div class="foldout-body">
+            <label class="preference">
+              <input id="hide-pull-request-merge-status" type="checkbox" />
+              <span>
+                <strong>Hide Merge status button</strong>
+                <small>Hide the Merge status button above the pull request title. Off by default.</small>
+              </span>
+            </label>
+
+            <label class="preference">
+              <input id="hide-pull-request-code-button" type="checkbox" />
+              <span>
+                <strong>Hide pull request Code button</strong>
+                <small>Hide the Code dropdown above the pull request title, without hiding repository Code navigation. Off by default.</small>
+              </span>
+            </label>
+
+            <hr class="preference-divider" />
+
             <label class="preference">
               <input id="wrap-diff-lines" type="checkbox" />
               <span>
