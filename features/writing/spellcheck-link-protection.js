@@ -29,7 +29,28 @@
     if (text[bracketEnd] === '[') return closingDelimiter(text, bracketEnd, '[', ']');
     return -1;
   }
+  // Native GitHub uploads often use <img src="..."> rather than Markdown.
+  // Protect the entire tag, including its alt text, dimensions and URL, so
+  // spellcheck cannot turn a src value into a Markdown link or rewrite it.
+  function htmlImageEnd(text, at) {
+    if (text[at] !== '<' || text.slice(at, at + 4).toLowerCase() !== '<img'
+      || !/[\s/>]/.test(text[at + 4] || '')) return -1;
+    let quote = '';
+    for (let i = at + 4; i < text.length; i += 1) {
+      const character = text[i];
+      if (quote) {
+        if (character === quote) quote = '';
+      } else if (character === '"' || character === "'") {
+        quote = character;
+      } else if (character === '>') {
+        return i + 1;
+      }
+    }
+    return -1;
+  }
   function protectedEnd(text, at) {
+    const imageEnd = htmlImageEnd(text, at);
+    if (imageEnd > at) return imageEnd;
     const rest = text.slice(at);
     if (at === 0 || text[at - 1] === '\n') {
       const definition = /^[ \t]{0,3}\[[^\]\r\n]+\]:[^\r\n]+/.exec(rest);
@@ -74,6 +95,7 @@
     }
     return { source, masked, entries, marker };
   }
+  // Also compares complete native HTML image tags, not just Markdown links.
   function sameLinks(before, after) {
     const first = protect(before).entries.map(({ field, literal }) => `${field}:${literal}`);
     const second = protect(after).entries.map(({ field, literal }) => `${field}:${literal}`);
@@ -87,12 +109,12 @@
       const expected = entries.filter((entry) => entry.field === field);
       const actual = result[field].match(tokenPattern) || [];
       if (actual.length !== expected.length || actual.some((token, i) => token !== expected[i].token)) {
-        throw new Error('Spellcheck altered, omitted, duplicated, or reordered a protected Markdown link. Nothing was applied.');
+        throw new Error('Spellcheck altered, omitted, duplicated, or reordered a protected Markdown link, URL, or HTML image. Nothing was applied.');
       }
       for (const entry of expected) result[field] = result[field].replace(entry.token, entry.literal);
     }
     if (!sameLinks(source, result)) {
-      throw new Error('Spellcheck introduced or changed a Markdown link or URL. Nothing was applied.');
+      throw new Error('Spellcheck introduced or changed a Markdown link, URL, or HTML image. Nothing was applied.');
     }
     return result;
   }

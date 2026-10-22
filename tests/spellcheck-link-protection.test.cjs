@@ -104,3 +104,57 @@ test('keeps text-only drafts editable and rejects injected links on GitHub', () 
     title: 'the title', body: 'the [description](https://example.com)',
   }), false);
 });
+
+test('preserves complete native GitHub HTML images outside the image importer', () => {
+  const api = links();
+  const image = '<img width="690" height="326" alt="Screenshot > draft"\n'
+    + ' src="https://github.com/user-attachments/assets/eba74fc1-2db0-4c9a-bce2-61ff3afba008" />';
+  const original = { title: '', body: 'teh screenshot:\n' + image + '\nmore teh words' };
+  const masked = api.protect(original);
+  assert.equal(masked.entries.length, 1, 'the entire tag is one protected unit');
+  assert.equal(masked.entries[0].literal, image);
+  assert.doesNotMatch(masked.masked.body, /<img|github\.com|Screenshot/);
+  const result = api.restore(masked, {
+    title: '',
+    body: masked.masked.body.replaceAll('teh', 'the'),
+  });
+  assert.equal(result.body, original.body.replaceAll('teh', 'the'));
+  assert.equal(api.sameLinks(original, result), true);
+});
+
+test('preserves single-quoted and uppercase image tags alongside Markdown images', () => {
+  const api = links();
+  const original = {
+    title: '',
+    body: "<IMG ALT='A > B' SRC='https://github.com/user-attachments/assets/native'>"
+      + '\n![other](https://example.com/other.png)\n'
+      + '<img data-alt="a \'quoted\' name" src="https://example.com/two.png"/>',
+  };
+  const masked = api.protect(original);
+  assert.equal(masked.entries.length, 3);
+  assert.doesNotMatch(masked.masked.body, /<img|<IMG|https?:\/\//);
+  assert.equal(api.restore(masked, masked.masked).body, original.body);
+});
+
+test('rejects changes to native image tags, including rewrapped src and alt text', () => {
+  const api = links();
+  const image = '<img alt="Screenshot" src="https://github.com/user-attachments/assets/abc" />';
+  const original = { title: '', body: 'Image:\n' + image };
+  const masked = api.protect(original);
+  const token = masked.entries[0].token;
+  assert.equal(api.sameLinks(original, { title: '', body: original.body.replace('Screenshot', 'Screen shot') }), false);
+  assert.equal(api.sameLinks(original, { title: '', body: original.body.replace('abc', 'def') }), false);
+  assert.equal(api.sameLinks(original, { title: '', body: original.body + '\n' + image }), false);
+  assert.throws(() => api.restore(masked, {
+    title: '', body: masked.masked.body.replace(token, '[' + token + '](' + token + ')'),
+  }), /protected Markdown link/);
+  assert.throws(() => api.restore(masked, {
+    title: '', body: masked.masked.body + '\n' + image,
+  }), /introduced or changed/);
+});
+
+test('does not mistake similarly named HTML elements for image tags', () => {
+  const api = links();
+  const original = { title: '', body: '<image alt="a"> <imgur src="x"> <img missing closing' };
+  assert.equal(api.protect(original).entries.length, 0);
+});

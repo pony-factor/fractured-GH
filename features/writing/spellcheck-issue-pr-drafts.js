@@ -656,7 +656,7 @@
     const links = globalThis.fracturedSpellcheckLinks;
     if (!links?.sameLinks(original, result)) {
       showSidebar({
-        status: 'Spellcheck changed or added a Markdown link or URL. No changes were applied to your draft.',
+        status: 'Spellcheck changed or added a Markdown link, URL, or HTML image. No changes were applied to your draft.',
         error: true, diff,
       });
       resetEnhancerButtons();
