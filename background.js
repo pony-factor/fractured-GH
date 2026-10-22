@@ -22,6 +22,7 @@ const DEFAULT_SETTINGS = {
   hideRepositoryOverviewName: false,
   hideRepositoryPins: true,
   hideMyNavigationLinks: false,
+  hideHamburgerMenu: false,
   muteUsersEnabled: true,
   mutedUsers: [],
 };

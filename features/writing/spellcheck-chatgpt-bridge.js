@@ -238,17 +238,29 @@
     return { title: parsed.title, body: parsed.body };
   }
 
-  function buildPrompt(job) {
-    const input = JSON.stringify({
+  function shouldGenerateTitle(job) {
+    return job.kind !== 'comment'
+      && !String(job.original?.title ?? '').trim()
+      && Boolean(String(job.original?.body ?? '').trim());
+  }
+
+  function buildPrompt(job, protectedDraft) {
+    const generateTitle = shouldGenerateTitle(job);
+    const input = JSON.stringify(protectedDraft?.masked ?? {
       title: String(job.original?.title ?? ''),
       body: String(job.original?.body ?? ''),
     });
     return [
       job.kind === 'comment'
         ? 'Spellcheck this GitHub issue or pull request comment.'
-        : 'Spellcheck this GitHub issue or pull request draft.',
-      'Correct spelling, capitalization, punctuation, and grammar only. Preserve meaning, Markdown, links, code, identifiers, and formatting.',
+        : generateTitle
+          ? 'Generate a title and proofread this GitHub issue or pull request draft.'
+          : 'Spellcheck this GitHub issue or pull request draft.',
+      generateTitle
+        ? 'The title is blank: generate a concise, specific 4–12 word title that describes the body. Do not leave the title empty. For the body, correct spelling, capitalization, punctuation, and grammar only; preserve its meaning, Markdown, links, code, identifiers, and formatting.'
+        : 'Correct spelling, capitalization, punctuation, and grammar only. Preserve meaning, Markdown, links, code, identifiers, and formatting.',
       'Preserve every fractured-pending-image: placeholder exactly as written; these represent images to upload after spellcheck.',
+      'The FRACTUREDLINKTOKEN markers represent protected Markdown links and URLs. Preserve every marker exactly once, in its original order and field; never add or change a marker.',
       'Return only one valid JSON object with exactly the string keys "title" and "body". Do not use Markdown fences or add commentary.',
       `Input JSON: ${input}`,
     ].join('\n');
@@ -295,10 +307,20 @@
       started = true;
       const composer = await waitUntil(composerInput, COMPOSER_TIMEOUT_MS);
       if (!composer) throw new Error('ChatGPT composer was not available for Spellcheck Only.');
-      if (!await activatePlugin(composer)) throw new Error('Fractured could not activate the Spellcheck Only plugin.');
-
-      const prompt = buildPrompt(job);
-      if (!await appendPrompt(composer, prompt)) throw new Error('Fractured could not prepare the Spellcheck Only request.');
+      const links = globalThis.fracturedSpellcheckLinks;
+      if (!links) throw new Error('Markdown link protection was not available.');
+      const protectedDraft = links.protect(job.original);
+      const generateTitle = shouldGenerateTitle(job);
+      const prompt = buildPrompt(job, protectedDraft);
+      if (generateTitle) {
+        // A missing title requires generation rather than Spellcheck Only.
+        if (!await replaceComposerText(composer, prompt)) {
+          throw new Error('Fractured could not prepare the title generation request.');
+        }
+      } else {
+        if (!await activatePlugin(composer)) throw new Error('Fractured could not activate the Spellcheck Only plugin.');
+        if (!await appendPrompt(composer, prompt)) throw new Error('Fractured could not prepare the Spellcheck Only request.');
+      }
 
       const beforeCount = assistantMessages().length;
       const send = await waitUntil(() => {
@@ -309,7 +331,10 @@
       send.click();
 
       const response = await waitForResponse(beforeCount);
-      const result = parseResult(response);
+      const result = links.restore(protectedDraft, parseResult(response));
+      if (generateTitle && !result.title.trim()) {
+        throw new Error('ChatGPT did not generate a title for the untitled draft.');
+      }
       await writeJob({
         ...job,
         status: 'complete',

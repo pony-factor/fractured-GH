@@ -32,6 +32,7 @@
         "features/notifications/hide-inbox-while-busy.js",
         "features/interface/hide-copilot.js",
         "features/interface/hide-my-navigation-links.js",
+        "features/interface/hide-hamburger-menu.js",
         "features/people/owner-avatar-header.js",
         "features/people/profile-name-cache.js",
         "features/people/user-nicknames.js",
@@ -56,6 +57,7 @@
         "features/pull-requests/hide-empty-development-copy.js",
         "features/pull-requests/wrap-diff-lines.js",
         "features/writing/spellcheck-image-attachments.js",
+        "features/writing/spellcheck-link-protection.js",
         "features/writing/spellcheck-issue-pr-drafts.js"
       ],
       "run_at": "document_start"
@@ -65,6 +67,7 @@
         "https://chatgpt.com/*"
       ],
       "js": [
+        "features/writing/spellcheck-link-protection.js",
         "features/writing/spellcheck-chatgpt-bridge.js"
       ],
       "run_at": "document_idle"

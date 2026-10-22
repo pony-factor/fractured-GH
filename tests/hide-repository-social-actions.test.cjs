@@ -40,7 +40,7 @@ async function render(hideRepositoryFork, controls, options = {}) {
       if (selector === `[${attribute}]`) {
         return controls.map(control => control.wrapper).filter(item => item.action);
       }
-      if (selector.includes('#repository-container-header button:disabled')) return controls;
+      if (selector.includes('#repository-container-header button,')) return controls;
       if (selector.startsWith('a[href*=')) return (options.links || []).filter(link =>
         link.href.includes(selector.includes('stargazers') ? '/stargazers' : '/forks'));
       return [];
