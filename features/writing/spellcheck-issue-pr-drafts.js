@@ -495,7 +495,25 @@
         i += 1;
       }
     }
-    return operations;
+    // Keep unchanged lines as anchors, but use conventional unified-diff
+    // ordering within each contiguous change block: deletions before additions.
+    const ordered = [];
+    for (let start = 0; start < operations.length;) {
+      if (operations[start][0] === ' ') {
+        ordered.push(operations[start]);
+        start += 1;
+        continue;
+      }
+      let end = start;
+      while (end < operations.length && operations[end][0] !== ' ') end += 1;
+      const changes = operations.slice(start, end);
+      ordered.push(
+        ...changes.filter(([prefix]) => prefix === '-'),
+        ...changes.filter(([prefix]) => prefix === '+'),
+      );
+      start = end;
+    }
+    return ordered;
   }
 
   function fileDiff(name, before, after) {
