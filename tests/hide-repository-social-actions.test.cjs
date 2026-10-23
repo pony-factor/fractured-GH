@@ -38,11 +38,18 @@ async function render(hideRepositoryFork, controls, options = {}) {
       : null,
     querySelectorAll(selector) {
       if (selector === `[${attribute}]`) {
-        return controls.map(control => control.wrapper).filter(item => item.action);
+        return [
+          ...controls.map(control => control.wrapper),
+          ...(options.links || []),
+          ...(options.cardStars || []).map(card => card.metric),
+        ].filter(item => item.action);
       }
       if (selector.includes('#repository-container-header button,')) return controls;
       if (selector.startsWith('a[href*=')) return (options.links || []).filter(link =>
         link.href.includes(selector.includes('stargazers') ? '/stargazers' : '/forks'));
+      if (selector.startsWith('.pinned-item-list-item svg.octicon-star')) {
+        return (options.cardStars || []).map(card => card.icon);
+      }
       return [];
     },
     addEventListener() {},
@@ -118,4 +125,46 @@ test('honors separate star/fork preferences and the legacy fallback on organizat
   await render(true, [], { organization: true, links: [star, fork], settings: { hideRepositoryStar: false } });
   assert.equal(star.action, undefined);
   assert.equal(fork.action, 'fork');
+});
+
+function cardStar({ classified = true, iconCount = 1, text = '1' } = {}) {
+  const metric = disabledControl('').wrapper;
+  metric.textContent = text;
+  metric.querySelectorAll = () => Array.from({ length: iconCount }, () => ({}));
+  const icon = {
+    closest: () => classified ? metric : null,
+    parentElement: metric,
+  };
+  return { metric, icon };
+}
+
+test('hides non-link star counts on pinned and repository cards without hiding adjacent items', async () => {
+  const pinned = cardStar();
+  const listed = cardStar({ classified: false, text: '1.2k' });
+  const sharedFooter = cardStar({ classified: false, iconCount: 2 });
+  const fork = statistic('https://github.com/pony-factor/fractured-GH/forks');
+  await render(false, [], {
+    organization: true,
+    cardStars: [pinned, listed, sharedFooter],
+    links: [fork],
+    settings: { hideRepositoryStar: true },
+  });
+  assert.equal(pinned.metric.action, 'star');
+  assert.equal(listed.metric.action, 'star');
+  assert.equal(sharedFooter.metric.action, undefined);
+  assert.equal(fork.action, undefined);
+});
+
+test('card star counts respect the individual and legacy preferences and restore when disabled', async () => {
+  const pinned = cardStar();
+  await render(false, [], {
+    organization: true, cardStars: [pinned], settings: { hideRepositorySocialActions: true },
+  });
+  assert.equal(pinned.metric.action, 'star');
+
+  await render(false, [], {
+    organization: true, cardStars: [pinned],
+    settings: { hideRepositoryStar: false, hideRepositorySocialActions: true },
+  });
+  assert.equal(pinned.metric.action, undefined);
 });
