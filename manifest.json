@@ -43,6 +43,7 @@
         "features/pull-requests/hide-contributing-guidelines-notice.js",
         "features/pull-requests/hide-pull-request-protip.js",
         "features/pull-requests/hide-pull-request-milestone.js",
+        "features/pull-requests/hide-pull-request-participants.js",
         "features/interface/hide-footer.js",
         "features/repositories/hide-suggested-workflows.js",
         "features/repositories/hide-repository-languages.js",
@@ -58,6 +59,7 @@
         "features/pull-requests/hide-empty-development-copy.js",
         "features/pull-requests/wrap-diff-lines.js",
         "features/writing/spellcheck-image-attachments.js",
+        "features/writing/spellcheck-image-dialog.js",
         "features/writing/spellcheck-link-protection.js",
         "features/writing/spellcheck-issue-pr-drafts.js"
       ],

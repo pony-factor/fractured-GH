@@ -10,6 +10,7 @@ const rotate404FanArtInput = document.getElementById('rotate-404-fan-art');
 const hideContributingGuidelinesNoticeInput = document.getElementById('hide-contributing-guidelines-notice');
 const hidePullRequestProtipInput = document.getElementById('hide-pull-request-protip');
 const hidePullRequestMilestoneInput = document.getElementById('hide-pull-request-milestone');
+const hidePullRequestParticipantsInput = document.getElementById('hide-pull-request-participants');
 const hideFooterInput = document.getElementById('hide-footer');
 const openCodeInVsCodeWebInput = document.getElementById('open-code-in-vscode-web');
 const hideRepositoryTagsShortcutInput = document.getElementById('hide-repository-tags-shortcut');
@@ -333,6 +334,7 @@ async function loadSettings() {
     hideContributingGuidelinesNotice: true,
     hidePullRequestProtip: false,
     hidePullRequestMilestone: false,
+    hidePullRequestParticipants: false,
     hideFooter: false,
     openCodeInVsCodeWeb: true,
     hideRepositoryTagsShortcut: true,
@@ -372,6 +374,7 @@ async function loadSettings() {
   hideContributingGuidelinesNoticeInput.checked = Boolean(settings.hideContributingGuidelinesNotice);
   hidePullRequestProtipInput.checked = Boolean(settings.hidePullRequestProtip);
   hidePullRequestMilestoneInput.checked = Boolean(settings.hidePullRequestMilestone);
+  hidePullRequestParticipantsInput.checked = Boolean(settings.hidePullRequestParticipants);
   hideFooterInput.checked = Boolean(settings.hideFooter);
   openCodeInVsCodeWebInput.checked = Boolean(settings.openCodeInVsCodeWeb);
   hideRepositoryTagsShortcutInput.checked = Boolean(settings.hideRepositoryTagsShortcut);
@@ -444,6 +447,7 @@ async function saveSettings() {
     hideContributingGuidelinesNotice: hideContributingGuidelinesNoticeInput.checked,
     hidePullRequestProtip: hidePullRequestProtipInput.checked,
     hidePullRequestMilestone: hidePullRequestMilestoneInput.checked,
+    hidePullRequestParticipants: hidePullRequestParticipantsInput.checked,
     hideFooter: hideFooterInput.checked,
     openCodeInVsCodeWeb: openCodeInVsCodeWebInput.checked,
     hideRepositoryTagsShortcut: hideRepositoryTagsShortcutInput.checked,
@@ -487,6 +491,7 @@ rotate404FanArtInput.addEventListener('change', () => void saveSettings());
 hideContributingGuidelinesNoticeInput.addEventListener('change', () => void saveSettings());
 hidePullRequestProtipInput.addEventListener('change', () => void saveSettings());
 hidePullRequestMilestoneInput.addEventListener('change', () => void saveSettings());
+hidePullRequestParticipantsInput.addEventListener('change', () => void saveSettings());
 hideFooterInput.addEventListener('change', () => void saveSettings());
 openCodeInVsCodeWebInput.addEventListener('change', () => void saveSettings());
 hideRepositoryTagsShortcutInput.addEventListener('change', () => void saveSettings());

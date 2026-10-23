@@ -7,7 +7,7 @@ const vm = require('node:vm');
 const script = fs.readFileSync(path.join(__dirname, '../features/writing/spellcheck-chatgpt-bridge.js'), 'utf8')
   .replace('const COMPOSER_TIMEOUT_MS = 30000;', 'const COMPOSER_TIMEOUT_MS = 1;')
   .replace('await pause(250);\n        await closeBridgeTab();', 'await pause(0);\n        await closeBridgeTab();')
-  .replace(/  void run\(\)\.catch\([\s\S]*?\n  \}\);(?=\n\}\)\(\);)/, '  globalThis.bridge = { run, writeJob, buildPrompt, shouldGenerateTitle };');
+  .replace(/  void run\(\)\.catch\([\s\S]*?\n  \}\);(?=\n\}\)\(\);)/, '  globalThis.bridge = { run, writeJob, buildPrompt, shouldGenerateTitle, needsShortTitleEmoji };');
 
 function harness({ getError, setError, invalidateOnSet = false } = {}) {
   const writes = [];
@@ -215,4 +215,44 @@ test('preserves spellcheck-only instructions for titled drafts and comments', ()
     assert.match(prompt, /Correct spelling, capitalization, punctuation, and grammar only/);
     assert.doesNotMatch(prompt, /title is blank: generate/);
   }
+});
+
+test('treats six-word GitHub titles as short inputs even when their bodies are long', () => {
+  const bridge = harness();
+  const job = {
+    kind: 'draft',
+    original: {
+      title: 'Add silent support for video IDs',
+      body: 'A long explanation of how the code now handles bare identifiers rather than URLs, without changing the user interface.',
+    },
+  };
+  assert.equal(bridge.needsShortTitleEmoji(job), true);
+  const prompt = bridge.buildPrompt(job);
+  assert.match(prompt, /The existing title has six words or fewer/);
+  assert.match(prompt, /corrected title MUST start with exactly one professional emoji/);
+  assert.match(prompt, /even when the body is long/);
+  assert.match(prompt, /Preserve an existing leading emoji rather than duplicating it/);
+  assert.match(prompt, /"title":"Add silent support for video IDs"/);
+});
+
+test('does not request a new emoji for longer titles or for comments', () => {
+  const bridge = harness();
+  const longJob = { kind: 'draft', original: { title: 'Add silent support for individual YouTube video IDs', body: 'Details.' } };
+  assert.equal(bridge.needsShortTitleEmoji(longJob), false);
+  assert.match(bridge.buildPrompt(longJob), /Do not add a new emoji to titles longer than six words/);
+
+  const commentJob = { kind: 'comment', original: { title: '', body: 'Fix this typo' } };
+  assert.equal(bridge.needsShortTitleEmoji(commentJob), false);
+  assert.doesNotMatch(bridge.buildPrompt(commentJob), /corrected title MUST start with exactly one professional emoji/);
+});
+
+test('keeps existing emojis and applies the same short-title rule to generated titles', () => {
+  const bridge = harness();
+  const existingJob = { kind: 'draft', original: { title: '🐛 Fix video ID parsing', body: 'Details.' } };
+  assert.equal(bridge.needsShortTitleEmoji(existingJob), true);
+  assert.match(bridge.buildPrompt(existingJob), /Preserve an existing leading emoji rather than duplicating it/);
+
+  const untitledJob = { kind: 'draft', original: { title: '', body: 'Fix video ID parsing.' } };
+  assert.equal(bridge.needsShortTitleEmoji(untitledJob), false);
+  assert.match(bridge.buildPrompt(untitledJob), /if it has six words or fewer, prefix exactly one professional emoji/);
 });

@@ -29,7 +29,28 @@
     if (text[bracketEnd] === '[') return closingDelimiter(text, bracketEnd, '[', ']');
     return -1;
   }
+  // Native GitHub uploads often use <img src="..."> rather than Markdown.
+  // Protect the entire tag, including its alt text, dimensions and URL, so
+  // spellcheck cannot turn a src value into a Markdown link or rewrite it.
+  function htmlImageEnd(text, at) {
+    if (text[at] !== '<' || text.slice(at, at + 4).toLowerCase() !== '<img'
+      || !/[\s/>]/.test(text[at + 4] || '')) return -1;
+    let quote = '';
+    for (let i = at + 4; i < text.length; i += 1) {
+      const character = text[i];
+      if (quote) {
+        if (character === quote) quote = '';
+      } else if (character === '"' || character === "'") {
+        quote = character;
+      } else if (character === '>') {
+        return i + 1;
+      }
+    }
+    return -1;
+  }
   function protectedEnd(text, at) {
+    const imageEnd = htmlImageEnd(text, at);
+    if (imageEnd > at) return imageEnd;
     const rest = text.slice(at);
     if (at === 0 || text[at - 1] === '\n') {
       const definition = /^[ \t]{0,3}\[[^\]\r\n]+\]:[^\r\n]+/.exec(rest);
@@ -41,7 +62,9 @@
     }
     const autolink = /^<https?:\/\/[^<>\s]+>/.exec(rest);
     if (autolink) return at + autolink[0].length;
-    const url = /^https?:\/\/[^\s<>"'`]+/.exec(rest);
+    // GitHub issues also auto-link scheme-less github.com and www URLs.
+    // Preserve those exact bytes just like fully-qualified raw URLs.
+    const url = /^(?:https?:\/\/[^\s<>"'`]+|www\.[^\s<>"'`]+|github\.com(?![\w.-])(?:\/[^\s<>"'`]+)?)/i.exec(rest);
     if (!url) return -1;
     let literal = url[0];
     while (/[.,;:!?]$/.test(literal)) literal = literal.slice(0, -1);
@@ -52,6 +75,16 @@
       literal = literal.slice(0, -1);
     }
     return literal.length > 'https://'.length ? at + literal.length : -1;
+  }
+  // A raw URL is not interchangeable with a Markdown-wrapped or code-formatted
+  // URL, even when the destination bytes are unchanged. Capture the adjacent
+  // markup (but not ordinary sentence punctuation) for each bare link.
+  function rawLinkPresentation(text, start, end) {
+    const before = text.slice(0, start);
+    const after = text.slice(end);
+    const opening = /(?:\\?\[|<|`+|\*+|_+)$/.exec(before)?.[0] || '';
+    const closing = /^(?:\\?\]|>|`+|\*+|_+)/.exec(after)?.[0] || '';
+    return opening + '\0' + closing;
   }
   function protect(original) {
     const source = { title: String(original?.title ?? ''), body: String(original?.body ?? '') };
@@ -66,7 +99,10 @@
         const end = protectedEnd(value, i);
         if (end <= i) { output += value[i]; i += 1; continue; }
         const token = `${marker}${entries.length}END`;
-        entries.push({ token, literal: value.slice(i, end), field });
+        const literal = value.slice(i, end);
+        const presentation = /^(?:https?:\/\/|www\.|github\.com(?:\/|$))/i.test(literal)
+          ? rawLinkPresentation(value, i, end) : null;
+        entries.push({ token, literal, field, presentation });
         output += token;
         i = end;
       }
@@ -74,9 +110,12 @@
     }
     return { source, masked, entries, marker };
   }
+  // Also compares complete native HTML image tags, not just Markdown links.
   function sameLinks(before, after) {
-    const first = protect(before).entries.map(({ field, literal }) => `${field}:${literal}`);
-    const second = protect(after).entries.map(({ field, literal }) => `${field}:${literal}`);
+    const signature = ({ field, literal, presentation }) =>
+      JSON.stringify([field, literal, presentation]);
+    const first = protect(before).entries.map(signature);
+    const second = protect(after).entries.map(signature);
     return first.length === second.length && first.every((value, i) => value === second[i]);
   }
   function restore(protectedDraft, response) {
@@ -87,12 +126,12 @@
       const expected = entries.filter((entry) => entry.field === field);
       const actual = result[field].match(tokenPattern) || [];
       if (actual.length !== expected.length || actual.some((token, i) => token !== expected[i].token)) {
-        throw new Error('Spellcheck altered, omitted, duplicated, or reordered a protected Markdown link. Nothing was applied.');
+        throw new Error('Spellcheck altered, omitted, duplicated, or reordered a protected Markdown link, URL, or HTML image. Nothing was applied.');
       }
       for (const entry of expected) result[field] = result[field].replace(entry.token, entry.literal);
     }
     if (!sameLinks(source, result)) {
-      throw new Error('Spellcheck introduced or changed a Markdown link or URL. Nothing was applied.');
+      throw new Error('Spellcheck introduced or changed a Markdown link, URL, or HTML image. Nothing was applied.');
     }
     return result;
   }
