@@ -3,6 +3,7 @@ const DEFAULT_MUTED_USERS = [];
 const commitTitleEmojisInput = document.getElementById('commit-title-emojis');
 const simplifyCommitMessagesInput = document.getElementById('simplify-commit-messages');
 const wrapDiffLinesInput = document.getElementById('wrap-diff-lines');
+const hideCoauthorOnlyCommitDetailsInput = document.getElementById('hide-coauthor-only-commit-details');
 
 const blockTooltipsInput = document.getElementById('block-tooltips');
 const hideCopilotInput = document.getElementById('hide-copilot');
@@ -328,6 +329,7 @@ async function loadSettings() {
     commitTitleEmojis: false,
     simplifyCommitMessages: false,
     wrapDiffLines: true,
+    hideCoauthorOnlyCommitDetails: false,
     blockTooltips: false,
     hideCopilot: true,
     rotate404FanArtEnabled: true,
@@ -368,6 +370,7 @@ async function loadSettings() {
   commitTitleEmojisInput.checked = Boolean(settings.commitTitleEmojis);
   simplifyCommitMessagesInput.checked = Boolean(settings.simplifyCommitMessages);
   wrapDiffLinesInput.checked = Boolean(settings.wrapDiffLines);
+  hideCoauthorOnlyCommitDetailsInput.checked = Boolean(settings.hideCoauthorOnlyCommitDetails);
   blockTooltipsInput.checked = Boolean(settings.blockTooltips);
   hideCopilotInput.checked = Boolean(settings.hideCopilot);
   rotate404FanArtInput.checked = Boolean(settings.rotate404FanArtEnabled);
@@ -441,6 +444,7 @@ async function saveSettings() {
     commitTitleEmojis: commitTitleEmojisInput.checked,
     simplifyCommitMessages: simplifyCommitMessagesInput.checked,
     wrapDiffLines: wrapDiffLinesInput.checked,
+    hideCoauthorOnlyCommitDetails: hideCoauthorOnlyCommitDetailsInput.checked,
     blockTooltips: blockTooltipsInput.checked,
     hideCopilot: hideCopilotInput.checked,
     rotate404FanArtEnabled: rotate404FanArtInput.checked,
@@ -485,6 +489,7 @@ async function saveSettings() {
 commitTitleEmojisInput.addEventListener('change', () => void saveSettings());
 simplifyCommitMessagesInput.addEventListener('change', () => void saveSettings());
 wrapDiffLinesInput.addEventListener('change', () => void saveSettings());
+hideCoauthorOnlyCommitDetailsInput.addEventListener('change', () => void saveSettings());
 blockTooltipsInput.addEventListener('change', () => void saveSettings());
 hideCopilotInput.addEventListener('change', () => void saveSettings());
 rotate404FanArtInput.addEventListener('change', () => void saveSettings());
