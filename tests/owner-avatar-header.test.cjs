@@ -92,8 +92,8 @@ function harness(initiallyEnabled) {
       listener();
     },
     async settle() {
-      await Promise.resolve();
-      await Promise.resolve();
+      // Drain the async storage read across the VM boundary before animation frames.
+      for (let i = 0; i < 4; i++) await Promise.resolve();
       while (frames.length) frames.shift()();
     },
     change(enabled) {
@@ -184,11 +184,36 @@ test('updates the logo during Turbo, PJAX, and history navigation despite stale 
   }
 });
 
-test('restores GitHub branding when leaving a repository even if metadata remains stale', async () => {
+test('keeps owner branding when returning to organization and profile pages', async () => {
   const feature = harness(true);
   await feature.settle();
 
-  for (const pathname of ['/stellar', '/orgs/stellar/repositories', '/settings/profile']) {
+  for (const [pathname, eventName, owner] of [
+    ['/am-only/community-funding', 'turbo:load', 'am-only'],
+    ['/am-only', 'turbo:load', 'am-only'],
+    ['/orgs/am-only/repositories', 'pjax:end', 'am-only'],
+    ['/organizations/am-only/repositories/new', 'turbo:load', 'am-only'],
+    ['/organizations/stellar/repositories/new', 'pjax:end', 'stellar'],
+    ['/organizations/am-only/repositories/new', 'popstate', 'am-only'],
+    ['/am-only/community-funding', 'popstate', 'am-only'],
+    ['/am-only', 'popstate', 'am-only'],
+    ['/stellar', 'turbo:load', 'stellar'],
+  ]) {
+    feature.navigate(pathname, eventName);
+    await feature.settle();
+    assert.equal(feature.logo.getAttribute('href'), '/' + owner);
+    assert.equal(feature.logo.getAttribute('data-fractured-owner-logo'), owner);
+    assert.equal(feature.logo.querySelector('[data-fractured-owner-avatar]')?.src,
+      'https://github.com/' + owner + '.png?size=64');
+    assert.equal(feature.logo.children.length, 1);
+  }
+});
+
+test('restores GitHub branding when leaving owner pages even if metadata remains stale', async () => {
+  const feature = harness(true);
+  await feature.settle();
+
+  for (const pathname of ['/', '/orgs', '/organizations', '/organizations/new', '/settings/profile', '/notifications', '/pulls']) {
     feature.navigate(pathname);
     await feature.settle();
     assert.equal(feature.logo.hasAttribute('data-fractured-owner-logo'), false);

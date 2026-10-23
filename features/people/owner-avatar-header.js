@@ -18,12 +18,17 @@
     return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
   }
 
-  function repositoryOwner() {
+  function pageOwner() {
     // GitHub can preserve stale octolytics metadata across Turbo/PJAX navigation,
     // especially when following a fork back to a different repository owner.
     // The current route is the source of truth for repository-page branding.
     const parts = location.pathname.split('/').filter(Boolean);
-    if (parts.length < 2) return '';
+    if (!parts.length) return '';
+    const root = parts[0].toLowerCase();
+    const organizationRoute = root === 'orgs'
+      || (root === 'organizations' && parts.length >= 3);
+    const ownerPart = organizationRoute ? parts[1] : parts[0];
+    if (!ownerPart) return '';
 
     const reservedRoots = new Set([
       'about', 'account', 'apps', 'codespaces', 'collections', 'dashboard',
@@ -32,10 +37,10 @@
       'pricing', 'pulls', 'search', 'security', 'sessions', 'settings',
       'signup', 'site', 'sponsors', 'stars', 'topics', 'trending', 'users',
     ]);
-    if (reservedRoots.has(parts[0].toLowerCase())) return '';
+    if (!organizationRoute && reservedRoots.has(root)) return '';
 
     try {
-      const owner = decodeURIComponent(parts[0]);
+      const owner = decodeURIComponent(ownerPart);
       return /^[a-z\d](?:[a-z\d-]{0,37}[a-z\d])?$/i.test(owner) ? owner : '';
     } catch {
       return '';
@@ -279,7 +284,7 @@
       return;
     }
 
-    const owner = repositoryOwner();
+    const owner = pageOwner();
     const header = appHeader();
 
     if (!owner || !header) {
@@ -294,7 +299,12 @@
     ensureStyle();
     currentOwner = owner;
     installOwnerAvatar(header, owner);
-    hideOwnerName(header, owner);
+    const parts = location.pathname.split('/').filter(Boolean);
+    if (parts.length >= 2 && !['orgs', 'organizations'].includes(parts[0].toLowerCase())) {
+      hideOwnerName(header, owner);
+    } else {
+      clearHiddenOwnerNames();
+    }
   }
 
   function queueRefresh() {
