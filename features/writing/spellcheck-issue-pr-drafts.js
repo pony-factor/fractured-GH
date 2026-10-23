@@ -495,7 +495,25 @@
         i += 1;
       }
     }
-    return operations;
+    // Keep unchanged lines as anchors, but use conventional unified-diff
+    // ordering within each contiguous change block: deletions before additions.
+    const ordered = [];
+    for (let start = 0; start < operations.length;) {
+      if (operations[start][0] === ' ') {
+        ordered.push(operations[start]);
+        start += 1;
+        continue;
+      }
+      let end = start;
+      while (end < operations.length && operations[end][0] !== ' ') end += 1;
+      const changes = operations.slice(start, end);
+      ordered.push(
+        ...changes.filter(([prefix]) => prefix === '-'),
+        ...changes.filter(([prefix]) => prefix === '+'),
+      );
+      start = end;
+    }
+    return ordered;
   }
 
   function fileDiff(name, before, after) {
@@ -656,7 +674,7 @@
     const links = globalThis.fracturedSpellcheckLinks;
     if (!links?.sameLinks(original, result)) {
       showSidebar({
-        status: 'Spellcheck changed or added a Markdown link or URL. No changes were applied to your draft.',
+        status: 'Spellcheck changed or added a Markdown link, URL, or HTML image. No changes were applied to your draft.',
         error: true, diff,
       });
       resetEnhancerButtons();
@@ -737,42 +755,31 @@
       : 'Spellcheck title and body; generate a title if blank';
     button.setAttribute('aria-label', button.title);
     button.addEventListener('click', () => void launchSpellcheck(button, control));
-    // Stage rounded images in the same editor; no network upload happens while
-    // the user writes or while ChatGPT works on the draft.
-    const picker = document.createElement('input');
-    picker.type = 'file';
-    picker.accept = 'image/*';
-    picker.multiple = true;
-    picker.className = 'fractured-rounded-image-picker';
-    picker.hidden = true;
+    // Keep the rounded-image staging and deferred GitHub upload unchanged;
+    // the modal handles drag-and-drop and local selection before staging.
     const attach = document.createElement('button');
     attach.type = 'button';
     attach.className = 'fractured-rounded-image-button';
     attach.textContent = '🖼️';
-    attach.title = 'Attach rounded image (upload after spellcheck)';
+    attach.title = 'Add rounded image (upload after spellcheck)';
     attach.setAttribute('aria-label', attach.title);
-    attach.addEventListener('click', () => picker.click());
-    picker.addEventListener('change', async () => {
-      sidebarFields = fields;
-      attach.disabled = true;
-      try {
-        for (const file of Array.from(picker.files || [])) {
-          await globalThis.fracturedSpellcheckImages.add(fields.body, file);
-        }
-        showSidebar({ status: 'Image inserted as a local placeholder. Run ✨ Spellcheck Only to upload the rounded PNG and replace the placeholder with its final link.' });
-      } catch (error) {
-        showSidebar({ status: `Could not attach image: ${error.message}`, error: true });
-      } finally {
-        picker.value = '';
-        attach.disabled = false;
-      }
+    attach.addEventListener('click', () => {
+      globalThis.fracturedSpellcheckImageDialog.open({
+        trigger: attach,
+        editor: fields.body,
+        add: (file) => globalThis.fracturedSpellcheckImages.add(fields.body, file),
+        onAdded: (count) => {
+          sidebarFields = fields;
+          showSidebar({ status: count + ' image(s) inserted as local placeholders. Run ✨ Spellcheck Only to upload the rounded PNGs and replace their placeholders with final GitHub links.' });
+        },
+      });
     });
     // Treat the two draft actions as one toolbar group. Match the native
     // flex/grid gap when present; otherwise provide the same 8px gap before
     // GitHub's submit control, without double-spacing in flex toolbars.
     const actions = document.createElement('span');
     actions.className = 'fractured-spellcheck-actions';
-    actions.append(attach, picker, button);
+    actions.append(attach, button);
     const layout = control.parentElement && typeof getComputedStyle === 'function'
       ? getComputedStyle(control.parentElement) : null;
     if (layout && /^(inline-)?(flex|grid)$/.test(layout.display)) {

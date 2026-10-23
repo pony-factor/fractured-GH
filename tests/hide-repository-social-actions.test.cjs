@@ -72,24 +72,24 @@ async function render(hideRepositoryFork, controls, options = {}) {
   while (frames.length) frames.shift()();
 }
 
-test('hides a disabled private repository Fork button without hiding other actions', async () => {
+test('preserves a disabled private repository Fork control without hiding other actions', async () => {
   const fork = disabledControl('Fork');
   const star = disabledControl('Star');
   await render(true, [fork, star]);
-  assert.equal(fork.wrapper.action, 'fork');
+  assert.equal(fork.wrapper.action, undefined);
   assert.equal(star.wrapper.action, undefined);
 });
 
-test('matches an icon-only disabled Fork button by its accessible label', async () => {
+test('preserves an icon-only disabled Fork button by its accessible label', async () => {
   const fork = disabledControl('', 'Fork this repository');
   await render(true, [fork]);
-  assert.equal(fork.wrapper.action, 'fork');
+  assert.equal(fork.wrapper.action, undefined);
 });
 
-test('recognizes a private repository cannot-fork message', async () => {
+test('does not remove a private repository cannot-fork message', async () => {
   const fork = disabledControl('', 'Cannot fork this repository');
   await render(true, [fork]);
-  assert.equal(fork.wrapper.action, 'fork');
+  assert.equal(fork.wrapper.action, undefined);
 });
 
 test('leaves disabled Fork controls visible when the setting is off', async () => {

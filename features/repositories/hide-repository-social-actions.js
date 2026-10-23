@@ -8,10 +8,72 @@
   let settings = {};
   let scheduled = false;
 
+  const COMPACT_ATTRIBUTE = 'data-fractured-compact-repository-action';
+
+  function compactHeaderAction(item, action, repository) {
+    const destinations = { watch: 'watchers', star: 'stargazers', fork: 'forks' };
+    const path = `/${repository}/${destinations[action]}`.toLowerCase();
+    const isCount = value => /^\s*\d[\d,.]*[kmb]?\s*$/i.test(value || '');
+
+    // GitHub renders counters as links on some headers and as inline spans
+    // on others. Only hide numeric counters belonging to this action.
+    for (const link of item.querySelectorAll('a[href]')) {
+      let url;
+      try {
+        url = new URL(link.href, location.origin);
+      } catch {
+        continue;
+      }
+      if (url.origin === location.origin
+        && url.pathname.replace(/\/+$/, '').toLowerCase() === path
+        && isCount(link.textContent)) {
+        link.setAttribute(ATTRIBUTE, `${action}-count`);
+      }
+    }
+    for (const counter of item.querySelectorAll(
+      '.Counter, [id*="counter"], [data-testid*="count"]',
+    )) {
+      if (isCount(counter.textContent)) {
+        counter.setAttribute(ATTRIBUTE, `${action}-count`);
+      }
+    }
+
+    for (const trigger of item.querySelectorAll('button, summary, [role="button"]')) {
+      const arrow = trigger.querySelector('svg.octicon-triangle-down, svg.octicon-chevron-down');
+      if (!arrow) continue;
+
+      const label = (trigger.textContent || '').replace(/\s+/g, ' ').trim();
+      const isPrimary = /^(?:watch|unwatch|star|unstar|fork)(?:\s+\d[\d,.]*[kmb]?)?$/i.test(label)
+        || Boolean(trigger.querySelector(
+          'svg.octicon-eye, svg.octicon-bell, svg.octicon-star, svg.octicon-repo-forked',
+        ));
+      if (isPrimary) {
+        // Watch can use its *main* button to open notification settings.
+        // Never remove that button or prevent its default click behavior.
+        arrow.setAttribute(ATTRIBUTE, `${action}-chevron`);
+      } else {
+        // Split-button menus have their own arrow-only button or summary.
+        const menu = trigger.matches('summary') ? trigger.closest('details') || trigger : trigger;
+        menu.setAttribute(ATTRIBUTE, `${action}-menu`);
+      }
+    }
+
+    // Restore the rounded right edge left behind by split-button groups.
+    for (const control of item.querySelectorAll('a, button, summary')) {
+      const label = (control.textContent || '').replace(/\s+/g, ' ').trim();
+      if (/^(?:watch|unwatch|star|unstar|fork)(?:\s+\d[\d,.]*[kmb]?)?$/i.test(label)
+        && !control.hasAttribute(ATTRIBUTE)) {
+        control.setAttribute(COMPACT_ATTRIBUTE, action);
+        break;
+      }
+    }
+  }
+
   function refresh() {
     scheduled = false;
-    for (const element of document.querySelectorAll(`[${ATTRIBUTE}]`)) {
+    for (const element of document.querySelectorAll(`[${ATTRIBUTE}], [${COMPACT_ATTRIBUTE}]`)) {
       element.removeAttribute(ATTRIBUTE);
+      element.removeAttribute(COMPACT_ATTRIBUTE);
     }
 
     // Organization/profile cards and repository lists have no repository metadata.
@@ -76,36 +138,19 @@
         for (const [action, key, pattern] of [
           ['watch', 'hideRepositoryWatch', /^(?:unwatch|watch)(?:\s|:|$)/i],
           ['star', 'hideRepositoryStar', /^(?:unstar|star)(?:\s|:|$)/i],
-          ['fork', 'hideRepositoryFork', /^fork(?:\s|:|$)/i],
+          ['fork', 'hideRepositoryFork', /^(?:fork|cannot fork|can't fork|unable to fork)(?:\s|:|$)/i],
           ['pins', 'hideRepositoryPins', /^(?:edit pins|pin repository|unpin repository)(?:\s|:|$)/i],
         ]) {
           const hide = key === 'hideRepositoryPins'
             ? (settings[key] ?? true)
             : (settings[key] ?? settings.hideRepositorySocialActions);
-          if (hide && labels.some(label => pattern.test(label))) {
+          if (!hide || !labels.some(label => pattern.test(label))) continue;
+          if (action === 'pins') {
             item.setAttribute(ATTRIBUTE, action);
+          } else {
+            compactHeaderAction(item, action, repository);
           }
         }
-      }
-    }
-
-    // A disabled Fork can be a tooltip-trigger button rather than a native
-    // disabled button, and newer headers can sit outside the legacy container.
-    if (settings.hideRepositoryFork ?? settings.hideRepositorySocialActions) {
-      for (const control of document.querySelectorAll(
-        '#repository-container-header button, #repository-container-header [role="button"], '
-        + '[data-testid="repo-header-actions"] button, [class*="RepoHeaderActions"] button, '
-        + '#fork-button, button[aria-label*="fork" i], [role="button"][aria-label*="fork" i]',
-      )) {
-        const labels = [
-          control.getAttribute('aria-label'),
-          control.getAttribute('title'),
-          control.textContent,
-        ].filter(Boolean).map(label => label.replace(/\s+/g, ' ').trim());
-        if (!labels.some(label => /^fork(?:\s|:|$)/i.test(label)
-          || /^(?:cannot|can't|unable to) fork(?:\s|:|$)/i.test(label))) continue;
-        const item = control.closest('li, .btn-with-count, [data-testid="fork-button"]') || control;
-        item.setAttribute(ATTRIBUTE, 'fork');
       }
     }
 
@@ -187,7 +232,11 @@
   }
 
   const style = document.createElement('style');
-  style.textContent = `[${ATTRIBUTE}] { display: none !important; }`;
+  style.textContent = `[${ATTRIBUTE}] { display: none !important; }
+    [${COMPACT_ATTRIBUTE}] {
+      border-top-right-radius: var(--borderRadius-medium, 6px) !important;
+      border-bottom-right-radius: var(--borderRadius-medium, 6px) !important;
+    }`;
   (document.head || document.documentElement).append(style);
   new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true });
   chrome.storage.onChanged.addListener((changes, area) => {

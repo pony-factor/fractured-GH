@@ -104,3 +104,97 @@ test('keeps text-only drafts editable and rejects injected links on GitHub', () 
     title: 'the title', body: 'the [description](https://example.com)',
   }), false);
 });
+
+test('preserves complete native GitHub HTML images outside the image importer', () => {
+  const api = links();
+  const image = '<img width="690" height="326" alt="Screenshot > draft"\n'
+    + ' src="https://github.com/user-attachments/assets/eba74fc1-2db0-4c9a-bce2-61ff3afba008" />';
+  const original = { title: '', body: 'teh screenshot:\n' + image + '\nmore teh words' };
+  const masked = api.protect(original);
+  assert.equal(masked.entries.length, 1, 'the entire tag is one protected unit');
+  assert.equal(masked.entries[0].literal, image);
+  assert.doesNotMatch(masked.masked.body, /<img|github\.com|Screenshot/);
+  const result = api.restore(masked, {
+    title: '',
+    body: masked.masked.body.replaceAll('teh', 'the'),
+  });
+  assert.equal(result.body, original.body.replaceAll('teh', 'the'));
+  assert.equal(api.sameLinks(original, result), true);
+});
+
+test('preserves single-quoted and uppercase image tags alongside Markdown images', () => {
+  const api = links();
+  const original = {
+    title: '',
+    body: "<IMG ALT='A > B' SRC='https://github.com/user-attachments/assets/native'>"
+      + '\n![other](https://example.com/other.png)\n'
+      + '<img data-alt="a \'quoted\' name" src="https://example.com/two.png"/>',
+  };
+  const masked = api.protect(original);
+  assert.equal(masked.entries.length, 3);
+  assert.doesNotMatch(masked.masked.body, /<img|<IMG|https?:\/\//);
+  assert.equal(api.restore(masked, masked.masked).body, original.body);
+});
+
+test('rejects changes to native image tags, including rewrapped src and alt text', () => {
+  const api = links();
+  const image = '<img alt="Screenshot" src="https://github.com/user-attachments/assets/abc" />';
+  const original = { title: '', body: 'Image:\n' + image };
+  const masked = api.protect(original);
+  const token = masked.entries[0].token;
+  assert.equal(api.sameLinks(original, { title: '', body: original.body.replace('Screenshot', 'Screen shot') }), false);
+  assert.equal(api.sameLinks(original, { title: '', body: original.body.replace('abc', 'def') }), false);
+  assert.equal(api.sameLinks(original, { title: '', body: original.body + '\n' + image }), false);
+  assert.throws(() => api.restore(masked, {
+    title: '', body: masked.masked.body.replace(token, '[' + token + '](' + token + ')'),
+  }), /protected Markdown link/);
+  assert.throws(() => api.restore(masked, {
+    title: '', body: masked.masked.body + '\n' + image,
+  }), /introduced or changed/);
+});
+
+test('does not mistake similarly named HTML elements for image tags', () => {
+  const api = links();
+  const original = { title: '', body: '<image alt="a"> <imgur src="x"> <img missing closing' };
+  assert.equal(api.protect(original).entries.length, 0);
+});
+
+test('preserves scheme-less raw GitHub URLs exactly as supplied', () => {
+  const api = links();
+  const original = { title: 'Raw github.com/pony-factor/fractured-GH', body:
+    'Use github.com/pony-factor/fractured-GH/pull/66, www.github.com/org/repo and '
+    + 'https://github.com/user-attachments/assets/a-b-c raw. Fix teh typo.' };
+  const masked = api.protect(original);
+  assert.equal(masked.entries.length, 4);
+  assert.doesNotMatch(masked.masked.body, /github\.com|https?:\/\//);
+  const result = api.restore(masked, {
+    title: masked.masked.title,
+    body: masked.masked.body.replace('teh typo', 'the typo'),
+  });
+  assert.equal(result.title, original.title);
+  assert.equal(result.body, original.body.replace('teh typo', 'the typo'));
+});
+
+test('rejects changing bare links into bracketed, bold, or inline-code links', () => {
+  const api = links();
+  for (const url of ['https://github.com/pony-factor/fractured-GH', 'github.com/pony-factor/fractured-GH']) {
+    const original = { title: '', body: 'Read ' + url + ' for context.' };
+    const protectedDraft = api.protect(original);
+    const token = protectedDraft.entries[0].token;
+    for (const wrapper of [`[${token}]`, `\`${token}\``, `**${token}**`, `<${token}>`]) {
+      const body = protectedDraft.masked.body.replace(token, wrapper);
+      assert.throws(() => api.restore(protectedDraft, { title: '', body }),
+        /introduced or changed|protected Markdown link/);
+    }
+  }
+});
+
+test('keeps original link enclosure unchanged when already authored that way', () => {
+  const api = links();
+  const original = { title: '', body: 'Here is [github.com/pony-factor/fractured-GH] and `https://github.com/foo`.' };
+  const protectedDraft = api.protect(original);
+  assert.equal(protectedDraft.entries.length, 2);
+  assert.equal(api.restore(protectedDraft, protectedDraft.masked).body, original.body);
+  assert.equal(api.sameLinks(original, original), true);
+  assert.equal(api.sameLinks(original, { title: '', body: original.body.replace('[github.com/pony-factor/fractured-GH]', 'github.com/pony-factor/fractured-GH') }), false);
+});

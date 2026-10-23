@@ -77,6 +77,13 @@
               </span>
             </label>
             <label class="preference">
+              <input id="rotate-404-fan-art" type="checkbox" />
+              <span>
+                <strong>Rotate fan art on GitHub 404 pages</strong>
+                <small>Replace GitHub's 404 illustration with a rotating selection of safe-rated pony fan art, including artist credits and source links. Falls back to GitHub's image when unavailable.</small>
+              </span>
+            </label>
+            <label class="preference">
               <input id="hide-copilot" type="checkbox" />
               <span>
                 <strong>Hide Copilot</strong>
@@ -120,22 +127,22 @@
             <label class="preference">
               <input id="hide-repository-watch" type="checkbox" />
               <span>
-                <strong>Hide repository Watch button</strong>
-                <small>Hide the Watch control and its count in repository headers and the About sidebar.</small>
+                <strong>Hide Watch count and dropdown</strong>
+                <small>Keep the Watch action available while removing its header count and separate dropdown arrow. Hide Watch statistics in the About sidebar.</small>
               </span>
             </label>
             <label class="preference">
               <input id="hide-repository-star" type="checkbox" />
               <span>
-                <strong>Hide repository Star button</strong>
-                <small>Hide the Star control, its count, and star-list menu in repository headers, plus stars in the About sidebar, pinned cards, and repository lists.</small>
+                <strong>Hide Star count and dropdown</strong>
+                <small>Keep Star and Unstar available while removing their header count and separate menu arrow. Hide star statistics in the About sidebar, pinned cards, and repository lists.</small>
               </span>
             </label>
             <label class="preference">
               <input id="hide-repository-fork" type="checkbox" />
               <span>
-                <strong>Hide repository Fork button</strong>
-                <small>Hide the Fork control, its count, and fork menu in repository headers, plus forks in the About sidebar, pinned cards, and repository lists.</small>
+                <strong>Hide Fork count and dropdown</strong>
+                <small>Keep Fork available while removing its header count and separate menu arrow. Hide fork statistics in the About sidebar, pinned cards, and repository lists.</small>
               </span>
             </label>
             <label class="preference">
@@ -340,9 +347,17 @@
         <details class="settings-foldout" open>
           <summary>
             <span>Pull requests</span>
-            <span class="summary-meta">Milestone + contribution notices</span>
+            <span class="summary-meta">Sidebar + contribution notices</span>
           </summary>
           <div class="foldout-body">
+            <label class="preference">
+              <input id="hide-coauthor-only-commit-details" type="checkbox" />
+              <span>
+                <strong>Hide co-author-only commit details</strong>
+                <small>Hide the … expander on pull request commits when the description contains only Co-authored-by trailers. Commit metadata stays intact. Off by default.</small>
+              </span>
+            </label>
+
             <label class="preference">
               <input id="wrap-diff-lines" type="checkbox" />
               <span>
@@ -355,7 +370,7 @@
               <input id="hide-contributing-guidelines-notice" type="checkbox" />
               <span>
                 <strong>Hide contributing guidelines reminder</strong>
-                <small>Hide GitHub's “Remember, contributions…” notice when it links to a repository's CONTRIBUTING.md.</small>
+                <small>Hide GitHub's “Remember, contributions…” reminder for repository contributing guidelines and GitHub Community Guidelines.</small>
               </span>
             </label>
 
@@ -374,6 +389,13 @@
               <span>
                 <strong>Hide milestone sidebar item</strong>
                 <small>Hide the Milestone section from pull request sidebars.</small>
+              </span>
+            </label>
+            <label class="preference">
+              <input id="hide-pull-request-participants" type="checkbox" />
+              <span>
+                <strong>Hide participants sidebar item</strong>
+                <small>Hide the Participants section, including its count and avatars, from pull request sidebars. Off by default.</small>
               </span>
             </label>
           </div>
