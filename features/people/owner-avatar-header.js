@@ -13,6 +13,7 @@
   let currentOwner = '';
   let observer = null;
   let refreshQueued = false;
+  let failedAvatarOwner = '';
 
   function normalizeText(value) {
     return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -24,6 +25,9 @@
     // The current route is the source of truth for repository-page branding.
     const parts = location.pathname.split('/').filter(Boolean);
     if (parts.length < 2) return '';
+    // Error pages and non-repository routes must retain GitHub's original mark.
+    if (document.querySelector('#parallax_wrapper, .container-404, .error-404')
+      || /(?:404|page not found)/i.test(document.title)) return '';
 
     const reservedRoots = new Set([
       'about', 'account', 'apps', 'codespaces', 'collections', 'dashboard',
@@ -36,7 +40,13 @@
 
     try {
       const owner = decodeURIComponent(parts[0]);
-      return /^[a-z\d](?:[a-z\d-]{0,37}[a-z\d])?$/i.test(owner) ? owner : '';
+      const repo = decodeURIComponent(parts[1]);
+      const nwo = document.querySelector('meta[name="octolytics-dimension-repository_nwo"]')
+        ?.getAttribute('content') || '';
+      // The route AND repository metadata must agree. Stale Turbo metadata alone
+      // must never turn a missing profile/repository into a broken avatar.
+      return /^[a-z\d](?:[a-z\d-]{0,37}[a-z\d])?$/i.test(owner)
+        && nwo.toLowerCase() === (owner + '/' + repo).toLowerCase() ? owner : '';
     } catch {
       return '';
     }
@@ -218,6 +228,13 @@
 
     const avatarUrl = `https://github.com/${encodeURIComponent(owner)}.png?size=64`;
     if (avatar.src !== avatarUrl) avatar.src = avatarUrl;
+    // A removed or inaccessible account may return an HTML 404 for owner.png.
+    // Restore the real GitHub logo instead of displaying a broken image.
+    avatar.onerror = () => {
+      if (!avatar.isConnected) return;
+      failedAvatarOwner = owner.toLowerCase();
+      reset();
+    };
   }
 
   function exactOwnerElement(element, ownerKey) {
@@ -283,11 +300,14 @@
     const header = appHeader();
 
     if (!owner || !header) {
-      if (currentOwner) reset();
+      failedAvatarOwner = '';
+      if (currentOwner || document.querySelector('[' + LOGO_ATTRIBUTE + ']')) reset();
       return;
     }
+    if (failedAvatarOwner === owner.toLowerCase()) return;
 
     if (currentOwner && currentOwner.toLowerCase() !== owner.toLowerCase()) {
+      failedAvatarOwner = '';
       reset();
     }
 

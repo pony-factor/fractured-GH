@@ -244,6 +244,12 @@
       && Boolean(String(job.original?.body ?? '').trim());
   }
 
+  function needsShortTitleEmoji(job) {
+    if (job.kind === 'comment' || shouldGenerateTitle(job)) return false;
+    const title = String(job.original?.title ?? '').trim();
+    return Boolean(title) && title.split(/\s+/u).length <= 6;
+  }
+
   function buildPrompt(job, protectedDraft) {
     const generateTitle = shouldGenerateTitle(job);
     const input = JSON.stringify(protectedDraft?.masked ?? {
@@ -259,8 +265,15 @@
       generateTitle
         ? 'The title is blank: generate a concise, specific 4–12 word title that describes the body. Do not leave the title empty. For the body, correct spelling, capitalization, punctuation, and grammar only; preserve its meaning, Markdown, links, code, identifiers, and formatting.'
         : 'Correct spelling, capitalization, punctuation, and grammar only. Preserve meaning, Markdown, links, code, identifiers, and formatting.',
+      job.kind === 'comment'
+        ? null
+        : generateTitle
+          ? 'Apply the Spellcheck Only emoji rule to the generated title as an independent input: if it has six words or fewer, prefix exactly one professional emoji appropriate to its content and omit ending punctuation. Do not add an emoji to the body.'
+          : needsShortTitleEmoji(job)
+            ? 'The existing title has six words or fewer. As the highest-priority exception to spelling-only edits, the corrected title MUST start with exactly one professional emoji appropriate to its content, even when the body is long. Preserve an existing leading emoji rather than duplicating it; do not end the title with punctuation. Do not add an emoji to the body.'
+            : 'Preserve any existing title emoji. Do not add a new emoji to titles longer than six words.',
       'Preserve every fractured-pending-image: placeholder exactly as written; these represent images to upload after spellcheck.',
-      'The FRACTUREDLINKTOKEN markers represent protected Markdown links and URLs. Preserve every marker exactly once, in its original order and field; never add or change a marker.',
+      'The FRACTUREDLINKTOKEN markers represent protected Markdown links, raw URLs, and entire HTML image tags. Preserve every marker exactly once, in its original order and field; never add or change a marker. Never wrap a marker in Markdown, backticks, brackets, or HTML; a raw link must remain raw.',
       'Return only one valid JSON object with exactly the string keys "title" and "body". Do not use Markdown fences or add commentary.',
       `Input JSON: ${input}`,
     ].join('\n');
