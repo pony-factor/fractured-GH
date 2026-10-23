@@ -190,7 +190,6 @@ test('groups image and spellcheck controls with the same gap as the native toolb
   const app = setup({ pathname: '/pony-factor/fractured-GH/pull/51', toolbarLayout: 'flex' });
   assert.deepEqual(app.actions.children.map(node => node.className), [
     'fractured-rounded-image-button',
-    'fractured-rounded-image-picker',
     'fractured-spellcheck-enhancer',
   ]);
   assert.equal(app.actions.style.gap, '12px');
