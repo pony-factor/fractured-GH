@@ -92,6 +92,36 @@
       }
     }
 
+
+    // Pinned and other repository cards sometimes show stars as icon + count
+    // without a /stargazers link. Hide only the star statistic, not its card.
+    if (settings.hideRepositoryStar ?? settings.hideRepositorySocialActions) {
+      for (const icon of document.querySelectorAll(
+        '.pinned-item-list-item svg.octicon-star, '
+        + '.pinned-item-list-item [data-testid="star-icon"], '
+        + '.repo-list-item svg.octicon-star, '
+        + '[data-testid="repository-card"] svg.octicon-star, '
+        + '[data-testid="repository-card"] [data-testid="star-icon"]',
+      )) {
+        const metric = icon.closest(
+          '.pinned-item-meta, [data-testid="repository-stars"], '
+          + '[data-testid="repository-star-count"]',
+        );
+        if (metric) {
+          metric.setAttribute(ATTRIBUTE, 'star');
+          continue;
+        }
+
+        // Some cards have an unclassified wrapper. Only hide it when it
+        // contains a single icon and a numeric count; never hide the footer.
+        const wrapper = icon.parentElement;
+        if (wrapper && wrapper.querySelectorAll('svg, [data-testid="star-icon"]').length === 1
+          && /^\d[\d,.]*[kmb]?$/i.test(wrapper.textContent.trim())) {
+          wrapper.setAttribute(ATTRIBUTE, 'star');
+        }
+      }
+    }
+
     const repository = document.querySelector('meta[name="octolytics-dimension-repository_nwo"]')
       ?.getAttribute('content');
     if (!repository) return;
