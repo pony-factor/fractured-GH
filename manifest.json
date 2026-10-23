@@ -34,6 +34,7 @@
         "features/interface/hide-my-navigation-links.js",
         "features/interface/hide-hamburger-menu.js",
         "features/people/owner-avatar-header.js",
+        "features/interface/rotating-404-fan-art.js",
         "features/people/profile-name-cache.js",
         "features/people/user-nicknames.js",
         "features/people/promote-display-names.js",
@@ -90,5 +91,9 @@
     "32": "icons/fractured-32.png",
     "48": "icons/fractured-48.png",
     "128": "icons/fractured-128.png"
-  }
+  },
+  "host_permissions": [
+    "https://derpibooru.org/*",
+    "https://derpicdn.net/*"
+  ]
 }

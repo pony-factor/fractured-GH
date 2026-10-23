@@ -6,6 +6,7 @@ const wrapDiffLinesInput = document.getElementById('wrap-diff-lines');
 
 const blockTooltipsInput = document.getElementById('block-tooltips');
 const hideCopilotInput = document.getElementById('hide-copilot');
+const rotate404FanArtInput = document.getElementById('rotate-404-fan-art');
 const hideContributingGuidelinesNoticeInput = document.getElementById('hide-contributing-guidelines-notice');
 const hidePullRequestProtipInput = document.getElementById('hide-pull-request-protip');
 const hidePullRequestMilestoneInput = document.getElementById('hide-pull-request-milestone');
@@ -329,6 +330,7 @@ async function loadSettings() {
     wrapDiffLines: true,
     blockTooltips: false,
     hideCopilot: true,
+    rotate404FanArtEnabled: true,
     hideContributingGuidelinesNotice: true,
     hidePullRequestProtip: false,
     hidePullRequestMilestone: false,
@@ -368,6 +370,7 @@ async function loadSettings() {
   wrapDiffLinesInput.checked = Boolean(settings.wrapDiffLines);
   blockTooltipsInput.checked = Boolean(settings.blockTooltips);
   hideCopilotInput.checked = Boolean(settings.hideCopilot);
+  rotate404FanArtInput.checked = Boolean(settings.rotate404FanArtEnabled);
   hideContributingGuidelinesNoticeInput.checked = Boolean(settings.hideContributingGuidelinesNotice);
   hidePullRequestProtipInput.checked = Boolean(settings.hidePullRequestProtip);
   hidePullRequestMilestoneInput.checked = Boolean(settings.hidePullRequestMilestone);
@@ -440,6 +443,7 @@ async function saveSettings() {
     wrapDiffLines: wrapDiffLinesInput.checked,
     blockTooltips: blockTooltipsInput.checked,
     hideCopilot: hideCopilotInput.checked,
+    rotate404FanArtEnabled: rotate404FanArtInput.checked,
     hideContributingGuidelinesNotice: hideContributingGuidelinesNoticeInput.checked,
     hidePullRequestProtip: hidePullRequestProtipInput.checked,
     hidePullRequestMilestone: hidePullRequestMilestoneInput.checked,
@@ -483,6 +487,7 @@ simplifyCommitMessagesInput.addEventListener('change', () => void saveSettings()
 wrapDiffLinesInput.addEventListener('change', () => void saveSettings());
 blockTooltipsInput.addEventListener('change', () => void saveSettings());
 hideCopilotInput.addEventListener('change', () => void saveSettings());
+rotate404FanArtInput.addEventListener('change', () => void saveSettings());
 hideContributingGuidelinesNoticeInput.addEventListener('change', () => void saveSettings());
 hidePullRequestProtipInput.addEventListener('change', () => void saveSettings());
 hidePullRequestMilestoneInput.addEventListener('change', () => void saveSettings());
