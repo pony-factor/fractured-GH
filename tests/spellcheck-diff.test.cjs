@@ -51,6 +51,39 @@ test('wrap defaults on and can be switched off and restored', () => {
 
 test('comment diffs omit file headers and unchanged comments have no diff', () => {
   const app = setup();
-  assert.equal(app.draftDiff({ body: 'cat' }, { body: 'cats' }, 'comment'), '+cats\n-cat');
+  assert.equal(app.draftDiff({ body: 'cat' }, { body: 'cats' }, 'comment'), '-cat\n+cats');
   assert.equal(app.draftDiff({ body: 'cat' }, { body: 'cat' }, 'comment'), '');
+});
+
+test('shows removed lines before added lines in title and body previews', () => {
+  const app = setup();
+  const diff = app.draftDiff(
+    { title: 'Old title', body: 'Old body' },
+    { title: 'New title', body: 'New body' },
+  );
+  assert.equal(diff, 'Title\n-Old title\n+New title\nBody\n-Old body\n+New body');
+  const preview = app.node();
+  app.renderDiff(preview, diff);
+  assert.deepEqual(preview.children.map(line => line.className), [
+    'fractured-diff-meta', 'fractured-diff-del', 'fractured-diff-add',
+    'fractured-diff-meta', 'fractured-diff-del', 'fractured-diff-add',
+  ]);
+});
+
+test('orders every replacement block while keeping unchanged context intact', () => {
+  const app = setup();
+  assert.equal(
+    app.draftDiff(
+      { body: 'start\nold one\nold two\nkeep\nold three\nend' },
+      { body: 'start\nnew one\nnew two\nkeep\nnew three\nend' },
+      'comment',
+    ),
+    ' start\n-old one\n-old two\n+new one\n+new two\n keep\n-old three\n+new three\n end',
+  );
+});
+
+test('keeps standalone insertions and deletions in position', () => {
+  const app = setup();
+  assert.equal(app.draftDiff({ body: 'a\nb' }, { body: 'a\nb\nc' }, 'comment'), ' a\n b\n+c');
+  assert.equal(app.draftDiff({ body: 'a\nb\nc' }, { body: 'a\nc' }, 'comment'), ' a\n-b\n c');
 });

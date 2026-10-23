@@ -6,29 +6,51 @@
   });
   if (!hideContributingGuidelinesNotice) return;
 
-  const NOTICE_TEXT = 'Remember, contributions to this repository should follow its contributing guidelines.';
-  const LINK_SELECTOR = 'a[href*="/CONTRIBUTING.md"]';
+  const NOTICES = [
+    {
+      text: 'Remember, contributions to this repository should follow its contributing guidelines.',
+      matchesLink: (link) => /\/CONTRIBUTING\.md(?:[?#]|$)/i.test(link.getAttribute('href') || ''),
+    },
+    {
+      text: 'Remember, contributions to this repository should follow our GitHub Community Guidelines.',
+      matchesLink: (link) => normalizeText(link.textContent) === 'GitHub Community Guidelines'
+        && /github-community-guidelines(?:[/?#]|$)/i.test(link.getAttribute('href') || ''),
+    },
+  ];
+  const NOTICE_SELECTOR = 'p, div, span, small';
 
   function normalizeText(value) {
     return String(value || '').replace(/\s+/g, ' ').trim();
   }
 
-  function hideMatchingNotices(root = document) {
-    const paragraphs = [];
+  function isNotice(element) {
+    const text = normalizeText(element.textContent);
+    return NOTICES.some((notice) => (
+      text === notice.text && [...element.querySelectorAll('a')].some(notice.matchesLink)
+    ));
+  }
 
-    if (root instanceof Element && root.matches('p')) {
-      paragraphs.push(root);
+  function hideMatchingNotices(root = document) {
+    const candidates = [];
+
+    if (root instanceof Element && root.matches(NOTICE_SELECTOR)) {
+      candidates.push(root);
     }
 
     if (typeof root.querySelectorAll === 'function') {
-      paragraphs.push(...root.querySelectorAll('p'));
+      candidates.push(...root.querySelectorAll(NOTICE_SELECTOR));
     }
 
-    for (const paragraph of paragraphs) {
-      if (paragraph.hidden) continue;
-      if (normalizeText(paragraph.textContent) !== NOTICE_TEXT) continue;
-      if (!paragraph.querySelector(LINK_SELECTOR)) continue;
-      paragraph.hidden = true;
+    // Handle both the legacy paragraph and the newer icon + text wrapper.
+    // Hide the outermost notice-only container without removing adjacent form controls.
+    for (const candidate of candidates.reverse()) {
+      if (candidate.hidden || !isNotice(candidate)) continue;
+
+      let notice = candidate;
+      while (notice.parentElement?.matches(NOTICE_SELECTOR) && isNotice(notice.parentElement)) {
+        notice = notice.parentElement;
+      }
+      notice.hidden = true;
     }
   }
 

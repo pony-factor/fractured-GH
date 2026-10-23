@@ -7,9 +7,11 @@ const hideCoauthorOnlyCommitDetailsInput = document.getElementById('hide-coautho
 
 const blockTooltipsInput = document.getElementById('block-tooltips');
 const hideCopilotInput = document.getElementById('hide-copilot');
+const rotate404FanArtInput = document.getElementById('rotate-404-fan-art');
 const hideContributingGuidelinesNoticeInput = document.getElementById('hide-contributing-guidelines-notice');
 const hidePullRequestProtipInput = document.getElementById('hide-pull-request-protip');
 const hidePullRequestMilestoneInput = document.getElementById('hide-pull-request-milestone');
+const hidePullRequestParticipantsInput = document.getElementById('hide-pull-request-participants');
 const hideFooterInput = document.getElementById('hide-footer');
 const openCodeInVsCodeWebInput = document.getElementById('open-code-in-vscode-web');
 const hideRepositoryTagsShortcutInput = document.getElementById('hide-repository-tags-shortcut');
@@ -330,9 +332,11 @@ async function loadSettings() {
     hideCoauthorOnlyCommitDetails: false,
     blockTooltips: false,
     hideCopilot: true,
+    rotate404FanArtEnabled: true,
     hideContributingGuidelinesNotice: true,
     hidePullRequestProtip: false,
     hidePullRequestMilestone: false,
+    hidePullRequestParticipants: false,
     hideFooter: false,
     openCodeInVsCodeWeb: true,
     hideRepositoryTagsShortcut: true,
@@ -369,9 +373,11 @@ async function loadSettings() {
   hideCoauthorOnlyCommitDetailsInput.checked = Boolean(settings.hideCoauthorOnlyCommitDetails);
   blockTooltipsInput.checked = Boolean(settings.blockTooltips);
   hideCopilotInput.checked = Boolean(settings.hideCopilot);
+  rotate404FanArtInput.checked = Boolean(settings.rotate404FanArtEnabled);
   hideContributingGuidelinesNoticeInput.checked = Boolean(settings.hideContributingGuidelinesNotice);
   hidePullRequestProtipInput.checked = Boolean(settings.hidePullRequestProtip);
   hidePullRequestMilestoneInput.checked = Boolean(settings.hidePullRequestMilestone);
+  hidePullRequestParticipantsInput.checked = Boolean(settings.hidePullRequestParticipants);
   hideFooterInput.checked = Boolean(settings.hideFooter);
   openCodeInVsCodeWebInput.checked = Boolean(settings.openCodeInVsCodeWeb);
   hideRepositoryTagsShortcutInput.checked = Boolean(settings.hideRepositoryTagsShortcut);
@@ -441,9 +447,11 @@ async function saveSettings() {
     hideCoauthorOnlyCommitDetails: hideCoauthorOnlyCommitDetailsInput.checked,
     blockTooltips: blockTooltipsInput.checked,
     hideCopilot: hideCopilotInput.checked,
+    rotate404FanArtEnabled: rotate404FanArtInput.checked,
     hideContributingGuidelinesNotice: hideContributingGuidelinesNoticeInput.checked,
     hidePullRequestProtip: hidePullRequestProtipInput.checked,
     hidePullRequestMilestone: hidePullRequestMilestoneInput.checked,
+    hidePullRequestParticipants: hidePullRequestParticipantsInput.checked,
     hideFooter: hideFooterInput.checked,
     openCodeInVsCodeWeb: openCodeInVsCodeWebInput.checked,
     hideRepositoryTagsShortcut: hideRepositoryTagsShortcutInput.checked,
@@ -484,9 +492,11 @@ wrapDiffLinesInput.addEventListener('change', () => void saveSettings());
 hideCoauthorOnlyCommitDetailsInput.addEventListener('change', () => void saveSettings());
 blockTooltipsInput.addEventListener('change', () => void saveSettings());
 hideCopilotInput.addEventListener('change', () => void saveSettings());
+rotate404FanArtInput.addEventListener('change', () => void saveSettings());
 hideContributingGuidelinesNoticeInput.addEventListener('change', () => void saveSettings());
 hidePullRequestProtipInput.addEventListener('change', () => void saveSettings());
 hidePullRequestMilestoneInput.addEventListener('change', () => void saveSettings());
+hidePullRequestParticipantsInput.addEventListener('change', () => void saveSettings());
 hideFooterInput.addEventListener('change', () => void saveSettings());
 openCodeInVsCodeWebInput.addEventListener('change', () => void saveSettings());
 hideRepositoryTagsShortcutInput.addEventListener('change', () => void saveSettings());
