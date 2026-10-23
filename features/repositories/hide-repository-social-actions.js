@@ -13,7 +13,7 @@
   function compactHeaderAction(item, action, repository) {
     const destinations = { watch: 'watchers', star: 'stargazers', fork: 'forks' };
     const path = `/${repository}/${destinations[action]}`.toLowerCase();
-    const isCount = value => /^\\s*\\d[\\d,.]*[kmb]?\\s*$/i.test(value || '');
+    const isCount = value => /^\s*\d[\d,.]*[kmb]?\s*$/i.test(value || '');
 
     // GitHub renders counters as links on some headers and as inline spans
     // on others. Only hide numeric counters belonging to this action.
@@ -25,7 +25,7 @@
         continue;
       }
       if (url.origin === location.origin
-        && url.pathname.replace(/\\/+$/, '').toLowerCase() === path
+        && url.pathname.replace(/\/+$/, '').toLowerCase() === path
         && isCount(link.textContent)) {
         link.setAttribute(ATTRIBUTE, `${action}-count`);
       }
@@ -42,8 +42,8 @@
       const arrow = trigger.querySelector('svg.octicon-triangle-down, svg.octicon-chevron-down');
       if (!arrow) continue;
 
-      const label = (trigger.textContent || '').replace(/\\s+/g, ' ').trim();
-      const isPrimary = /^(?:watch|unwatch|star|unstar|fork)(?:\\s+\\d[\\d,.]*[kmb]?)?$/i.test(label)
+      const label = (trigger.textContent || '').replace(/\s+/g, ' ').trim();
+      const isPrimary = /^(?:watch|unwatch|star|unstar|fork)(?:\s+\d[\d,.]*[kmb]?)?$/i.test(label)
         || Boolean(trigger.querySelector(
           'svg.octicon-eye, svg.octicon-bell, svg.octicon-star, svg.octicon-repo-forked',
         ));
@@ -60,8 +60,8 @@
 
     // Restore the rounded right edge left behind by split-button groups.
     for (const control of item.querySelectorAll('a, button, summary')) {
-      const label = (control.textContent || '').replace(/\\s+/g, ' ').trim();
-      if (/^(?:watch|unwatch|star|unstar|fork)(?:\\s+\\d[\\d,.]*[kmb]?)?$/i.test(label)
+      const label = (control.textContent || '').replace(/\s+/g, ' ').trim();
+      if (/^(?:watch|unwatch|star|unstar|fork)(?:\s+\d[\d,.]*[kmb]?)?$/i.test(label)
         && !control.hasAttribute(ATTRIBUTE)) {
         control.setAttribute(COMPACT_ATTRIBUTE, action);
         break;
@@ -103,13 +103,13 @@
       for (const item of list.children) {
         const labels = [...item.querySelectorAll('a, button, summary')].map(element =>
           [element.getAttribute('aria-label'), element.getAttribute('title'), element.textContent]
-            .filter(Boolean).join(' ').replace(/\\s+/g, ' ').trim(),
+            .filter(Boolean).join(' ').replace(/\s+/g, ' ').trim(),
         );
         for (const [action, key, pattern] of [
-          ['watch', 'hideRepositoryWatch', /^(?:unwatch|watch)(?:\\s|:|$)/i],
-          ['star', 'hideRepositoryStar', /^(?:unstar|star)(?:\\s|:|$)/i],
-          ['fork', 'hideRepositoryFork', /^(?:fork|cannot fork|can't fork|unable to fork)(?:\\s|:|$)/i],
-          ['pins', 'hideRepositoryPins', /^(?:edit pins|pin repository|unpin repository)(?:\\s|:|$)/i],
+          ['watch', 'hideRepositoryWatch', /^(?:unwatch|watch)(?:\s|:|$)/i],
+          ['star', 'hideRepositoryStar', /^(?:unstar|star)(?:\s|:|$)/i],
+          ['fork', 'hideRepositoryFork', /^(?:fork|cannot fork|can't fork|unable to fork)(?:\s|:|$)/i],
+          ['pins', 'hideRepositoryPins', /^(?:edit pins|pin repository|unpin repository)(?:\s|:|$)/i],
         ]) {
           const hide = key === 'hideRepositoryPins'
             ? (settings[key] ?? true)
