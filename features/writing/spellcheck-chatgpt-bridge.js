@@ -260,7 +260,7 @@
         ? 'The title is blank: generate a concise, specific 4–12 word title that describes the body. Do not leave the title empty. For the body, correct spelling, capitalization, punctuation, and grammar only; preserve its meaning, Markdown, links, code, identifiers, and formatting.'
         : 'Correct spelling, capitalization, punctuation, and grammar only. Preserve meaning, Markdown, links, code, identifiers, and formatting.',
       'Preserve every fractured-pending-image: placeholder exactly as written; these represent images to upload after spellcheck.',
-      'The FRACTUREDLINKTOKEN markers represent protected Markdown links and URLs. Preserve every marker exactly once, in its original order and field; never add or change a marker.',
+      'The FRACTUREDLINKTOKEN markers represent protected Markdown links, raw URLs, and entire HTML image tags. Preserve every marker exactly once, in its original order and field; never add or change a marker. Never wrap a marker in Markdown, backticks, brackets, or HTML; a raw link must remain raw.',
       'Return only one valid JSON object with exactly the string keys "title" and "body". Do not use Markdown fences or add commentary.',
       `Input JSON: ${input}`,
     ].join('\n');
