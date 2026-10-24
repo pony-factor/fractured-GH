@@ -22,6 +22,7 @@ const DEFAULT_SETTINGS = {
   hideReportRepository: false,
   hideRepositoryOverviewName: false,
   hideRepositoryPins: true,
+  autoSetupNewForks: true,
   hideMyNavigationLinks: false,
   hideHamburgerMenu: false,
   muteUsersEnabled: true,
