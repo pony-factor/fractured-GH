@@ -49,6 +49,29 @@
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
+      /* Keep the native submit at the right edge even in narrow button-only footers. */
+      .fractured-spellcheck-submit-row {
+        align-items: center;
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+      .fractured-spellcheck-submit-row > .fractured-spellcheck-actions,
+      .fractured-spellcheck-submit-row > button,
+      .fractured-spellcheck-submit-row > input[type="submit"] {
+        flex-shrink: 0;
+      }
+      .fractured-spellcheck-submit-row > .fractured-spellcheck-actions {
+        margin-inline-end: 0;
+      }
+      /* Do not rearrange footers that contain non-button GitHub content. */
+      .fractured-spellcheck-actions--stacked {
+        display: flex;
+        width: max-content;
+        margin-inline-start: auto;
+        margin-block-end: 8px;
+      }
       .fractured-spellcheck-actions {
         align-items: center;
         display: inline-flex;
@@ -774,22 +797,38 @@
         },
       });
     });
-    // Treat the two draft actions as one toolbar group. Match the native
-    // flex/grid gap when present; otherwise provide the same 8px gap before
-    // GitHub's submit control, without double-spacing in flex toolbars.
+    // Treat both draft actions as one toolbar group, and share the native
+    // button's row without moving the React-managed submit control.
     const actions = document.createElement('span');
     actions.className = 'fractured-spellcheck-actions';
     actions.append(attach, button);
-    const layout = control.parentElement && typeof getComputedStyle === 'function'
-      ? getComputedStyle(control.parentElement) : null;
-    if (layout && /^(inline-)?(flex|grid)$/.test(layout.display)) {
-      const nativeGap = parseFloat(layout.columnGap);
-      if (nativeGap > 0) {
-        actions.style.gap = `${nativeGap}px`;
-        actions.style.marginInlineEnd = '0';
-      }
-    }
+    const parent = control.parentElement;
+    const layout = parent && typeof getComputedStyle === 'function'
+      ? getComputedStyle(parent) : null;
+    const nativeLayout = layout && /^(inline-)?(flex|grid)$/.test(layout.display);
+    const nativeGap = nativeLayout ? parseFloat(layout.columnGap) : NaN;
     control.before(actions);
+    // A button-only footer can safely be laid out as one non-wrapping, right-
+    // aligned row. In constrained columns it overflows toward the left, keeping
+    // the GitHub submit button at its original right edge.
+    const buttonOnlyFooter = parent && [...parent.children].every((child) =>
+      child === actions || child === control
+        || child.matches('button, input[type="submit"], input[type="hidden"]'));
+    if (buttonOnlyFooter) {
+      parent.classList.add('fractured-spellcheck-submit-row');
+      actions.style.marginInlineEnd = '0';
+      if (nativeGap > 0) {
+        parent.style.columnGap = `${nativeGap}px`;
+        actions.style.gap = `${nativeGap}px`;
+      }
+    } else if (nativeGap > 0) {
+      // Respect existing flexible toolbars with other GitHub controls.
+      actions.style.gap = `${nativeGap}px`;
+      actions.style.marginInlineEnd = '0';
+    } else {
+      // A complex block footer is not safe to turn into a flex container.
+      actions.classList.add('fractured-spellcheck-actions--stacked');
+    }
     // Prevent publishing provisional URLs, including with keyboard submission.
     const scope = scopeFor(control);
     scope?.addEventListener('submit', (event) => {
