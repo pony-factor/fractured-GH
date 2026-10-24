@@ -2,6 +2,8 @@ const DEFAULT_SETTINGS = {
   commitTitleEmojis: false,
   simplifyCommitMessages: false,
   wrapDiffLines: true,
+  pullRequestSidebarToggleEnabled: true,
+  pullRequestSidebarCollapsed: false,
   hideCopilot: true,
   rotate404FanArtEnabled: true,
   hideInboxWhileBusy: true,
