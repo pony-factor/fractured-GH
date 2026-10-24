@@ -223,6 +223,36 @@
     await pause(1200);
   }
 
+  async function verifyGeneralSettings(repository, warnings) {
+    try {
+      const response = await fetch(
+        'https://api.github.com/repos/' + repository.split('/').map(encodeURIComponent).join('/'),
+        {
+          credentials: 'omit', cache: 'no-store',
+          headers: { Accept: 'application/vnd.github+json' },
+        },
+      );
+      if (!response.ok) {
+        warnings.push('Could not verify saved repository settings');
+        return;
+      }
+      const settings = await response.json();
+      const expected = [
+        ['Projects', 'has_projects', false],
+        ['Wikis', 'has_wiki', false],
+        ['Automatic branch deletion', 'delete_branch_on_merge', true],
+      ];
+      for (const [label, field, value] of expected) {
+        if (settings[field] !== value) warnings.push(label + ' did not persist');
+      }
+      if (settings.description !== null && settings.description !== '') {
+        warnings.push('Description did not clear');
+      }
+    } catch {
+      warnings.push('Could not verify saved repository settings');
+    }
+  }
+
   function finish(item, repository) {
     sessionStorage.removeItem(PENDING_KEY);
     sessionStorage.setItem(RESULT_KEY, JSON.stringify({
@@ -297,6 +327,11 @@
         pending.stage = 'settings';
         savePending(pending);
         location.assign('/' + repository + '/settings');
+      } catch {
+        pending.warnings.push('About setup encountered an error');
+        pending.stage = 'settings';
+        savePending(pending);
+        location.assign('/' + repository + '/settings');
       } finally {
         busy = false;
       }
@@ -304,6 +339,11 @@
       busy = true;
       try {
         await configureAbout(pending.warnings);
+        pending.stage = 'settings';
+        savePending(pending);
+        location.assign('/' + repository + '/settings');
+      } catch {
+        pending.warnings.push('About setup encountered an error');
         pending.stage = 'settings';
         savePending(pending);
         location.assign('/' + repository + '/settings');
@@ -315,8 +355,11 @@
       busy = true;
       try {
         await configureGeneralSettings(pending.warnings);
-        finish(pending, pending.repository);
+        await verifyGeneralSettings(pending.repository, pending.warnings);
+      } catch {
+        pending.warnings.push('General settings setup encountered an error');
       } finally {
+        finish(pending, pending.repository);
         busy = false;
       }
     }
