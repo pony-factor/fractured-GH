@@ -9,7 +9,9 @@
   const MENTION_TIMEOUT_MS = 8000;
   const RESPONSE_TIMEOUT_MS = 120000;
 
-  const jobId = new URL(location.href).searchParams.get(PARAM);
+  const bridgeUrl = new URL(location.href);
+  const jobId = bridgeUrl.searchParams.get(PARAM);
+  const projectMode = bridgeUrl.searchParams.get('fractured-project') === '1';
   if (!jobId) return;
 
   function pause(ms = POLL_MS) {
@@ -318,6 +320,11 @@
       job = stored?.[JOB_KEY];
       if (!job || job.id !== jobId || job.status !== 'pending') return;
       started = true;
+      // Never send project-bound text into an ordinary chat if navigation
+      // redirects away from the requested Project before the composer loads.
+      if (projectMode && !/^\/g\/g-p-[A-Za-z0-9_-]+\/project\/?$/.test(location.pathname)) {
+        throw new Error('ChatGPT opened outside the selected Project. Verify your access to the Project URL.');
+      }
       const composer = await waitUntil(composerInput, COMPOSER_TIMEOUT_MS);
       if (!composer) throw new Error('ChatGPT composer was not available for Spellcheck Only.');
       const links = globalThis.fracturedSpellcheckLinks;

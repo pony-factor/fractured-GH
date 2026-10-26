@@ -3,6 +3,8 @@ const DEFAULT_MUTED_USERS = [];
 const commitTitleEmojisInput = document.getElementById('commit-title-emojis');
 const simplifyCommitMessagesInput = document.getElementById('simplify-commit-messages');
 const wrapDiffLinesInput = document.getElementById('wrap-diff-lines');
+const spellcheckUseProjectInput = document.getElementById('spellcheck-use-chatgpt-project');
+const spellcheckProjectUrlInput = document.getElementById('spellcheck-chatgpt-project-url');
 const hideCoauthorOnlyCommitDetailsInput = document.getElementById('hide-coauthor-only-commit-details');
 
 const blockTooltipsInput = document.getElementById('block-tooltips');
@@ -329,6 +331,8 @@ async function loadSettings() {
     commitTitleEmojis: false,
     simplifyCommitMessages: false,
     wrapDiffLines: true,
+    spellcheckUseChatgptProject: false,
+    spellcheckChatgptProjectUrl: '',
     hideCoauthorOnlyCommitDetails: false,
     blockTooltips: false,
     hideCopilot: true,
@@ -370,6 +374,8 @@ async function loadSettings() {
   commitTitleEmojisInput.checked = Boolean(settings.commitTitleEmojis);
   simplifyCommitMessagesInput.checked = Boolean(settings.simplifyCommitMessages);
   wrapDiffLinesInput.checked = Boolean(settings.wrapDiffLines);
+  spellcheckUseProjectInput.checked = settings.spellcheckUseChatgptProject === true;
+  spellcheckProjectUrlInput.value = settings.spellcheckChatgptProjectUrl || '';
   hideCoauthorOnlyCommitDetailsInput.checked = Boolean(settings.hideCoauthorOnlyCommitDetails);
   blockTooltipsInput.checked = Boolean(settings.blockTooltips);
   hideCopilotInput.checked = Boolean(settings.hideCopilot);
@@ -435,7 +441,30 @@ async function loadSettings() {
   updateSummary(mutedUsers);
 }
 
+function normalizeChatgptProjectUrl(value) {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  try {
+    const url = new URL(value.trim());
+    if (url.protocol !== 'https:' || url.hostname !== 'chatgpt.com'
+      || url.username || url.password || url.port || url.search || url.hash
+      || !/^\/g\/g-p-[A-Za-z0-9_-]+\/project\/?$/.test(url.pathname)) return null;
+    return `https://chatgpt.com${url.pathname.replace(/\/$/, '')}`;
+  } catch {
+    return null;
+  }
+}
+
 async function saveSettings() {
+  const providedProjectUrl = spellcheckProjectUrlInput.value.trim();
+  const projectUrl = normalizeChatgptProjectUrl(providedProjectUrl);
+  if (spellcheckUseProjectInput.checked && !projectUrl) {
+    spellcheckProjectUrlInput.setCustomValidity('Enter a ChatGPT Project URL, such as https://chatgpt.com/g/g-p-…/project');
+    status.textContent = 'A valid ChatGPT Project URL is required when project routing is enabled.';
+    status.dataset.state = 'error';
+    spellcheckProjectUrlInput.reportValidity();
+    return;
+  }
+  spellcheckProjectUrlInput.setCustomValidity('');
   const notificationOrganizations = notificationOrganizationsFromRows();
   const userNicknames = userNicknamesFromRows();
   const mutedUsers = mutedUsersFromRows();
@@ -444,6 +473,8 @@ async function saveSettings() {
     commitTitleEmojis: commitTitleEmojisInput.checked,
     simplifyCommitMessages: simplifyCommitMessagesInput.checked,
     wrapDiffLines: wrapDiffLinesInput.checked,
+    spellcheckUseChatgptProject: spellcheckUseProjectInput.checked,
+    spellcheckChatgptProjectUrl: projectUrl || providedProjectUrl,
     hideCoauthorOnlyCommitDetails: hideCoauthorOnlyCommitDetailsInput.checked,
     blockTooltips: blockTooltipsInput.checked,
     hideCopilot: hideCopilotInput.checked,
@@ -489,6 +520,11 @@ async function saveSettings() {
 commitTitleEmojisInput.addEventListener('change', () => void saveSettings());
 simplifyCommitMessagesInput.addEventListener('change', () => void saveSettings());
 wrapDiffLinesInput.addEventListener('change', () => void saveSettings());
+spellcheckUseProjectInput.addEventListener('change', () => void saveSettings());
+spellcheckProjectUrlInput.addEventListener('input', () => {
+  spellcheckProjectUrlInput.setCustomValidity('');
+  queueSave();
+});
 hideCoauthorOnlyCommitDetailsInput.addEventListener('change', () => void saveSettings());
 blockTooltipsInput.addEventListener('change', () => void saveSettings());
 hideCopilotInput.addEventListener('change', () => void saveSettings());

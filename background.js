@@ -26,6 +26,8 @@ const DEFAULT_SETTINGS = {
   hideHamburgerMenu: false,
   muteUsersEnabled: true,
   mutedUsers: [],
+  spellcheckUseChatgptProject: false,
+  spellcheckChatgptProjectUrl: '',
 };
 
 async function initializeMissingSettings() {
@@ -93,14 +95,47 @@ chrome.action.onClicked.addListener(() => {
   void chrome.runtime.openOptionsPage();
 });
 
+function normalizeChatgptProjectUrl(value) {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  try {
+    const url = new URL(value.trim());
+    if (url.protocol !== 'https:' || url.hostname !== 'chatgpt.com'
+      || url.username || url.password || url.port || url.search || url.hash
+      || !/^\/g\/g-p-[A-Za-z0-9_-]+\/project\/?$/.test(url.pathname)) return null;
+    return `https://chatgpt.com${url.pathname.replace(/\/$/, '')}`;
+  } catch {
+    return null;
+  }
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === 'fractured:open-spellcheck' && typeof message.jobId === 'string') {
-    const url = `https://chatgpt.com/?fractured-spellcheck=${encodeURIComponent(message.jobId)}`;
-    chrome.tabs.create({ url, active: false }, (tab) => {
-      const error = chrome.runtime.lastError;
-      sendResponse(error
-        ? { ok: false, error: error.message }
-        : { ok: true, tabId: tab?.id ?? null });
+    void (async () => {
+      const settings = await chrome.storage.local.get({
+        spellcheckUseChatgptProject: false,
+        spellcheckChatgptProjectUrl: '',
+      });
+      const projectMode = settings.spellcheckUseChatgptProject === true;
+      const projectUrl = projectMode
+        ? normalizeChatgptProjectUrl(settings.spellcheckChatgptProjectUrl) : null;
+      if (projectMode && !projectUrl) {
+        sendResponse({
+          ok: false,
+          error: 'Enter a valid ChatGPT Project URL in Fractured settings, or turn off project routing.',
+        });
+        return;
+      }
+      const target = new URL(projectUrl || 'https://chatgpt.com/');
+      target.searchParams.set('fractured-spellcheck', message.jobId);
+      if (projectMode) target.searchParams.set('fractured-project', '1');
+      chrome.tabs.create({ url: target.href, active: false }, (tab) => {
+        const error = chrome.runtime.lastError;
+        sendResponse(error
+          ? { ok: false, error: error.message }
+          : { ok: true, tabId: tab?.id ?? null });
+      });
+    })().catch((error) => {
+      sendResponse({ ok: false, error: error?.message || 'Could not open ChatGPT for spellcheck.' });
     });
     return true;
   }
