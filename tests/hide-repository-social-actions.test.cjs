@@ -138,7 +138,7 @@ function cardStar({ classified = true, iconCount = 1, text = '1' } = {}) {
   metric.querySelectorAll = () => Array.from({ length: iconCount }, () => ({}));
   metric.matches = () => false;
   const icon = {
-    closest: () => classified ? metric : null,
+    closest: selector => selector.includes('.pinned-item-list-item') || classified ? metric : null,
     parentElement: metric,
   };
   return { metric, icon };
