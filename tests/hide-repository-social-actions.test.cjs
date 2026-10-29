@@ -188,6 +188,7 @@ function organizationMetric({
     textContent: 'opener Python 0 stars 0 forks 5 pull requests',
     querySelectorAll: selector => selector === 'a[href]' ? [{ href: repositoryLink }] : [],
     parentElement: null,
+    matches: selector => selector.includes('.Box-row'),
   };
   metric.parentElement = row;
   const icon = {
