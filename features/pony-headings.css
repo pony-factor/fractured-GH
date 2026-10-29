@@ -19,6 +19,18 @@
   font-weight: 400;
 }
 
+/* GitHub's inline monospace code chip looks oversized in Celestia headings.
+   Keep the markup semantic, but let heading text and inline code align. */
+.markdown-body :is(h1, h2, h3) :is(code, tt) {
+  font-family: inherit !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  line-height: inherit !important;
+  background: transparent !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+}
+
 /* Include the PR reviewer heading and identities, including suggestions. */
 form[aria-label="Select reviewers"],
 form[aria-label="Select reviewers"] :is(a, span, strong, button) {
