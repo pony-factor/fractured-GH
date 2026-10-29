@@ -182,11 +182,14 @@ function organizationMetric({
   const metric = disabledControl('').wrapper;
   metric.textContent = text;
   metric.matches = () => false;
-  metric.querySelectorAll = () => Array.from({ length: iconCount }, () => ({}));
+  metric.querySelectorAll = selector => selector === 'a[href]'
+    ? [] : Array.from({ length: iconCount }, () => ({}));
   const row = {
     textContent: 'opener Python 0 stars 0 forks 5 pull requests',
     querySelectorAll: selector => selector === 'a[href]' ? [{ href: repositoryLink }] : [],
+    parentElement: null,
   };
+  metric.parentElement = row;
   const icon = {
     parentElement: metric,
     closest(selector) {
