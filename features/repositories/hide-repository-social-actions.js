@@ -93,31 +93,64 @@
     }
 
 
-    // Pinned and other repository cards sometimes show stars as icon + count
-    // without a /stargazers link. Hide only the star statistic, not its card.
-    if (settings.hideRepositoryStar ?? settings.hideRepositorySocialActions) {
-      for (const icon of document.querySelectorAll(
-        '.pinned-item-list-item svg.octicon-star, '
-        + '.pinned-item-list-item [data-testid="star-icon"], '
-        + '.repo-list-item svg.octicon-star, '
-        + '[data-testid="repository-card"] svg.octicon-star, '
-        + '[data-testid="repository-card"] [data-testid="star-icon"]',
-      )) {
-        const metric = icon.closest(
-          '.pinned-item-meta, [data-testid="repository-stars"], '
-          + '[data-testid="repository-star-count"]',
-        );
-        if (metric) {
-          metric.setAttribute(ATTRIBUTE, 'star');
+    // Profile cards and organization repository rows can render star/fork
+    // counts as icon + plain text, without a /stargazers or /forks link.
+    // Only hide isolated metrics, never their row or mixed metadata footer.
+    const organizationRepositories =
+      /^\/(?:orgs|organizations)\/[^/]+\/repositories\/?$/.test(location.pathname);
+    const cardSelector = '.pinned-item-list-item, .repo-list-item, '
+      + '[data-testid="repository-card"], [data-testid="repository-list-item"]';
+    const rowSelector = '.Box-row, [data-testid="repository-row"], [role="row"], li, tr, article';
+    const rowBoundary = cardSelector + ', ' + rowSelector;
+    const isCount = value => /^\s*\d[\d,.]*[kmb]?\s*$/i.test(value || '');
+
+    function isRepositoryListingMetric(icon) {
+      if (icon.closest(cardSelector)) return true;
+      if (!organizationRepositories) return false;
+
+      const row = icon.closest(rowSelector);
+      if (!row) return false;
+      return [...row.querySelectorAll('a[href]')].some(link => {
+        try {
+          const url = new URL(link.href, location.origin);
+          return url.origin === location.origin
+            && /^\/(?!orgs\/|organizations\/|users\/)[^/]+\/[^/]+\/?$/.test(url.pathname);
+        } catch {
+          return false;
+        }
+      });
+    }
+
+    for (const [action, key, iconSelector, classifiedSelector] of [
+      ['star', 'hideRepositoryStar',
+        'svg.octicon-star, [data-testid="star-icon"]',
+        '.pinned-item-meta, [data-testid="repository-stars"], '
+          + '[data-testid="repository-star-count"]'],
+      ['fork', 'hideRepositoryFork',
+        'svg.octicon-repo-forked, [data-testid="fork-icon"]',
+        '[data-testid="repository-forks"], [data-testid="repository-fork-count"]'],
+    ]) {
+      if (!(settings[key] ?? settings.hideRepositorySocialActions)) continue;
+      for (const icon of document.querySelectorAll(iconSelector)) {
+        if (!isRepositoryListingMetric(icon)) continue;
+
+        const classified = icon.closest(classifiedSelector);
+        if (classified && isCount(classified.textContent)
+          && classified.querySelectorAll('svg, [data-testid$="-icon"]').length === 1) {
+          classified.setAttribute(ATTRIBUTE, action);
           continue;
         }
 
-        // Some cards have an unclassified wrapper. Only hide it when it
-        // contains a single icon and a numeric count; never hide the footer.
-        const wrapper = icon.parentElement;
-        if (wrapper && wrapper.querySelectorAll('svg, [data-testid="star-icon"]').length === 1
-          && /^\d[\d,.]*[kmb]?$/i.test(wrapper.textContent.trim())) {
-          wrapper.setAttribute(ATTRIBUTE, 'star');
+        // Walk past nested SVG/span wrappers until the smallest isolated
+        // numeric metric is found. Never hide a repository row or entire card.
+        for (let wrapper = icon.parentElement, depth = 0;
+          wrapper && depth < 4 && !wrapper.matches(rowBoundary);
+          wrapper = wrapper.parentElement, depth++) {
+          if (isCount(wrapper.textContent)
+            && wrapper.querySelectorAll('svg, [data-testid$="-icon"]').length === 1) {
+            wrapper.setAttribute(ATTRIBUTE, action);
+            break;
+          }
         }
       }
     }
