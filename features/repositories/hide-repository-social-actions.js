@@ -108,17 +108,24 @@
       if (icon.closest(cardSelector)) return true;
       if (!organizationRepositories) return false;
 
-      const row = icon.closest(rowSelector);
-      if (!row) return false;
-      return [...row.querySelectorAll('a[href]')].some(link => {
-        try {
-          const url = new URL(link.href, location.origin);
-          return url.origin === location.origin
-            && /^\/(?!orgs\/|organizations\/|users\/)[^/]+\/[^/]+\/?$/.test(url.pathname);
-        } catch {
-          return false;
-        }
-      });
+      // GitHub may use plain divs instead of list items for these rows.
+      // Search only nearby ancestors, and stop before the shared container
+      // holding multiple repositories to avoid capturing unrelated icons.
+      for (let row = icon.parentElement, depth = 0; row && depth < 8;
+        row = row.parentElement, depth++) {
+        const repositoryLinks = [...row.querySelectorAll('a[href]')].filter(link => {
+          try {
+            const url = new URL(link.href, location.origin);
+            return url.origin === location.origin
+              && /^\/(?!orgs\/|organizations\/|users\/)[^/]+\/[^/]+\/?$/.test(url.pathname);
+          } catch {
+            return false;
+          }
+        });
+        if (repositoryLinks.length === 1) return true;
+        if (repositoryLinks.length > 1) return false;
+      }
+      return false;
     }
 
     for (const [action, key, iconSelector, classifiedSelector] of [
