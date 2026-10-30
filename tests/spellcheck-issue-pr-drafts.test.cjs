@@ -11,6 +11,7 @@ const source = fs.readFileSync(
 function setup({
   pathname, submit = 'Comment', bodySelector = 'textarea[name="comment[body]"]',
   draft = false, secondSubmit = null, publishedControls = false, toolbarLayout = 'block',
+  otherFooterContent = false,
 }) {
   const events = {};
   const enhancers = [];
@@ -24,8 +25,14 @@ function setup({
       this.attributes = {};
       this.children = [];
       this.style = {};
+      this.className = '';
+      this.classList = { add: (name) => { this.className = `${this.className} ${name}`.trim(); } };
     }
-    matches() { return Boolean(this.publishedCard); }
+    matches(selector) {
+      return Boolean(this.publishedCard)
+        || (selector === 'button, input[type="submit"], input[type="hidden"]'
+          && this.tagName === 'BUTTON');
+    }
     getClientRects() { return [1]; }
     getAttribute(name) { return this.attributes[name] || null; }
     setAttribute(name, value) { this.attributes[name] = value; }
@@ -36,6 +43,7 @@ function setup({
       if (actions.className !== 'fractured-spellcheck-actions') return;
       assert.ok(this.form, 'published comment controls must never be enhanced');
       this.form.actions = actions;
+      this.form.children.splice(this.form.children.indexOf(this), 0, actions);
       this.form.enhancer = actions.children.find(node => node.className === 'fractured-spellcheck-enhancer');
       enhancers.push(this.form.enhancer);
     }
@@ -63,6 +71,13 @@ function setup({
   for (const control of controls) {
     control.form = form;
     control.parentElement = form;
+    control.tagName = 'BUTTON';
+  }
+  form.children.push(...controls);
+  if (otherFooterContent) {
+    const note = new Element('Other GitHub footer content');
+    note.tagName = 'DIV';
+    form.children.unshift(note);
   }
 
   if (publishedControls) {
@@ -113,7 +128,7 @@ function setup({
     getComputedStyle: () => ({ display: toolbarLayout, columnGap: '12px' }),
   });
 
-  return { enhancers, events, actions: form.actions };
+  return { enhancers, events, actions: form.actions, form };
 }
 
 test('adds spellcheck to a newly composed PR conversation comment', () => {
@@ -190,15 +205,35 @@ test('groups image and spellcheck controls with the same gap as the native toolb
   const app = setup({ pathname: '/pony-factor/fractured-GH/pull/51', toolbarLayout: 'flex' });
   assert.deepEqual(app.actions.children.map(node => node.className), [
     'fractured-rounded-image-button',
-    'fractured-rounded-image-picker',
     'fractured-spellcheck-enhancer',
   ]);
   assert.equal(app.actions.style.gap, '12px');
   assert.equal(app.actions.style.marginInlineEnd, '0', 'the parent flex gap already separates submit');
 });
 
-test('uses matching spacing beside non-flex composer buttons', () => {
+test('keeps the image, spellcheck, and Comment buttons on one right-aligned row', () => {
   const app = setup({ pathname: '/pony-factor/fractured-GH/pull/51' });
   assert.equal(app.actions.className, 'fractured-spellcheck-actions');
-  assert.equal(app.actions.style.marginInlineEnd ?? '', '');
+  assert.equal(app.actions.style.marginInlineEnd, '0');
+  assert.match(app.form.className, /fractured-spellcheck-submit-row/);
+  assert.deepEqual(app.form.children.map(node => node.className || node.textContent), [
+    'fractured-spellcheck-actions', 'Comment',
+  ]);
+  assert.match(source, /\.fractured-spellcheck-submit-row \{[^}]*flex-wrap: nowrap;[^}]*justify-content: flex-end;/s);
+});
+
+test('preserves the native gap when the GitHub composer already uses flex', () => {
+  const app = setup({ pathname: '/pony-factor/fractured-GH/pull/51', toolbarLayout: 'flex' });
+  assert.equal(app.form.style.columnGap, '12px');
+  assert.equal(app.actions.style.gap, '12px');
+  assert.match(app.form.className, /fractured-spellcheck-submit-row/);
+});
+
+test('adds vertical spacing without reflowing complex GitHub footers', () => {
+  const app = setup({
+    pathname: '/pony-factor/fractured-GH/pull/51', otherFooterContent: true,
+  });
+  assert.doesNotMatch(app.form.className, /fractured-spellcheck-submit-row/);
+  assert.match(app.actions.className, /fractured-spellcheck-actions--stacked/);
+  assert.match(source, /\.fractured-spellcheck-actions--stacked \{[^}]*margin-block-end: 8px;/s);
 });

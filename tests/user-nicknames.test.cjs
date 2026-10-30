@@ -146,3 +146,36 @@ test('ordinary repository links, external links, and mismatched authors do not q
     assert.equal(feature.isConversationIdentity(new Anchor(href), 'JFWooten4'), false);
   }
 });
+
+test('verified signature popovers are excluded from both nickname passes', async () => {
+  const popover = {
+    textContent: "This commit was signed with the committer's verified signature. GPG key ID: 7539",
+  };
+  const link = new Anchor('/JFWooten4');
+  link.isConnected = true;
+  link.closest = (selector) => selector === '.Popover-message' ? popover : null;
+  let profileLookups = 0;
+  const feature = vm.runInNewContext([
+    functionSource('isVerifiedSignaturePopover'),
+    functionSource('applyNicknameToProfileLink'),
+    functionSource('applyConversationFirstName'),
+    '({ isVerifiedSignaturePopover, applyNicknameToProfileLink, applyConversationFirstName })',
+  ].join('\n'), {
+    enabled: true, nicknameReplacementEnabled: true, conversationFirstNamesEnabled: true,
+    HTMLAnchorElement: Anchor,
+    nicknameByUsername: new Map([['jfwooten4', { nickname: 'Windsor' }]]),
+    usernameFromLink: () => 'JFWooten4',
+    isConversationIdentity: () => true,
+    fetchedProfileDisplayName: async () => { profileLookups++; return 'John Wooten'; },
+    firstNameForUser: async () => { profileLookups++; return 'Windsor'; },
+  });
+  assert.equal(feature.isVerifiedSignaturePopover(link), true);
+  assert.equal(feature.isVerifiedSignaturePopover(new Anchor('/JFWooten4')), false);
+  await Promise.all([
+    feature.applyNicknameToProfileLink(link),
+    feature.applyConversationFirstName(link),
+  ]);
+  assert.equal(profileLookups, 0);
+  assert.equal(link.textContent, 'JFWooten4');
+  assert.match(popover.textContent, /GPG key ID: 7539/);
+});

@@ -72,6 +72,16 @@
     ].join(','));
   }
 
+
+  // A commit-signature popover contains verified signer details, not a profile
+  // hovercard. Leave that attribution and its cryptographic evidence intact.
+  function isVerifiedSignaturePopover(element) {
+    const popover = element?.closest?.('.Popover-message');
+    return Boolean(popover
+      && /\b(?:this commit was signed|verified signature|(?:gpg|ssh) key id|vigilant mode)\b/i
+        .test(popover.textContent || ''));
+  }
+
   function fetchedDisplayName(username) {
     return globalThis.FracturedProfileNameCache.getDisplayName(username);
   }
@@ -122,7 +132,7 @@
 
   async function styleProfileLink(link, scope) {
     const username = usernameFromLink(link);
-    if (!username || pendingLinks.has(link)) return;
+    if (!username || pendingLinks.has(link) || isVerifiedSignaturePopover(link)) return;
     const handle = isUsernameLabel(link, username) ? link
       : [...link.querySelectorAll('span, strong, b')]
         .find((element) => !element.children.length
@@ -132,7 +142,8 @@
     pendingLinks.add(link);
     try {
       const fetchedName = await fetchedDisplayName(username);
-      if (!enabled || !link.isConnected || usernameFromLink(link).toLowerCase() !== username.toLowerCase()) return;
+      if (!enabled || !link.isConnected || isVerifiedSignaturePopover(link)
+        || usernameFromLink(link).toLowerCase() !== username.toLowerCase()) return;
       const nickname = nicknames.get(username.toLowerCase());
       const displayName = nickname || fetchedName;
       if (!displayName) return;

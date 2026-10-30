@@ -49,6 +49,29 @@
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
+      /* Keep the native submit at the right edge even in narrow button-only footers. */
+      .fractured-spellcheck-submit-row {
+        align-items: center;
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+      .fractured-spellcheck-submit-row > .fractured-spellcheck-actions,
+      .fractured-spellcheck-submit-row > button,
+      .fractured-spellcheck-submit-row > input[type="submit"] {
+        flex-shrink: 0;
+      }
+      .fractured-spellcheck-submit-row > .fractured-spellcheck-actions {
+        margin-inline-end: 0;
+      }
+      /* Do not rearrange footers that contain non-button GitHub content. */
+      .fractured-spellcheck-actions--stacked {
+        display: flex;
+        width: max-content;
+        margin-inline-start: auto;
+        margin-block-end: 8px;
+      }
       .fractured-spellcheck-actions {
         align-items: center;
         display: inline-flex;
@@ -495,7 +518,25 @@
         i += 1;
       }
     }
-    return operations;
+    // Keep unchanged lines as anchors, but use conventional unified-diff
+    // ordering within each contiguous change block: deletions before additions.
+    const ordered = [];
+    for (let start = 0; start < operations.length;) {
+      if (operations[start][0] === ' ') {
+        ordered.push(operations[start]);
+        start += 1;
+        continue;
+      }
+      let end = start;
+      while (end < operations.length && operations[end][0] !== ' ') end += 1;
+      const changes = operations.slice(start, end);
+      ordered.push(
+        ...changes.filter(([prefix]) => prefix === '-'),
+        ...changes.filter(([prefix]) => prefix === '+'),
+      );
+      start = end;
+    }
+    return ordered;
   }
 
   function fileDiff(name, before, after) {
@@ -656,7 +697,7 @@
     const links = globalThis.fracturedSpellcheckLinks;
     if (!links?.sameLinks(original, result)) {
       showSidebar({
-        status: 'Spellcheck changed or added a Markdown link or URL. No changes were applied to your draft.',
+        status: 'Spellcheck changed or added a Markdown link, URL, or HTML image. No changes were applied to your draft.',
         error: true, diff,
       });
       resetEnhancerButtons();
@@ -737,52 +778,57 @@
       : 'Spellcheck title and body; generate a title if blank';
     button.setAttribute('aria-label', button.title);
     button.addEventListener('click', () => void launchSpellcheck(button, control));
-    // Stage rounded images in the same editor; no network upload happens while
-    // the user writes or while ChatGPT works on the draft.
-    const picker = document.createElement('input');
-    picker.type = 'file';
-    picker.accept = 'image/*';
-    picker.multiple = true;
-    picker.className = 'fractured-rounded-image-picker';
-    picker.hidden = true;
+    // Keep the rounded-image staging and deferred GitHub upload unchanged;
+    // the modal handles drag-and-drop and local selection before staging.
     const attach = document.createElement('button');
     attach.type = 'button';
     attach.className = 'fractured-rounded-image-button';
     attach.textContent = '🖼️';
-    attach.title = 'Attach rounded image (upload after spellcheck)';
+    attach.title = 'Add rounded image (upload after spellcheck)';
     attach.setAttribute('aria-label', attach.title);
-    attach.addEventListener('click', () => picker.click());
-    picker.addEventListener('change', async () => {
-      sidebarFields = fields;
-      attach.disabled = true;
-      try {
-        for (const file of Array.from(picker.files || [])) {
-          await globalThis.fracturedSpellcheckImages.add(fields.body, file);
-        }
-        showSidebar({ status: 'Image inserted as a local placeholder. Run ✨ Spellcheck Only to upload the rounded PNG and replace the placeholder with its final link.' });
-      } catch (error) {
-        showSidebar({ status: `Could not attach image: ${error.message}`, error: true });
-      } finally {
-        picker.value = '';
-        attach.disabled = false;
-      }
+    attach.addEventListener('click', () => {
+      globalThis.fracturedSpellcheckImageDialog.open({
+        trigger: attach,
+        editor: fields.body,
+        add: (file) => globalThis.fracturedSpellcheckImages.add(fields.body, file),
+        onAdded: (count) => {
+          sidebarFields = fields;
+          showSidebar({ status: count + ' image(s) inserted as local placeholders. Run ✨ Spellcheck Only to upload the rounded PNGs and replace their placeholders with final GitHub links.' });
+        },
+      });
     });
-    // Treat the two draft actions as one toolbar group. Match the native
-    // flex/grid gap when present; otherwise provide the same 8px gap before
-    // GitHub's submit control, without double-spacing in flex toolbars.
+    // Treat both draft actions as one toolbar group, and share the native
+    // button's row without moving the React-managed submit control.
     const actions = document.createElement('span');
     actions.className = 'fractured-spellcheck-actions';
-    actions.append(attach, picker, button);
-    const layout = control.parentElement && typeof getComputedStyle === 'function'
-      ? getComputedStyle(control.parentElement) : null;
-    if (layout && /^(inline-)?(flex|grid)$/.test(layout.display)) {
-      const nativeGap = parseFloat(layout.columnGap);
-      if (nativeGap > 0) {
-        actions.style.gap = `${nativeGap}px`;
-        actions.style.marginInlineEnd = '0';
-      }
-    }
+    actions.append(attach, button);
+    const parent = control.parentElement;
+    const layout = parent && typeof getComputedStyle === 'function'
+      ? getComputedStyle(parent) : null;
+    const nativeLayout = layout && /^(inline-)?(flex|grid)$/.test(layout.display);
+    const nativeGap = nativeLayout ? parseFloat(layout.columnGap) : NaN;
     control.before(actions);
+    // A button-only footer can safely be laid out as one non-wrapping, right-
+    // aligned row. In constrained columns it overflows toward the left, keeping
+    // the GitHub submit button at its original right edge.
+    const buttonOnlyFooter = parent && [...parent.children].every((child) =>
+      child === actions || child === control
+        || child.matches('button, input[type="submit"], input[type="hidden"]'));
+    if (buttonOnlyFooter) {
+      parent.classList.add('fractured-spellcheck-submit-row');
+      actions.style.marginInlineEnd = '0';
+      if (nativeGap > 0) {
+        parent.style.columnGap = `${nativeGap}px`;
+        actions.style.gap = `${nativeGap}px`;
+      }
+    } else if (nativeGap > 0) {
+      // Respect existing flexible toolbars with other GitHub controls.
+      actions.style.gap = `${nativeGap}px`;
+      actions.style.marginInlineEnd = '0';
+    } else {
+      // A complex block footer is not safe to turn into a flex container.
+      actions.classList.add('fractured-spellcheck-actions--stacked');
+    }
     // Prevent publishing provisional URLs, including with keyboard submission.
     const scope = scopeFor(control);
     scope?.addEventListener('submit', (event) => {

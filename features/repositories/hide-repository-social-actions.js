@@ -8,10 +8,72 @@
   let settings = {};
   let scheduled = false;
 
+  const COMPACT_ATTRIBUTE = 'data-fractured-compact-repository-action';
+
+  function compactHeaderAction(item, action, repository) {
+    const destinations = { watch: 'watchers', star: 'stargazers', fork: 'forks' };
+    const path = `/${repository}/${destinations[action]}`.toLowerCase();
+    const isCount = value => /^\s*\d[\d,.]*[kmb]?\s*$/i.test(value || '');
+
+    // GitHub renders counters as links on some headers and as inline spans
+    // on others. Only hide numeric counters belonging to this action.
+    for (const link of item.querySelectorAll('a[href]')) {
+      let url;
+      try {
+        url = new URL(link.href, location.origin);
+      } catch {
+        continue;
+      }
+      if (url.origin === location.origin
+        && url.pathname.replace(/\/+$/, '').toLowerCase() === path
+        && isCount(link.textContent)) {
+        link.setAttribute(ATTRIBUTE, `${action}-count`);
+      }
+    }
+    for (const counter of item.querySelectorAll(
+      '.Counter, [id*="counter"], [data-testid*="count"]',
+    )) {
+      if (isCount(counter.textContent)) {
+        counter.setAttribute(ATTRIBUTE, `${action}-count`);
+      }
+    }
+
+    for (const trigger of item.querySelectorAll('button, summary, [role="button"]')) {
+      const arrow = trigger.querySelector('svg.octicon-triangle-down, svg.octicon-chevron-down');
+      if (!arrow) continue;
+
+      const label = (trigger.textContent || '').replace(/\s+/g, ' ').trim();
+      const isPrimary = /^(?:watch|unwatch|star|unstar|fork)(?:\s+\d[\d,.]*[kmb]?)?$/i.test(label)
+        || Boolean(trigger.querySelector(
+          'svg.octicon-eye, svg.octicon-bell, svg.octicon-star, svg.octicon-repo-forked',
+        ));
+      if (isPrimary) {
+        // Watch can use its *main* button to open notification settings.
+        // Never remove that button or prevent its default click behavior.
+        arrow.setAttribute(ATTRIBUTE, `${action}-chevron`);
+      } else {
+        // Split-button menus have their own arrow-only button or summary.
+        const menu = trigger.matches('summary') ? trigger.closest('details') || trigger : trigger;
+        menu.setAttribute(ATTRIBUTE, `${action}-menu`);
+      }
+    }
+
+    // Restore the rounded right edge left behind by split-button groups.
+    for (const control of item.querySelectorAll('a, button, summary')) {
+      const label = (control.textContent || '').replace(/\s+/g, ' ').trim();
+      if (/^(?:watch|unwatch|star|unstar|fork)(?:\s+\d[\d,.]*[kmb]?)?$/i.test(label)
+        && !control.hasAttribute(ATTRIBUTE)) {
+        control.setAttribute(COMPACT_ATTRIBUTE, action);
+        break;
+      }
+    }
+  }
+
   function refresh() {
     scheduled = false;
-    for (const element of document.querySelectorAll(`[${ATTRIBUTE}]`)) {
+    for (const element of document.querySelectorAll(`[${ATTRIBUTE}], [${COMPACT_ATTRIBUTE}]`)) {
       element.removeAttribute(ATTRIBUTE);
+      element.removeAttribute(COMPACT_ATTRIBUTE);
     }
 
     // Organization/profile cards and repository lists have no repository metadata.
@@ -26,6 +88,76 @@
         if (url.origin === location.origin
           && new RegExp(`^/(?!orgs/|organizations/|users/)[^/]+/[^/]+/${destination}/?$`).test(url.pathname)) {
           link.setAttribute(ATTRIBUTE, action);
+        }
+      }
+    }
+
+
+    // Profile cards and organization repository rows can render star/fork
+    // counts as icon + plain text, without a /stargazers or /forks link.
+    // Only hide isolated metrics, never their row or mixed metadata footer.
+    const organizationRepositories =
+      /^\/(?:orgs|organizations)\/[^/]+\/repositories\/?$/.test(location.pathname);
+    const cardSelector = '.pinned-item-list-item, .repo-list-item, '
+      + '[data-testid="repository-card"], [data-testid="repository-list-item"]';
+    const rowSelector = '.Box-row, [data-testid="repository-row"], [role="row"], li, tr, article';
+    const rowBoundary = cardSelector + ', ' + rowSelector;
+    const isCount = value => /^\s*\d[\d,.]*[kmb]?\s*$/i.test(value || '');
+
+    function isRepositoryListingMetric(icon) {
+      if (icon.closest(cardSelector)) return true;
+      if (!organizationRepositories) return false;
+
+      // GitHub may use plain divs instead of list items for these rows.
+      // Search only nearby ancestors, and stop before the shared container
+      // holding multiple repositories to avoid capturing unrelated icons.
+      for (let row = icon.parentElement, depth = 0; row && depth < 8;
+        row = row.parentElement, depth++) {
+        const repositoryLinks = [...row.querySelectorAll('a[href]')].filter(link => {
+          try {
+            const url = new URL(link.href, location.origin);
+            return url.origin === location.origin
+              && /^\/(?!orgs\/|organizations\/|users\/)[^/]+\/[^/]+\/?$/.test(url.pathname);
+          } catch {
+            return false;
+          }
+        });
+        if (repositoryLinks.length === 1) return true;
+        if (repositoryLinks.length > 1) return false;
+      }
+      return false;
+    }
+
+    for (const [action, key, iconSelector, classifiedSelector] of [
+      ['star', 'hideRepositoryStar',
+        'svg.octicon-star, [data-testid="star-icon"]',
+        '.pinned-item-meta, [data-testid="repository-stars"], '
+          + '[data-testid="repository-star-count"]'],
+      ['fork', 'hideRepositoryFork',
+        'svg.octicon-repo-forked, [data-testid="fork-icon"]',
+        '[data-testid="repository-forks"], [data-testid="repository-fork-count"]'],
+    ]) {
+      if (!(settings[key] ?? settings.hideRepositorySocialActions)) continue;
+      for (const icon of document.querySelectorAll(iconSelector)) {
+        if (!isRepositoryListingMetric(icon)) continue;
+
+        const classified = icon.closest(classifiedSelector);
+        if (classified && isCount(classified.textContent)
+          && classified.querySelectorAll('svg, [data-testid$="-icon"]').length === 1) {
+          classified.setAttribute(ATTRIBUTE, action);
+          continue;
+        }
+
+        // Walk past nested SVG/span wrappers until the smallest isolated
+        // numeric metric is found. Never hide a repository row or entire card.
+        for (let wrapper = icon.parentElement, depth = 0;
+          wrapper && depth < 4 && !wrapper.matches(rowBoundary);
+          wrapper = wrapper.parentElement, depth++) {
+          if (isCount(wrapper.textContent)
+            && wrapper.querySelectorAll('svg, [data-testid$="-icon"]').length === 1) {
+            wrapper.setAttribute(ATTRIBUTE, action);
+            break;
+          }
         }
       }
     }
@@ -46,36 +178,19 @@
         for (const [action, key, pattern] of [
           ['watch', 'hideRepositoryWatch', /^(?:unwatch|watch)(?:\s|:|$)/i],
           ['star', 'hideRepositoryStar', /^(?:unstar|star)(?:\s|:|$)/i],
-          ['fork', 'hideRepositoryFork', /^fork(?:\s|:|$)/i],
-          ['pins', 'hideRepositoryPins', /^(?:edit pins|pin repository|unpin repository)(?:\s|:|$)/i],
+          ['fork', 'hideRepositoryFork', /^(?:fork|cannot fork|can't fork|unable to fork)(?:\s|:|$)/i],
+          ['pins', 'hideRepositoryPins', /^(?:edit pins|(?:un)?pin(?: repository)?)(?:\s|:|$)/i],
         ]) {
           const hide = key === 'hideRepositoryPins'
             ? (settings[key] ?? true)
             : (settings[key] ?? settings.hideRepositorySocialActions);
-          if (hide && labels.some(label => pattern.test(label))) {
+          if (!hide || !labels.some(label => pattern.test(label))) continue;
+          if (action === 'pins') {
             item.setAttribute(ATTRIBUTE, action);
+          } else {
+            compactHeaderAction(item, action, repository);
           }
         }
-      }
-    }
-
-    // A disabled Fork can be a tooltip-trigger button rather than a native
-    // disabled button, and newer headers can sit outside the legacy container.
-    if (settings.hideRepositoryFork ?? settings.hideRepositorySocialActions) {
-      for (const control of document.querySelectorAll(
-        '#repository-container-header button, #repository-container-header [role="button"], '
-        + '[data-testid="repo-header-actions"] button, [class*="RepoHeaderActions"] button, '
-        + '#fork-button, button[aria-label*="fork" i], [role="button"][aria-label*="fork" i]',
-      )) {
-        const labels = [
-          control.getAttribute('aria-label'),
-          control.getAttribute('title'),
-          control.textContent,
-        ].filter(Boolean).map(label => label.replace(/\s+/g, ' ').trim());
-        if (!labels.some(label => /^fork(?:\s|:|$)/i.test(label)
-          || /^(?:cannot|can't|unable to) fork(?:\s|:|$)/i.test(label))) continue;
-        const item = control.closest('li, .btn-with-count, [data-testid="fork-button"]') || control;
-        item.setAttribute(ATTRIBUTE, 'fork');
       }
     }
 
@@ -157,7 +272,11 @@
   }
 
   const style = document.createElement('style');
-  style.textContent = `[${ATTRIBUTE}] { display: none !important; }`;
+  style.textContent = `[${ATTRIBUTE}] { display: none !important; }
+    [${COMPACT_ATTRIBUTE}] {
+      border-top-right-radius: var(--borderRadius-medium, 6px) !important;
+      border-bottom-right-radius: var(--borderRadius-medium, 6px) !important;
+    }`;
   (document.head || document.documentElement).append(style);
   new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true });
   chrome.storage.onChanged.addListener((changes, area) => {
