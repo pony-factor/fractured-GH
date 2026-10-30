@@ -17,6 +17,8 @@ const DEFAULT_SETTINGS = {
   preferDisplayNamesEnabled: false,
   hideContributingGuidelinesNotice: true,
   hidePullRequestMilestone: false,
+  hidePullRequestMergeStatus: false,
+  hidePullRequestCodeButton: false,
   hideSuggestedWorkflows: false,
   hideRepositoryLanguages: false,
   hideRepositoryInsights: false,

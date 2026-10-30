@@ -363,7 +363,7 @@
         <details class="settings-foldout" open>
           <summary>
             <span>Pull requests</span>
-            <span class="summary-meta">Sidebar + contribution notices</span>
+            <span class="summary-meta">Header buttons + commit details + sidebar + notices</span>
           </summary>
           <div class="foldout-body">
             <div class="spellcheck-project-settings">
@@ -381,6 +381,24 @@
               <small id="spellcheck-project-help">Paste the project's address ending in /project. If the project is shared, its members may see your spellcheck conversations. An invalid URL will stop the request rather than redirect it to a regular chat.</small>
             </div>
             <hr class="preference-divider" />
+            <label class="preference">
+              <input id="hide-pull-request-merge-status" type="checkbox" />
+              <span>
+                <strong>Hide Merge status button</strong>
+                <small>Hide the Merge status button above the pull request title. Off by default.</small>
+              </span>
+            </label>
+
+            <label class="preference">
+              <input id="hide-pull-request-code-button" type="checkbox" />
+              <span>
+                <strong>Hide pull request Code button</strong>
+                <small>Hide the Code dropdown above the pull request title, without hiding repository Code navigation. Off by default.</small>
+              </span>
+            </label>
+
+            <hr class="preference-divider" />
+
             <label class="preference">
               <input id="hide-coauthor-only-commit-details" type="checkbox" />
               <span>

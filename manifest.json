@@ -46,6 +46,7 @@
         "features/pull-requests/hide-pull-request-protip.js",
         "features/pull-requests/hide-pull-request-milestone.js",
         "features/pull-requests/hide-pull-request-participants.js",
+        "features/pull-requests/hide-pr-heading-actions.js",
         "features/interface/hide-footer.js",
         "features/repositories/hide-suggested-workflows.js",
         "features/repositories/hide-repository-languages.js",

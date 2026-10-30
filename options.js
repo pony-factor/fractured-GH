@@ -15,6 +15,8 @@ const hideContributingGuidelinesNoticeInput = document.getElementById('hide-cont
 const hidePullRequestProtipInput = document.getElementById('hide-pull-request-protip');
 const hidePullRequestMilestoneInput = document.getElementById('hide-pull-request-milestone');
 const hidePullRequestParticipantsInput = document.getElementById('hide-pull-request-participants');
+const hidePullRequestMergeStatusInput = document.getElementById('hide-pull-request-merge-status');
+const hidePullRequestCodeButtonInput = document.getElementById('hide-pull-request-code-button');
 const hideFooterInput = document.getElementById('hide-footer');
 const openCodeInVsCodeWebInput = document.getElementById('open-code-in-vscode-web');
 const hideRepositoryTagsShortcutInput = document.getElementById('hide-repository-tags-shortcut');
@@ -344,6 +346,8 @@ async function loadSettings() {
     hidePullRequestProtip: false,
     hidePullRequestMilestone: false,
     hidePullRequestParticipants: false,
+    hidePullRequestMergeStatus: false,
+    hidePullRequestCodeButton: false,
     hideFooter: false,
     openCodeInVsCodeWeb: true,
     hideRepositoryTagsShortcut: true,
@@ -389,6 +393,8 @@ async function loadSettings() {
   hidePullRequestProtipInput.checked = Boolean(settings.hidePullRequestProtip);
   hidePullRequestMilestoneInput.checked = Boolean(settings.hidePullRequestMilestone);
   hidePullRequestParticipantsInput.checked = Boolean(settings.hidePullRequestParticipants);
+  hidePullRequestMergeStatusInput.checked = Boolean(settings.hidePullRequestMergeStatus);
+  hidePullRequestCodeButtonInput.checked = Boolean(settings.hidePullRequestCodeButton);
   hideFooterInput.checked = Boolean(settings.hideFooter);
   openCodeInVsCodeWebInput.checked = Boolean(settings.openCodeInVsCodeWeb);
   hideRepositoryTagsShortcutInput.checked = Boolean(settings.hideRepositoryTagsShortcut);
@@ -490,6 +496,8 @@ async function saveSettings() {
     hidePullRequestProtip: hidePullRequestProtipInput.checked,
     hidePullRequestMilestone: hidePullRequestMilestoneInput.checked,
     hidePullRequestParticipants: hidePullRequestParticipantsInput.checked,
+    hidePullRequestMergeStatus: hidePullRequestMergeStatusInput.checked,
+    hidePullRequestCodeButton: hidePullRequestCodeButtonInput.checked,
     hideFooter: hideFooterInput.checked,
     openCodeInVsCodeWeb: openCodeInVsCodeWebInput.checked,
     hideRepositoryTagsShortcut: hideRepositoryTagsShortcutInput.checked,
@@ -542,6 +550,8 @@ hideContributingGuidelinesNoticeInput.addEventListener('change', () => void save
 hidePullRequestProtipInput.addEventListener('change', () => void saveSettings());
 hidePullRequestMilestoneInput.addEventListener('change', () => void saveSettings());
 hidePullRequestParticipantsInput.addEventListener('change', () => void saveSettings());
+hidePullRequestMergeStatusInput.addEventListener('change', () => void saveSettings());
+hidePullRequestCodeButtonInput.addEventListener('change', () => void saveSettings());
 hideFooterInput.addEventListener('change', () => void saveSettings());
 openCodeInVsCodeWebInput.addEventListener('change', () => void saveSettings());
 hideRepositoryTagsShortcutInput.addEventListener('change', () => void saveSettings());
