@@ -199,7 +199,7 @@ test('hides the short Pin button while preserving Star and Fork and responds to 
   const fork = app.addAction('Fork');
   await app.settle();
 
-  assert.equal(pin.group.getAttribute(hidden), 'pins');
+  assert.equal(pin.group.getAttribute(hidden), 'pins-button');
   assert.equal(star.main.hasAttribute(hidden), false);
   assert.equal(fork.main.hasAttribute(hidden), false);
 
@@ -209,7 +209,7 @@ test('hides the short Pin button while preserving Star and Fork and responds to 
   assert.equal(fork.main.hasAttribute(hidden), false);
 
   await app.toggle('hideRepositoryPins', true);
-  assert.equal(pin.group.getAttribute(hidden), 'pins');
+  assert.equal(pin.group.getAttribute(hidden), 'pins-button');
 });
 
 test('recognizes Pin, Unpin, and Edit pins labels including accessible-only buttons', async () => {
@@ -222,12 +222,12 @@ test('recognizes Pin, Unpin, and Edit pins labels including accessible-only butt
 
   await app.settle();
   for (const action of [pinByTitle, pinByAria, unpin, editPins]) {
-    assert.equal(action.group.getAttribute(hidden), 'pins');
+    assert.equal(action.group.getAttribute(hidden), 'pins-button');
   }
   assert.equal(unrelated.group.hasAttribute(hidden), false);
 
   await app.rerender();
-  assert.equal(pinByTitle.group.getAttribute(hidden), 'pins');
+  assert.equal(pinByTitle.group.getAttribute(hidden), 'pins-button');
   await app.navigate();
-  assert.equal(pinByAria.group.getAttribute(hidden), 'pins');
+  assert.equal(pinByAria.group.getAttribute(hidden), 'pins-button');
 });
