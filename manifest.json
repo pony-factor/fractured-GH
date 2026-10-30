@@ -85,7 +85,8 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "fonts/CelestiaMediumRedux.ttf"
+        "fonts/CelestiaMediumRedux.ttf",
+        "icons/fractured.png"
       ],
       "matches": [
         "https://github.com/*"
