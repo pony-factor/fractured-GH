@@ -139,7 +139,7 @@
           ['watch', 'hideRepositoryWatch', /^(?:unwatch|watch)(?:\s|:|$)/i],
           ['star', 'hideRepositoryStar', /^(?:unstar|star)(?:\s|:|$)/i],
           ['fork', 'hideRepositoryFork', /^(?:fork|cannot fork|can't fork|unable to fork)(?:\s|:|$)/i],
-          ['pins', 'hideRepositoryPins', /^(?:edit pins|pin repository|unpin repository)(?:\s|:|$)/i],
+          ['pins', 'hideRepositoryPins', /^(?:edit pins|(?:un)?pin(?: repository)?)(?:\s|:|$)/i],
         ]) {
           const hide = key === 'hideRepositoryPins'
             ? (settings[key] ?? true)
