@@ -6,13 +6,18 @@ const test = require('node:test');
 
 const source = fs.readFileSync(path.join(__dirname, '../features/interface/relative-times.js'), 'utf8');
 
-function fixture(blockTooltips) {
+function fixture(blockTooltips, ageCellWidth = null) {
   const updates = [];
+  const ageCell = ageCellWidth === null ? null : {
+    clientWidth: ageCellWidth,
+    getBoundingClientRect: () => ({ width: ageCellWidth }),
+  };
   class TimeElement {
     attributes = new Map([['datetime', '2020-01-01T00:00:00Z']]);
     textContent = 'Jan 1, 2020';
     shadowRoot = { textContent: this.textContent };
     matches() { return true; }
+    closest() { return ageCell; }
     hasAttribute(name) { return this.attributes.has(name); }
     getAttribute(name) { return this.attributes.get(name) ?? null; }
     setAttribute(name, value) {
@@ -35,11 +40,22 @@ function fixture(blockTooltips) {
   }
   const context = vm.createContext({
     Element: TimeElement,
-    document: { getElementById: () => blockTooltips ? {} : null },
+    document: {
+      getElementById: () => blockTooltips ? {} : null,
+      createElement: () => ({
+        getContext: () => ({ font: '', measureText: (text) => ({ width: text.length * 8 }) }),
+      }),
+    },
+    getComputedStyle: () => ({
+      font: '14px sans-serif', paddingLeft: '0px', paddingRight: '0px',
+    }),
+    Date: class FixedDate extends Date {
+      constructor(...args) { super(...(args.length ? args : ['2026-10-23T16:00:00Z'])); }
+    },
   });
   const prefix = source.slice(0, source.indexOf('  function processTree('));
-  vm.runInContext(`${prefix}\n globalThis.applyRelativeTime = applyRelativeTime;\n})();`, context);
-  return { element: new TimeElement(), updates };
+  vm.runInContext(`${prefix}\n globalThis.applyRelativeTime = applyRelativeTime; globalThis.compactRelativeVariants = compactRelativeVariants;\n})();`, context);
+  return { element: new TimeElement(), updates, compactRelativeVariants: context.compactRelativeVariants };
 }
 
 test('relative times and blocked tooltips settle after native timestamp updates', () => {
@@ -64,4 +80,33 @@ test('relative times retain titles when tooltips are enabled', () => {
   assert.equal(element.hasAttribute('no-title'), false);
   assert.equal(element.getAttribute('title'), element.textContent);
   assert.equal(updates.length, 0);
+});
+
+test('short labels distinguish years, months, weeks, days and minutes', () => {
+  const { compactRelativeVariants } = fixture(false);
+  assert.deepEqual(Array.from(compactRelativeVariants('2 years, 11 months ago')),
+    ['2y 11mo ago', '2y 11mo', '2y']);
+  assert.deepEqual(Array.from(compactRelativeVariants('in 3 days')),
+    ['in 3d', '3d']);
+  assert.deepEqual(Array.from(compactRelativeVariants('5 weeks ago')),
+    ['5w ago', '5w']);
+  assert.deepEqual(Array.from(compactRelativeVariants('1 minute ago')),
+    ['1m ago', '1m']);
+});
+
+test('repository file ages use full text until the column becomes cramped', () => {
+  const wide = fixture(false, 240);
+  wide.element.update();
+  assert.match(wide.element.textContent, /years?, .*months? ago$/);
+  assert.equal(wide.element.getAttribute('title'), wide.element.textContent);
+
+  const narrow = fixture(false, 96);
+  narrow.element.update();
+  assert.match(narrow.element.textContent, /^\d+y(?: \d+mo)?(?: ago)?$/);
+  assert.match(narrow.element.getAttribute('title'), /years?.*ago$/);
+  assert.notEqual(narrow.element.textContent, narrow.element.getAttribute('title'));
+
+  const tiny = fixture(false, 26);
+  tiny.element.update();
+  assert.match(tiny.element.textContent, /^\d+y$/);
 });
