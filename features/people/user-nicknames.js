@@ -98,6 +98,16 @@
     return normalizeNickname(value).split(/\s+/)[0] || '';
   }
 
+
+  // A commit-signature popover contains verified signer details, not a profile
+  // hovercard. Leave that attribution and its cryptographic evidence intact.
+  function isVerifiedSignaturePopover(element) {
+    const popover = element?.closest?.('.Popover-message');
+    return Boolean(popover
+      && /\b(?:this commit was signed|verified signature|(?:gpg|ssh) key id|vigilant mode)\b/i
+        .test(popover.textContent || ''));
+  }
+
   function isConversationPage() {
     return /^\/[^/]+\/[^/]+\/(?:issues|pull|discussions|commit)(?:\/|$)/i.test(location.pathname)
       || /^\/orgs\/[^/]+\/discussions(?:\/|$)/i.test(location.pathname);
@@ -359,7 +369,8 @@
   }
 
   async function applyNicknameToProfileLink(link) {
-    if (!enabled || !nicknameReplacementEnabled || !(link instanceof HTMLAnchorElement)) return;
+    if (!enabled || !nicknameReplacementEnabled || !(link instanceof HTMLAnchorElement)
+      || isVerifiedSignaturePopover(link)) return;
 
     const username = usernameFromLink(link);
     const mapping = nicknameByUsername.get(username.toLowerCase());
@@ -383,6 +394,7 @@
       !enabled
       || !nicknameReplacementEnabled
       || !link.isConnected
+      || isVerifiedSignaturePopover(link)
       || usernameFromLink(link).toLowerCase() !== username.toLowerCase()
     ) {
       return;
@@ -485,7 +497,8 @@
   }
 
   async function applyConversationFirstName(link) {
-    if (!enabled || !conversationFirstNamesEnabled || !(link instanceof HTMLAnchorElement)) return;
+    if (!enabled || !conversationFirstNamesEnabled || !(link instanceof HTMLAnchorElement)
+      || isVerifiedSignaturePopover(link)) return;
 
     const username = usernameFromLink(link);
     if (!isConversationIdentity(link, username)) return;
@@ -496,6 +509,7 @@
       || !enabled
       || !conversationFirstNamesEnabled
       || !link.isConnected
+      || isVerifiedSignaturePopover(link)
       || usernameFromLink(link).toLowerCase() !== username.toLowerCase()
     ) {
       return;
