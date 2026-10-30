@@ -13,17 +13,49 @@
     return match ? (match[1] + '/' + match[2]) : null;
   }
 
+  function newRepositoryOwner(pathname) {
+    if (pathname === '/new' || pathname === '/new/') return '';
+    const match = /^\/(?:organizations|orgs)\/([^/]+)\/repositories\/new\/?$/.exec(pathname);
+    return match ? match[1] : null;
+  }
+
+  function creationIntent(pathname, name) {
+    const source = forkSource(pathname);
+    if (source) return { kind: 'fork', source };
+
+    const owner = newRepositoryOwner(pathname);
+    if (owner === null || typeof name !== 'string' || !/^[\w.-]+$/.test(name.trim())) {
+      return null;
+    }
+    return { kind: 'repository', name: name.trim(), owner: owner || null };
+  }
+
   function repositoryRoot(pathname) {
     const match = /^\/([^/]+)\/([^/]+)\/?$/.exec(pathname);
     return match ? (match[1] + '/' + match[2]) : null;
   }
 
-  function matchesNewFork(repository, source, now = Date.now()) {
+  function isRecentlyCreated(repository, now) {
     const age = now - Date.parse(repository?.created_at);
+    return Number.isFinite(age) && age >= -120000 && age <= EXPIRY_MS;
+  }
+
+  function matchesNewFork(repository, source, now = Date.now()) {
     return repository?.fork === true
+      && typeof source === 'string'
       && typeof repository?.parent?.full_name === 'string'
       && repository.parent.full_name.toLowerCase() === source.toLowerCase()
-      && Number.isFinite(age) && age >= -120000 && age <= EXPIRY_MS;
+      && isRecentlyCreated(repository, now);
+  }
+
+  function matchesNewRepository(repository, intent, now = Date.now()) {
+    const parts = typeof repository?.full_name === 'string'
+      ? repository.full_name.split('/') : [];
+    return repository?.fork === false && parts.length === 2
+      && typeof intent?.name === 'string'
+      && parts[1].toLowerCase() === intent.name.toLowerCase()
+      && (!intent.owner || parts[0].toLowerCase() === intent.owner.toLowerCase())
+      && isRecentlyCreated(repository, now);
   }
 
   function normalizedText(element) {
@@ -38,7 +70,10 @@
 
   // Export the pure guards without starting browser automation in Node tests.
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { forkSource, repositoryRoot, matchesNewFork, labelMatches };
+    module.exports = {
+      forkSource, newRepositoryOwner, creationIntent, repositoryRoot,
+      matchesNewFork, matchesNewRepository, labelMatches,
+    };
     return;
   }
 
@@ -66,37 +101,56 @@
     sessionStorage.setItem(PENDING_KEY, JSON.stringify(item));
   }
 
-  function recordForkIntent() {
-    const source = forkSource(location.pathname);
-    if (!enabled || !source) return;
-    savePending({ source, createdAt: Date.now(), stage: 'landing', warnings: [] });
+  function creationName() {
+    return document.querySelector(
+      '#repository_name, input[name="repository[name]"], input[name="repository_name"]',
+    )?.value;
   }
 
-  function clearForkDescription() {
-    if (!enabled || !forkSource(location.pathname)) return;
+  function recordCreationIntent() {
+    if (!enabled) return;
+    const intent = creationIntent(location.pathname, creationName());
+    if (!intent) return;
+    savePending({ ...intent, createdAt: Date.now(), stage: 'landing', warnings: [] });
+  }
+
+  function clearTextField(field) {
+    if (!field || !field.value) return;
+    const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(field), 'value')?.set;
+    if (setter) setter.call(field, '');
+    else field.value = '';
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+    field.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  function clearCreationDescription() {
+    if (!enabled || (!forkSource(location.pathname)
+      && newRepositoryOwner(location.pathname) === null)) return;
     for (const field of document.querySelectorAll(
       'input[name*="description" i], textarea[name*="description" i]',
     )) {
       if (clearedFields.has(field)) continue;
       clearedFields.add(field);
-      if (!field.value) continue;
-      field.value = '';
-      field.dispatchEvent(new Event('input', { bubbles: true }));
-      field.dispatchEvent(new Event('change', { bubbles: true }));
+      clearTextField(field);
     }
   }
 
-  function handleForkSubmit(event) {
-    if (!forkSource(location.pathname)) return;
-    if (event.target?.tagName?.toLowerCase() === 'form') recordForkIntent();
+  function handleCreationSubmit(event) {
+    if (event.target?.tagName?.toLowerCase() !== 'form') return;
+    if (forkSource(location.pathname)
+      || event.target.querySelector(
+        '#repository_name, input[name="repository[name]"], input[name="repository_name"]',
+      )) recordCreationIntent();
   }
 
-  function handleForkClick(event) {
-    if (!forkSource(location.pathname)) return;
+  function handleCreationClick(event) {
+    if (!forkSource(location.pathname) && newRepositoryOwner(location.pathname) === null) {
+      return;
+    }
     const button = event.target?.closest?.('button, input[type="submit"]');
     if (button && /^(create fork|create repository)$/i.test(
       (button.textContent || button.value || '').trim(),
-    )) recordForkIntent();
+    )) recordCreationIntent();
   }
 
   function findCheckbox(container, label, names = []) {
@@ -173,6 +227,10 @@
     const description = dialog.querySelector(
       'textarea[name*="description" i], input[name*="description" i], #repository_description',
     );
+    const website = dialog.querySelector(
+      'input[name*="homepage" i], input[id*="homepage" i], '
+      + 'input[name*="website" i], input[id*="website" i], input[type="url"]',
+    );
     const releases = findCheckbox(dialog, 'Releases');
     const packages = findCheckbox(dialog, 'Packages');
     const saveButton = [...dialog.querySelectorAll('button, input[type="submit"]')]
@@ -183,13 +241,11 @@
       return;
     }
     if (!description) warnings.push('Description field not found');
+    if (!website) warnings.push('Website URL field not found');
     if (!releases) warnings.push('Releases checkbox not found');
     if (!packages) warnings.push('Packages checkbox not found');
-    if (description) {
-      description.value = '';
-      description.dispatchEvent(new Event('input', { bubbles: true }));
-      description.dispatchEvent(new Event('change', { bubbles: true }));
-    }
+    clearTextField(description);
+    clearTextField(website);
     if (releases) setCheckbox(releases, false);
     if (packages) setCheckbox(packages, false);
     saveButton.click();
@@ -248,6 +304,9 @@
       if (settings.description !== null && settings.description !== '') {
         warnings.push('Description did not clear');
       }
+      if (settings.homepage !== null && settings.homepage !== '') {
+        warnings.push('Website URL did not clear');
+      }
     } catch {
       warnings.push('Could not verify saved repository settings');
     }
@@ -273,8 +332,8 @@
       + 'box-shadow:0 5px 25px #0003;font:14px system-ui;';
     const message = document.createElement('span');
     message.textContent = result.warnings.length
-      ? 'Fractured attempted your fork setup. Check: ' + result.warnings.join('; ') + '.'
-      : 'Fractured submitted your fork preferences. Review Settings to confirm they saved.';
+      ? 'Fractured attempted your new repository setup. Check: ' + result.warnings.join('; ') + '.'
+      : 'Fractured submitted your new repository preferences. Review Settings to confirm they saved.';
     const dismiss = document.createElement('button');
     dismiss.type = 'button';
     dismiss.textContent = 'Dismiss';
@@ -284,14 +343,17 @@
     (document.body || document.documentElement).append(notice);
   }
 
-  async function validateFork(repository, source) {
+  async function validateCreation(repository, pending) {
     try {
       const response = await fetch(
         'https://api.github.com/repos/' + repository.split('/').map(encodeURIComponent).join('/'),
         { credentials: 'omit', headers: { Accept: 'application/vnd.github+json' } },
       );
       if (!response.ok) return false;
-      return matchesNewFork(await response.json(), source);
+      const metadata = await response.json();
+      return pending.kind === 'repository'
+        ? matchesNewRepository(metadata, pending)
+        : matchesNewFork(metadata, pending.source);
     } catch {
       return false;
     }
@@ -299,9 +361,8 @@
 
   async function run() {
     if (!enabled || busy) return;
-    const source = forkSource(location.pathname);
-    if (source) {
-      clearForkDescription();
+    if (forkSource(location.pathname) || newRepositoryOwner(location.pathname) !== null) {
+      clearCreationDescription();
       return;
     }
 
@@ -315,7 +376,7 @@
     if (pending.stage === 'landing' && repository) {
       busy = true;
       try {
-        if (!await validateFork(repository, pending.source)) {
+        if (!await validateCreation(repository, pending)) {
           // Never configure an unrelated or preexisting repository.
           sessionStorage.removeItem(PENDING_KEY);
           return;
@@ -370,8 +431,8 @@
     enabled = settings.autoSetupNewForks === true;
     if (!enabled) return;
 
-    document.addEventListener('submit', handleForkSubmit, true);
-    document.addEventListener('click', handleForkClick, true);
+    document.addEventListener('submit', handleCreationSubmit, true);
+    document.addEventListener('click', handleCreationClick, true);
     document.addEventListener('turbo:load', () => { void run(); });
     document.addEventListener('pjax:end', () => { void run(); });
     window.addEventListener('popstate', () => { void run(); });

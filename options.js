@@ -24,6 +24,9 @@ const hideUnprotectedBranchWarningInput = document.getElementById('hide-unprotec
 const hideRepositoryWatchInput = document.getElementById('hide-repository-watch');
 const hideRepositoryStarInput = document.getElementById('hide-repository-star');
 const hideRepositoryForkInput = document.getElementById('hide-repository-fork');
+const hideRepositoryWatchButtonInput = document.getElementById('hide-repository-watch-button');
+const hideRepositoryStarButtonInput = document.getElementById('hide-repository-star-button');
+const hideRepositoryForkButtonInput = document.getElementById('hide-repository-fork-button');
 const hideRepositoryPinsInput = document.getElementById('hide-repository-pins');
 const autoSetupNewForksInput = document.getElementById('auto-setup-new-forks');
 const hideRepositoryOverviewNameInput = document.getElementById('hide-repository-overview-name');
@@ -356,6 +359,9 @@ async function loadSettings() {
     hideRepositoryWatch: null,
     hideRepositoryStar: null,
     hideRepositoryFork: null,
+    hideRepositoryWatchButton: false,
+    hideRepositoryStarButton: false,
+    hideRepositoryForkButton: false,
     hideRepositoryPins: true,
     autoSetupNewForks: true,
     hideRepositoryOverviewName: false,
@@ -402,6 +408,9 @@ async function loadSettings() {
   hideRepositoryWatchInput.checked = Boolean(settings.hideRepositoryWatch ?? settings.hideRepositorySocialActions);
   hideRepositoryStarInput.checked = Boolean(settings.hideRepositoryStar ?? settings.hideRepositorySocialActions);
   hideRepositoryForkInput.checked = Boolean(settings.hideRepositoryFork ?? settings.hideRepositorySocialActions);
+  hideRepositoryWatchButtonInput.checked = Boolean(settings.hideRepositoryWatchButton);
+  hideRepositoryStarButtonInput.checked = Boolean(settings.hideRepositoryStarButton);
+  hideRepositoryForkButtonInput.checked = Boolean(settings.hideRepositoryForkButton);
   hideRepositoryPinsInput.checked = Boolean(settings.hideRepositoryPins);
   autoSetupNewForksInput.checked = Boolean(settings.autoSetupNewForks);
   hideRepositoryOverviewNameInput.checked = Boolean(settings.hideRepositoryOverviewName);
@@ -505,6 +514,9 @@ async function saveSettings() {
     hideRepositoryWatch: hideRepositoryWatchInput.checked,
     hideRepositoryStar: hideRepositoryStarInput.checked,
     hideRepositoryFork: hideRepositoryForkInput.checked,
+    hideRepositoryWatchButton: hideRepositoryWatchButtonInput.checked,
+    hideRepositoryStarButton: hideRepositoryStarButtonInput.checked,
+    hideRepositoryForkButton: hideRepositoryForkButtonInput.checked,
     hideRepositoryPins: hideRepositoryPinsInput.checked,
     autoSetupNewForks: autoSetupNewForksInput.checked,
     hideRepositoryOverviewName: hideRepositoryOverviewNameInput.checked,
@@ -559,6 +571,9 @@ hideUnprotectedBranchWarningInput.addEventListener('change', () => void saveSett
 hideRepositoryWatchInput.addEventListener('change', () => void saveSettings());
 hideRepositoryStarInput.addEventListener('change', () => void saveSettings());
 hideRepositoryForkInput.addEventListener('change', () => void saveSettings());
+hideRepositoryWatchButtonInput.addEventListener('change', () => void saveSettings());
+hideRepositoryStarButtonInput.addEventListener('change', () => void saveSettings());
+hideRepositoryForkButtonInput.addEventListener('change', () => void saveSettings());
 hideRepositoryPinsInput.addEventListener('change', () => void saveSettings());
 autoSetupNewForksInput.addEventListener('change', () => void saveSettings());
 hideRepositoryOverviewNameInput.addEventListener('change', () => void saveSettings());
