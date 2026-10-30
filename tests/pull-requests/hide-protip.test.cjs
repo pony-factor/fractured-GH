@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const source = fs.readFileSync(
-  path.join(__dirname, '../../features/pull-requests/hide-pull-request-protip.js'), 'utf8',
+  path.join(__dirname, '../../features/pull-requests/hide-protip.js'), 'utf8',
 );
 
 class TextNode {

@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const source = fs.readFileSync(
-  path.join(__dirname, '../../features/repositories/hide-repository-social-actions.js'),
+  path.join(__dirname, '../../features/repositories/hide-social-actions.js'),
   'utf8',
 );
 const hidden = 'data-fractured-hidden-repository-control';

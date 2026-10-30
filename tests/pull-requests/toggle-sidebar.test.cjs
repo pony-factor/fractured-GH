@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const source = fs.readFileSync(
-  path.join(__dirname, '../../features/pull-requests/toggle-pull-request-sidebar.js'), 'utf8',
+  path.join(__dirname, '../../features/pull-requests/toggle-sidebar.js'), 'utf8',
 );
 
 function setup() {

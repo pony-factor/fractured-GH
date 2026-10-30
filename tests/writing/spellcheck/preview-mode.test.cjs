@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const source = fs.readFileSync(
-  path.join(__dirname, '../../../features/writing/spellcheck-issue-pr-drafts.js'), 'utf8',
+  path.join(__dirname, '../../../features/writing/spellcheck/issue-pr-drafts.js'), 'utf8',
 );
 const start = source.indexOf('  function previewIsSelected(');
 const end = source.indexOf('  async function launchSpellcheck(', start);

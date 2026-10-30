@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const script = fs.readFileSync(path.join(__dirname, '../../../features/writing/spellcheck-chatgpt-bridge.js'), 'utf8')
+const script = fs.readFileSync(path.join(__dirname, '../../../features/writing/spellcheck/chatgpt-bridge.js'), 'utf8')
   .replace('const COMPOSER_TIMEOUT_MS = 30000;', 'const COMPOSER_TIMEOUT_MS = 1;')
   .replace('await pause(250);\n        await closeBridgeTab();', 'await pause(0);\n        await closeBridgeTab();')
   .replace(/  void run\(\)\.catch\([\s\S]*?\n  \}\);(?=\n\}\)\(\);)/, '  globalThis.bridge = { run, writeJob, buildPrompt, shouldGenerateTitle, needsShortTitleEmoji };');
@@ -142,7 +142,7 @@ function setup({ modern = false } = {}) {
       disconnect() { disconnected = true; }
     },
   };
-  vm.runInNewContext(fs.readFileSync(require.resolve('../../../features/writing/spellcheck-chatgpt-bridge.js'), 'utf8')
+  vm.runInNewContext(fs.readFileSync(require.resolve('../../../features/writing/spellcheck/chatgpt-bridge.js'), 'utf8')
     .replace(/  void run\(\)\.catch\([\s\S]*?\n  \}\);(?=\n\}\)\(\);)/, '  globalThis.waitForResponse = waitForResponse;'), context);
   return {
     wait: context.waitForResponse,

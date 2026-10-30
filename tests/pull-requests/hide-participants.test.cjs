@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const source = fs.readFileSync(
-  path.join(__dirname, '../../features/pull-requests/hide-pull-request-participants.js'), 'utf8',
+  path.join(__dirname, '../../features/pull-requests/hide-participants.js'), 'utf8',
 );
 
 const ROOT = 'data-fractured-hide-pull-request-participants';

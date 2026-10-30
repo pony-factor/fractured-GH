@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname,
-  '../../features/repositories/repository-code-shortcuts.js'), 'utf8');
+  '../../features/repositories/code-shortcuts.js'), 'utf8');
 
 function setup(pathname = '/pony-factor/fractured-GH') {
   const navigations = [];

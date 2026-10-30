@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const source = fs.readFileSync(
-  path.join(__dirname, '../../../features/writing/spellcheck-link-protection.js'), 'utf8',
+  path.join(__dirname, '../../../features/writing/spellcheck/link-protection.js'), 'utf8',
 );
 
 function links() {

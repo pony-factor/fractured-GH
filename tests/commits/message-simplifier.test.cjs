@@ -4,7 +4,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const test = require('node:test');
 
-const source = fs.readFileSync(path.join(__dirname, '../../features/commits/commit-message-simplifier.js'), 'utf8');
+const source = fs.readFileSync(path.join(__dirname, '../../features/commits/message-simplifier.js'), 'utf8');
 const context = vm.createContext({
   MutationObserver: class {},
   chrome: { storage: {

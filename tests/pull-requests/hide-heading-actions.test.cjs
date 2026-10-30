@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const source = fs.readFileSync(
-  path.join(__dirname, '../../features/pull-requests/hide-pr-heading-actions.js'), 'utf8',
+  path.join(__dirname, '../../features/pull-requests/hide-heading-actions.js'), 'utf8',
 );
 const attribute = 'data-fractured-hidden-pr-heading-action';
 

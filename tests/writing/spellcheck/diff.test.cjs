@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 
 function setup() {
-  const source = fs.readFileSync(require.resolve('../../../features/writing/spellcheck-issue-pr-drafts.js'), 'utf8');
+  const source = fs.readFileSync(require.resolve('../../../features/writing/spellcheck/issue-pr-drafts.js'), 'utf8');
   const input = {};
   const aside = { setAttribute(key, value) { this[key] = value; }, querySelector: () => input };
   function node() {

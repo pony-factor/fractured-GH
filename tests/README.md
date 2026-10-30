@@ -22,5 +22,7 @@ Run all tests from the repository root with:
 node --test
 ```
 
-The built-in Node.js test runner discovers nested `*.test.cjs` files.
+The built-in Node.js test runner discovers nested `*.test.cjs` files. Feature
+script paths come from `manifest.json`; the CI manifest-paths test ensures each
+referenced script exists after a rename.
 To run a particular suite, pass its path to `node --test`.

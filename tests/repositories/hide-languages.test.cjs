@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const source = fs.readFileSync(
-  path.join(__dirname, '../../features/repositories/hide-repository-languages.js'), 'utf8',
+  path.join(__dirname, '../../features/repositories/hide-languages.js'), 'utf8',
 );
 
 const ATTRIBUTE = 'data-fractured-hidden-languages';
