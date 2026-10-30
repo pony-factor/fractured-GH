@@ -17,6 +17,7 @@ const DEFAULT_SETTINGS = {
   preferDisplayNamesEnabled: false,
   hideContributingGuidelinesNotice: true,
   hidePullRequestMilestone: false,
+  hideEmptySidebarSections: false,
   hidePullRequestMergeStatus: false,
   hidePullRequestCodeButton: false,
   hideSuggestedWorkflows: false,

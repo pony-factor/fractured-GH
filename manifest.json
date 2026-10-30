@@ -45,6 +45,7 @@
         "features/pull-requests/hide-contributing-guidelines-notice.js",
         "features/pull-requests/hide-protip.js",
         "features/pull-requests/hide-milestone.js",
+        "features/pull-requests/hide-empty-sections.js",
         "features/pull-requests/hide-participants.js",
         "features/pull-requests/hide-heading-actions.js",
         "features/interface/hide-footer.js",

@@ -14,6 +14,7 @@ const rotate404FanArtInput = document.getElementById('rotate-404-fan-art');
 const hideContributingGuidelinesNoticeInput = document.getElementById('hide-contributing-guidelines-notice');
 const hidePullRequestProtipInput = document.getElementById('hide-pull-request-protip');
 const hidePullRequestMilestoneInput = document.getElementById('hide-pull-request-milestone');
+const hideEmptySidebarSectionsInput = document.getElementById('hide-empty-sidebar-sections');
 const hidePullRequestParticipantsInput = document.getElementById('hide-pull-request-participants');
 const hidePullRequestMergeStatusInput = document.getElementById('hide-pull-request-merge-status');
 const hidePullRequestCodeButtonInput = document.getElementById('hide-pull-request-code-button');
@@ -348,6 +349,7 @@ async function loadSettings() {
     hideContributingGuidelinesNotice: true,
     hidePullRequestProtip: false,
     hidePullRequestMilestone: false,
+    hideEmptySidebarSections: false,
     hidePullRequestParticipants: false,
     hidePullRequestMergeStatus: false,
     hidePullRequestCodeButton: false,
@@ -398,6 +400,7 @@ async function loadSettings() {
   hideContributingGuidelinesNoticeInput.checked = Boolean(settings.hideContributingGuidelinesNotice);
   hidePullRequestProtipInput.checked = Boolean(settings.hidePullRequestProtip);
   hidePullRequestMilestoneInput.checked = Boolean(settings.hidePullRequestMilestone);
+  hideEmptySidebarSectionsInput.checked = Boolean(settings.hideEmptySidebarSections);
   hidePullRequestParticipantsInput.checked = Boolean(settings.hidePullRequestParticipants);
   hidePullRequestMergeStatusInput.checked = Boolean(settings.hidePullRequestMergeStatus);
   hidePullRequestCodeButtonInput.checked = Boolean(settings.hidePullRequestCodeButton);
@@ -504,6 +507,7 @@ async function saveSettings() {
     hideContributingGuidelinesNotice: hideContributingGuidelinesNoticeInput.checked,
     hidePullRequestProtip: hidePullRequestProtipInput.checked,
     hidePullRequestMilestone: hidePullRequestMilestoneInput.checked,
+    hideEmptySidebarSections: hideEmptySidebarSectionsInput.checked,
     hidePullRequestParticipants: hidePullRequestParticipantsInput.checked,
     hidePullRequestMergeStatus: hidePullRequestMergeStatusInput.checked,
     hidePullRequestCodeButton: hidePullRequestCodeButtonInput.checked,
@@ -561,6 +565,7 @@ rotate404FanArtInput.addEventListener('change', () => void saveSettings());
 hideContributingGuidelinesNoticeInput.addEventListener('change', () => void saveSettings());
 hidePullRequestProtipInput.addEventListener('change', () => void saveSettings());
 hidePullRequestMilestoneInput.addEventListener('change', () => void saveSettings());
+hideEmptySidebarSectionsInput.addEventListener('change', () => void saveSettings());
 hidePullRequestParticipantsInput.addEventListener('change', () => void saveSettings());
 hidePullRequestMergeStatusInput.addEventListener('change', () => void saveSettings());
 hidePullRequestCodeButtonInput.addEventListener('change', () => void saveSettings());
