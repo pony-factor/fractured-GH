@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { headerActionMode } = require('../../features/repositories/hide-repository-social-actions.js');
+const { headerActionMode } = require('../../features/repositories/hide-social-actions.js');
 
 const root = path.join(__dirname, '../..');
 const options = fs.readFileSync(path.join(root, 'options.html'), 'utf8');
