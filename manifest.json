@@ -49,6 +49,7 @@
         "features/repositories/hide-repository-languages.js",
         "features/repositories/repository-code-shortcuts.js",
         "features/repositories/hide-empty-repository-description.js",
+        "features/repositories/automatic-fork-setup.js",
         "features/repositories/hide-unused-repository-tabs.js",
         "features/repositories/hide-repository-social-actions.js",
         "features/notifications/organization-notifications.js",

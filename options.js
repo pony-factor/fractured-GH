@@ -21,6 +21,7 @@ const hideRepositoryWatchInput = document.getElementById('hide-repository-watch'
 const hideRepositoryStarInput = document.getElementById('hide-repository-star');
 const hideRepositoryForkInput = document.getElementById('hide-repository-fork');
 const hideRepositoryPinsInput = document.getElementById('hide-repository-pins');
+const autoSetupNewForksInput = document.getElementById('auto-setup-new-forks');
 const hideRepositoryOverviewNameInput = document.getElementById('hide-repository-overview-name');
 const hideMyNavigationLinksInput = document.getElementById('hide-my-navigation-links');
 const hideHamburgerMenuInput = document.getElementById('hide-hamburger-menu');
@@ -348,6 +349,7 @@ async function loadSettings() {
     hideRepositoryStar: null,
     hideRepositoryFork: null,
     hideRepositoryPins: true,
+    autoSetupNewForks: true,
     hideRepositoryOverviewName: false,
     hideMyNavigationLinks: false,
     hideHamburgerMenu: false,
@@ -389,6 +391,7 @@ async function loadSettings() {
   hideRepositoryStarInput.checked = Boolean(settings.hideRepositoryStar ?? settings.hideRepositorySocialActions);
   hideRepositoryForkInput.checked = Boolean(settings.hideRepositoryFork ?? settings.hideRepositorySocialActions);
   hideRepositoryPinsInput.checked = Boolean(settings.hideRepositoryPins);
+  autoSetupNewForksInput.checked = Boolean(settings.autoSetupNewForks);
   hideRepositoryOverviewNameInput.checked = Boolean(settings.hideRepositoryOverviewName);
   hideMyNavigationLinksInput.checked = Boolean(settings.hideMyNavigationLinks);
   hideHamburgerMenuInput.checked = Boolean(settings.hideHamburgerMenu);
@@ -464,6 +467,7 @@ async function saveSettings() {
     hideRepositoryStar: hideRepositoryStarInput.checked,
     hideRepositoryFork: hideRepositoryForkInput.checked,
     hideRepositoryPins: hideRepositoryPinsInput.checked,
+    autoSetupNewForks: autoSetupNewForksInput.checked,
     hideRepositoryOverviewName: hideRepositoryOverviewNameInput.checked,
     hideMyNavigationLinks: hideMyNavigationLinksInput.checked,
     hideHamburgerMenu: hideHamburgerMenuInput.checked,
@@ -510,6 +514,7 @@ hideRepositoryWatchInput.addEventListener('change', () => void saveSettings());
 hideRepositoryStarInput.addEventListener('change', () => void saveSettings());
 hideRepositoryForkInput.addEventListener('change', () => void saveSettings());
 hideRepositoryPinsInput.addEventListener('change', () => void saveSettings());
+autoSetupNewForksInput.addEventListener('change', () => void saveSettings());
 hideRepositoryOverviewNameInput.addEventListener('change', () => void saveSettings());
 hideMyNavigationLinksInput.addEventListener('change', () => void saveSettings());
 hideHamburgerMenuInput.addEventListener('change', () => void saveSettings());
