@@ -60,6 +60,7 @@ for (const nickname of ['John', 'John Wooten']) {
     const feature = vm.runInNewContext([
       functionSource('normalizeNickname'),
       functionSource('firstWord'),
+      functionSource('isVerifiedSignaturePopover'),
       functionSource('applyNicknameToProfileLink'),
       functionSource('applyConversationFirstName'),
       '({ applyNicknameToProfileLink, applyConversationFirstName })',

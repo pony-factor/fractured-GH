@@ -80,9 +80,10 @@ function setup() {
   }
 
   async function settleSettings() {
-    await Promise.resolve();
-    await Promise.resolve();
-    flushFrames();
+    for (let i = 0; i < 6; i++) {
+      await Promise.resolve();
+      flushFrames();
+    }
   }
 
   return {

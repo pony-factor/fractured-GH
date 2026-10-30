@@ -22,7 +22,8 @@ function setup({ confirm = false } = {}) {
   class TextArea extends Field {}
   class Input extends Field {}
   class Node {
-    constructor() { this.children = []; this.handlers = {}; this.className = ''; }
+    constructor() { this.children = []; this.handlers = {}; this.className = ''; this.attributes = new Map(); }
+    setAttribute(name, value) { this.attributes.set(name, String(value)); }
     append(...nodes) { this.children.push(...nodes); }
     replaceChildren(...nodes) { this.children = nodes; }
     addEventListener(type, listener) { this.handlers[type] = listener; }
@@ -47,6 +48,7 @@ function setup({ confirm = false } = {}) {
   const restored = [];
   const sandbox = {
     document,
+    location: { href: 'https://github.com/pony-factor/fractured-GH/issues/new' },
     window: { confirm: () => confirm, addEventListener() {} },
     chrome: { storage: { local: { get: async () => ({}) }, onChanged: { addListener() {} } } },
     Element: Node,
