@@ -244,7 +244,7 @@
         <details class="settings-foldout" open>
           <summary>
             <span>Footer</span>
-            <span class="summary-meta">Sitewide links</span>
+            <span class="summary-meta">Sitewide links + conversation notices</span>
           </summary>
           <div class="foldout-body">
             <label class="preference">
@@ -252,6 +252,23 @@
               <span>
                 <strong>Hide GitHub footer</strong>
                 <small>Hide GitHub's sitewide footer, including the copyright, legal, support, and cookie links.</small>
+              </span>
+            </label>
+            <hr class="preference-divider" />
+
+            <label class="preference">
+              <input id="hide-contributing-guidelines-notice" type="checkbox" />
+              <span>
+                <strong>Hide contributing guidelines reminder</strong>
+                <small>Hide GitHub's “Remember, contributions…” reminder for repository contributing guidelines and GitHub Community Guidelines.</small>
+              </span>
+            </label>
+
+            <label class="preference">
+              <input id="hide-pull-request-protip" type="checkbox" />
+              <span>
+                <strong>Hide pull request ProTip</strong>
+                <small>Hide GitHub’s pull request tips below the comment box, including the Files changed and .patch/.diff URL tips. Off by default.</small>
               </span>
             </label>
           </div>
@@ -363,7 +380,7 @@
         <details class="settings-foldout" open>
           <summary>
             <span>Pull requests</span>
-            <span class="summary-meta">Header buttons + commit details + sidebar + notices</span>
+            <span class="summary-meta">Header buttons + commit details + sidebar</span>
           </summary>
           <div class="foldout-body">
             <div class="spellcheck-project-settings">
@@ -423,21 +440,7 @@
               </span>
             </label>
 
-            <label class="preference">
-              <input id="hide-contributing-guidelines-notice" type="checkbox" />
-              <span>
-                <strong>Hide contributing guidelines reminder</strong>
-                <small>Hide GitHub's “Remember, contributions…” reminder for repository contributing guidelines and GitHub Community Guidelines.</small>
-              </span>
-            </label>
 
-            <label class="preference">
-              <input id="hide-pull-request-protip" type="checkbox" />
-              <span>
-                <strong>Hide pull request ProTip</strong>
-                <small>Hide GitHub's “ProTip! Add comments to specific lines under Files changed.” reminder below the pull request comment box. Off by default.</small>
-              </span>
-            </label>
 
             <hr class="preference-divider" />
 

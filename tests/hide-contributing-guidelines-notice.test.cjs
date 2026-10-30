@@ -64,13 +64,18 @@ async function setup(enabled = true) {
   const container = el('main');
   const listeners = {};
   let onMutation;
+  let onStorageChange;
   const document = {
     documentElement: container,
     querySelectorAll: selector => container.querySelectorAll(selector),
     addEventListener: (name, callback) => { listeners[name] = callback; },
   };
   vm.runInNewContext(source, {
-    chrome: { storage: { local: { get: async () => ({ hideContributingGuidelinesNotice: enabled }) } } },
+    chrome: { storage: {
+      local: { get: async () => ({ hideContributingGuidelinesNotice: enabled }) },
+      onChanged: { addListener(callback) { onStorageChange = callback; } },
+    } },
+    queueMicrotask,
     document,
     Element: ElementMock,
     MutationObserver: class {
@@ -78,11 +83,16 @@ async function setup(enabled = true) {
       observe() {}
     },
   });
-  for (let i = 0; i < 4; i++) await Promise.resolve();
+  async function flush() { for (let i = 0; i < 4; i++) await Promise.resolve(); }
+  await flush();
   return {
     container,
-    emit(node) { onMutation?.([{ addedNodes: [node] }]); },
-    navigate(name) { listeners[name]?.(); },
+    async emit(node) { onMutation?.([{ addedNodes: [node] }]); await flush(); },
+    async navigate(name) { listeners[name]?.(); await flush(); },
+    async toggle(value, area = 'local') {
+      onStorageChange?.({ hideContributingGuidelinesNotice: { newValue: value } }, area);
+      await flush();
+    },
   };
 }
 
@@ -91,7 +101,7 @@ test('hides the original CONTRIBUTING.md paragraph but not unrelated text', asyn
   const legacy = legacyNotice();
   const unrelated = el('p', 'Remember, contributions to this repository should follow the rules.');
   app.container.append(legacy, unrelated);
-  app.navigate('turbo:load');
+  await app.navigate('turbo:load');
   assert.equal(legacy.hidden, true);
   assert.equal(unrelated.hidden, false);
 });
@@ -101,7 +111,7 @@ test('hides the entire icon-and-text GitHub Community Guidelines notice', async 
   const community = communityNotice();
   const submit = el('button', 'Create pull request');
   app.container.append(community, submit);
-  app.emit(community);
+  await app.emit(community);
   assert.equal(community.hidden, true);
   assert.equal(submit.hidden, false);
 });
@@ -112,7 +122,7 @@ test('does not hide the notice if it lacks the expected guideline link', async (
     anchor('GitHub Community Guidelines', 'https://example.com/other'), '.');
   const plainText = el('p', 'Remember, contributions to this repository should follow our GitHub Community Guidelines.');
   app.container.append(wrongLink, plainText);
-  app.navigate('pjax:end');
+  await app.navigate('pjax:end');
   assert.equal(wrongLink.hidden, false);
   assert.equal(plainText.hidden, false);
 });
@@ -121,12 +131,37 @@ test('respects the off setting and handles newly inserted notices', async () => 
   const disabled = await setup(false);
   const untouched = communityNotice();
   disabled.container.append(untouched);
-  disabled.navigate('turbo:load');
+  await disabled.navigate('turbo:load');
   assert.equal(untouched.hidden, false);
 
   const enabled = await setup(true);
   const dynamic = communityNotice();
   enabled.container.append(dynamic);
-  enabled.emit(dynamic);
+  await enabled.emit(dynamic);
   assert.equal(dynamic.hidden, true);
+});
+
+
+test('restores and re-hides notices when the preference changes without a page reload', async () => {
+  const app = await setup(true);
+  const notice = communityNotice();
+  app.container.append(notice);
+  await app.navigate('turbo:load');
+  assert.equal(notice.hidden, true);
+
+  await app.toggle(false);
+  assert.equal(notice.hidden, false);
+  await app.toggle(true);
+  assert.equal(notice.hidden, true);
+});
+
+test('keeps comment controls and unrelated text visible', async () => {
+  const app = await setup(true);
+  const notice = communityNotice();
+  const commentBox = el('div', el('textarea', 'Draft comment'), notice,
+    el('button', 'Comment'));
+  app.container.append(commentBox);
+  await app.navigate('turbo:load');
+  assert.equal(notice.hidden, true);
+  assert.equal(commentBox.hidden, false);
 });
