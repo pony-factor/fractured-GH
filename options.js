@@ -3,12 +3,16 @@ const DEFAULT_MUTED_USERS = [];
 const commitTitleEmojisInput = document.getElementById('commit-title-emojis');
 const simplifyCommitMessagesInput = document.getElementById('simplify-commit-messages');
 const wrapDiffLinesInput = document.getElementById('wrap-diff-lines');
+const pullRequestSidebarToggleInput = document.getElementById('pull-request-sidebar-toggle-enabled');
+const hideCoauthorOnlyCommitDetailsInput = document.getElementById('hide-coauthor-only-commit-details');
 
 const blockTooltipsInput = document.getElementById('block-tooltips');
 const hideCopilotInput = document.getElementById('hide-copilot');
+const rotate404FanArtInput = document.getElementById('rotate-404-fan-art');
 const hideContributingGuidelinesNoticeInput = document.getElementById('hide-contributing-guidelines-notice');
 const hidePullRequestProtipInput = document.getElementById('hide-pull-request-protip');
 const hidePullRequestMilestoneInput = document.getElementById('hide-pull-request-milestone');
+const hidePullRequestParticipantsInput = document.getElementById('hide-pull-request-participants');
 const hidePullRequestMergeStatusInput = document.getElementById('hide-pull-request-merge-status');
 const hidePullRequestCodeButtonInput = document.getElementById('hide-pull-request-code-button');
 const hideFooterInput = document.getElementById('hide-footer');
@@ -19,6 +23,7 @@ const hideRepositoryWatchInput = document.getElementById('hide-repository-watch'
 const hideRepositoryStarInput = document.getElementById('hide-repository-star');
 const hideRepositoryForkInput = document.getElementById('hide-repository-fork');
 const hideRepositoryPinsInput = document.getElementById('hide-repository-pins');
+const autoSetupNewForksInput = document.getElementById('auto-setup-new-forks');
 const hideRepositoryOverviewNameInput = document.getElementById('hide-repository-overview-name');
 const hideMyNavigationLinksInput = document.getElementById('hide-my-navigation-links');
 const hideHamburgerMenuInput = document.getElementById('hide-hamburger-menu');
@@ -328,11 +333,15 @@ async function loadSettings() {
     commitTitleEmojis: false,
     simplifyCommitMessages: false,
     wrapDiffLines: true,
+    pullRequestSidebarToggleEnabled: true,
+    hideCoauthorOnlyCommitDetails: false,
     blockTooltips: false,
     hideCopilot: true,
+    rotate404FanArtEnabled: true,
     hideContributingGuidelinesNotice: true,
     hidePullRequestProtip: false,
     hidePullRequestMilestone: false,
+    hidePullRequestParticipants: false,
     hidePullRequestMergeStatus: false,
     hidePullRequestCodeButton: false,
     hideFooter: false,
@@ -344,6 +353,7 @@ async function loadSettings() {
     hideRepositoryStar: null,
     hideRepositoryFork: null,
     hideRepositoryPins: true,
+    autoSetupNewForks: true,
     hideRepositoryOverviewName: false,
     hideMyNavigationLinks: false,
     hideHamburgerMenu: false,
@@ -368,11 +378,15 @@ async function loadSettings() {
   commitTitleEmojisInput.checked = Boolean(settings.commitTitleEmojis);
   simplifyCommitMessagesInput.checked = Boolean(settings.simplifyCommitMessages);
   wrapDiffLinesInput.checked = Boolean(settings.wrapDiffLines);
+  pullRequestSidebarToggleInput.checked = Boolean(settings.pullRequestSidebarToggleEnabled);
+  hideCoauthorOnlyCommitDetailsInput.checked = Boolean(settings.hideCoauthorOnlyCommitDetails);
   blockTooltipsInput.checked = Boolean(settings.blockTooltips);
   hideCopilotInput.checked = Boolean(settings.hideCopilot);
+  rotate404FanArtInput.checked = Boolean(settings.rotate404FanArtEnabled);
   hideContributingGuidelinesNoticeInput.checked = Boolean(settings.hideContributingGuidelinesNotice);
   hidePullRequestProtipInput.checked = Boolean(settings.hidePullRequestProtip);
   hidePullRequestMilestoneInput.checked = Boolean(settings.hidePullRequestMilestone);
+  hidePullRequestParticipantsInput.checked = Boolean(settings.hidePullRequestParticipants);
   hidePullRequestMergeStatusInput.checked = Boolean(settings.hidePullRequestMergeStatus);
   hidePullRequestCodeButtonInput.checked = Boolean(settings.hidePullRequestCodeButton);
   hideFooterInput.checked = Boolean(settings.hideFooter);
@@ -383,6 +397,7 @@ async function loadSettings() {
   hideRepositoryStarInput.checked = Boolean(settings.hideRepositoryStar ?? settings.hideRepositorySocialActions);
   hideRepositoryForkInput.checked = Boolean(settings.hideRepositoryFork ?? settings.hideRepositorySocialActions);
   hideRepositoryPinsInput.checked = Boolean(settings.hideRepositoryPins);
+  autoSetupNewForksInput.checked = Boolean(settings.autoSetupNewForks);
   hideRepositoryOverviewNameInput.checked = Boolean(settings.hideRepositoryOverviewName);
   hideMyNavigationLinksInput.checked = Boolean(settings.hideMyNavigationLinks);
   hideHamburgerMenuInput.checked = Boolean(settings.hideHamburgerMenu);
@@ -441,11 +456,15 @@ async function saveSettings() {
     commitTitleEmojis: commitTitleEmojisInput.checked,
     simplifyCommitMessages: simplifyCommitMessagesInput.checked,
     wrapDiffLines: wrapDiffLinesInput.checked,
+    pullRequestSidebarToggleEnabled: pullRequestSidebarToggleInput.checked,
+    hideCoauthorOnlyCommitDetails: hideCoauthorOnlyCommitDetailsInput.checked,
     blockTooltips: blockTooltipsInput.checked,
     hideCopilot: hideCopilotInput.checked,
+    rotate404FanArtEnabled: rotate404FanArtInput.checked,
     hideContributingGuidelinesNotice: hideContributingGuidelinesNoticeInput.checked,
     hidePullRequestProtip: hidePullRequestProtipInput.checked,
     hidePullRequestMilestone: hidePullRequestMilestoneInput.checked,
+    hidePullRequestParticipants: hidePullRequestParticipantsInput.checked,
     hidePullRequestMergeStatus: hidePullRequestMergeStatusInput.checked,
     hidePullRequestCodeButton: hidePullRequestCodeButtonInput.checked,
     hideFooter: hideFooterInput.checked,
@@ -456,6 +475,7 @@ async function saveSettings() {
     hideRepositoryStar: hideRepositoryStarInput.checked,
     hideRepositoryFork: hideRepositoryForkInput.checked,
     hideRepositoryPins: hideRepositoryPinsInput.checked,
+    autoSetupNewForks: autoSetupNewForksInput.checked,
     hideRepositoryOverviewName: hideRepositoryOverviewNameInput.checked,
     hideMyNavigationLinks: hideMyNavigationLinksInput.checked,
     hideHamburgerMenu: hideHamburgerMenuInput.checked,
@@ -485,11 +505,15 @@ async function saveSettings() {
 commitTitleEmojisInput.addEventListener('change', () => void saveSettings());
 simplifyCommitMessagesInput.addEventListener('change', () => void saveSettings());
 wrapDiffLinesInput.addEventListener('change', () => void saveSettings());
+pullRequestSidebarToggleInput.addEventListener('change', () => void saveSettings());
+hideCoauthorOnlyCommitDetailsInput.addEventListener('change', () => void saveSettings());
 blockTooltipsInput.addEventListener('change', () => void saveSettings());
 hideCopilotInput.addEventListener('change', () => void saveSettings());
+rotate404FanArtInput.addEventListener('change', () => void saveSettings());
 hideContributingGuidelinesNoticeInput.addEventListener('change', () => void saveSettings());
 hidePullRequestProtipInput.addEventListener('change', () => void saveSettings());
 hidePullRequestMilestoneInput.addEventListener('change', () => void saveSettings());
+hidePullRequestParticipantsInput.addEventListener('change', () => void saveSettings());
 hidePullRequestMergeStatusInput.addEventListener('change', () => void saveSettings());
 hidePullRequestCodeButtonInput.addEventListener('change', () => void saveSettings());
 hideFooterInput.addEventListener('change', () => void saveSettings());
@@ -500,6 +524,7 @@ hideRepositoryWatchInput.addEventListener('change', () => void saveSettings());
 hideRepositoryStarInput.addEventListener('change', () => void saveSettings());
 hideRepositoryForkInput.addEventListener('change', () => void saveSettings());
 hideRepositoryPinsInput.addEventListener('change', () => void saveSettings());
+autoSetupNewForksInput.addEventListener('change', () => void saveSettings());
 hideRepositoryOverviewNameInput.addEventListener('change', () => void saveSettings());
 hideMyNavigationLinksInput.addEventListener('change', () => void saveSettings());
 hideHamburgerMenuInput.addEventListener('change', () => void saveSettings());
