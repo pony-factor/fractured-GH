@@ -37,18 +37,23 @@ async function render(hideRepositoryFork, controls, options = {}) {
       ? (options.organization ? null : { getAttribute: () => 'pony-factor/fractured-GH' })
       : null,
     querySelectorAll(selector) {
-      if (selector === `[${attribute}]`) {
+      if (selector.startsWith(`[${attribute}]`)) {
         return [
           ...controls.map(control => control.wrapper),
           ...(options.links || []),
           ...(options.cardStars || []).map(card => card.metric),
+          ...(options.orgStars || []).map(item => item.metric),
+          ...(options.orgForks || []).map(item => item.metric),
         ].filter(item => item.action);
       }
       if (selector.includes('#repository-container-header button,')) return controls;
       if (selector.startsWith('a[href*=')) return (options.links || []).filter(link =>
         link.href.includes(selector.includes('stargazers') ? '/stargazers' : '/forks'));
-      if (selector.startsWith('.pinned-item-list-item svg.octicon-star')) {
-        return (options.cardStars || []).map(card => card.icon);
+      if (selector.startsWith('svg.octicon-star')) {
+        return [...(options.cardStars || []), ...(options.orgStars || [])].map(item => item.icon);
+      }
+      if (selector.startsWith('svg.octicon-repo-forked')) {
+        return (options.orgForks || []).map(item => item.icon);
       }
       return [];
     },
@@ -56,7 +61,7 @@ async function render(hideRepositoryFork, controls, options = {}) {
   };
   vm.runInNewContext(source, {
     document,
-    location: { origin: 'https://github.com', pathname: '/pony-factor/fractured-GH' },
+    location: { origin: 'https://github.com', pathname: options.locationPath || '/pony-factor/fractured-GH' },
     chrome: {
       storage: {
         local: { get: async () => ({ hideRepositoryFork, ...options.settings }) },
@@ -131,8 +136,9 @@ function cardStar({ classified = true, iconCount = 1, text = '1' } = {}) {
   const metric = disabledControl('').wrapper;
   metric.textContent = text;
   metric.querySelectorAll = () => Array.from({ length: iconCount }, () => ({}));
+  metric.matches = () => false;
   const icon = {
-    closest: () => classified ? metric : null,
+    closest: selector => selector.includes('.pinned-item-list-item') || classified ? metric : null,
     parentElement: metric,
   };
   return { metric, icon };
@@ -167,4 +173,90 @@ test('card star counts respect the individual and legacy preferences and restore
     settings: { hideRepositoryStar: false, hideRepositorySocialActions: true },
   });
   assert.equal(pinned.metric.action, undefined);
+});
+
+
+function organizationMetric({
+  text = '0', iconCount = 1, repositoryLink = 'https://github.com/PDF-magic/opener',
+} = {}) {
+  const metric = disabledControl('').wrapper;
+  metric.textContent = text;
+  metric.matches = () => false;
+  metric.querySelectorAll = selector => selector === 'a[href]'
+    ? [] : Array.from({ length: iconCount }, () => ({}));
+  const row = {
+    textContent: 'opener Python 0 stars 0 forks 5 pull requests',
+    querySelectorAll: selector => selector === 'a[href]' ? [{ href: repositoryLink }] : [],
+    parentElement: null,
+    matches: selector => selector.includes('.Box-row'),
+  };
+  metric.parentElement = row;
+  const icon = {
+    parentElement: metric,
+    closest(selector) {
+      if (selector.includes('.pinned-item-list-item')) return null;
+      if (selector.includes('.Box-row')) return row;
+      return null;
+    },
+  };
+  return { metric, icon, row };
+}
+
+test('hides icon-only star and fork counts on organization repository rows', async () => {
+  const star = organizationMetric();
+  const fork = organizationMetric();
+  const issues = organizationMetric();
+  await render(true, [], {
+    organization: true, locationPath: '/orgs/PDF-magic/repositories',
+    orgStars: [star], orgForks: [fork],
+    settings: { hideRepositoryStar: true },
+  });
+  assert.equal(star.metric.action, 'star');
+  assert.equal(fork.metric.action, 'fork');
+  assert.equal(issues.metric.action, undefined);
+  assert.equal(star.row.action, undefined);
+  assert.equal(fork.row.action, undefined);
+});
+
+test('organization repository counts follow independent settings and restore when disabled', async () => {
+  const star = organizationMetric();
+  const fork = organizationMetric();
+  const options = {
+    organization: true, locationPath: '/orgs/PDF-magic/repositories',
+    orgStars: [star], orgForks: [fork],
+  };
+  await render(true, [], {
+    ...options, settings: { hideRepositoryStar: false, hideRepositorySocialActions: true },
+  });
+  assert.equal(star.metric.action, undefined);
+  assert.equal(fork.metric.action, 'fork');
+
+  await render(false, [], {
+    ...options, settings: { hideRepositoryStar: true, hideRepositorySocialActions: true },
+  });
+  assert.equal(star.metric.action, 'star');
+  assert.equal(fork.metric.action, undefined);
+
+  await render(false, [], {
+    ...options, settings: { hideRepositoryStar: false, hideRepositorySocialActions: false },
+  });
+  assert.equal(star.metric.action, undefined);
+  assert.equal(fork.metric.action, undefined);
+});
+
+test('never hides unrelated icons or mixed metric footers', async () => {
+  const mixed = organizationMetric({ text: '0 · 5 PRs', iconCount: 2 });
+  const invalid = organizationMetric({ repositoryLink: 'https://github.com/orgs/PDF-magic/repositories' });
+  const otherPage = organizationMetric();
+  await render(true, [], {
+    organization: true, locationPath: '/orgs/PDF-magic/repositories',
+    orgStars: [mixed, invalid], settings: { hideRepositoryStar: true },
+  });
+  await render(true, [], {
+    organization: true, locationPath: '/settings/profile',
+    orgForks: [otherPage],
+  });
+  assert.equal(mixed.metric.action, undefined);
+  assert.equal(invalid.metric.action, undefined);
+  assert.equal(otherPage.metric.action, undefined);
 });
