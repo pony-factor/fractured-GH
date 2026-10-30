@@ -3,6 +3,7 @@ const DEFAULT_MUTED_USERS = [];
 const commitTitleEmojisInput = document.getElementById('commit-title-emojis');
 const simplifyCommitMessagesInput = document.getElementById('simplify-commit-messages');
 const wrapDiffLinesInput = document.getElementById('wrap-diff-lines');
+const pullRequestSidebarToggleInput = document.getElementById('pull-request-sidebar-toggle-enabled');
 const spellcheckUseProjectInput = document.getElementById('spellcheck-use-chatgpt-project');
 const spellcheckProjectUrlInput = document.getElementById('spellcheck-chatgpt-project-url');
 const hideCoauthorOnlyCommitDetailsInput = document.getElementById('hide-coauthor-only-commit-details');
@@ -22,6 +23,7 @@ const hideRepositoryWatchInput = document.getElementById('hide-repository-watch'
 const hideRepositoryStarInput = document.getElementById('hide-repository-star');
 const hideRepositoryForkInput = document.getElementById('hide-repository-fork');
 const hideRepositoryPinsInput = document.getElementById('hide-repository-pins');
+const autoSetupNewForksInput = document.getElementById('auto-setup-new-forks');
 const hideRepositoryOverviewNameInput = document.getElementById('hide-repository-overview-name');
 const hideMyNavigationLinksInput = document.getElementById('hide-my-navigation-links');
 const hideHamburgerMenuInput = document.getElementById('hide-hamburger-menu');
@@ -331,6 +333,7 @@ async function loadSettings() {
     commitTitleEmojis: false,
     simplifyCommitMessages: false,
     wrapDiffLines: true,
+    pullRequestSidebarToggleEnabled: true,
     spellcheckUseChatgptProject: false,
     spellcheckChatgptProjectUrl: '',
     hideCoauthorOnlyCommitDetails: false,
@@ -350,6 +353,7 @@ async function loadSettings() {
     hideRepositoryStar: null,
     hideRepositoryFork: null,
     hideRepositoryPins: true,
+    autoSetupNewForks: true,
     hideRepositoryOverviewName: false,
     hideMyNavigationLinks: false,
     hideHamburgerMenu: false,
@@ -374,6 +378,7 @@ async function loadSettings() {
   commitTitleEmojisInput.checked = Boolean(settings.commitTitleEmojis);
   simplifyCommitMessagesInput.checked = Boolean(settings.simplifyCommitMessages);
   wrapDiffLinesInput.checked = Boolean(settings.wrapDiffLines);
+  pullRequestSidebarToggleInput.checked = Boolean(settings.pullRequestSidebarToggleEnabled);
   spellcheckUseProjectInput.checked = settings.spellcheckUseChatgptProject === true;
   spellcheckProjectUrlInput.value = settings.spellcheckChatgptProjectUrl || '';
   hideCoauthorOnlyCommitDetailsInput.checked = Boolean(settings.hideCoauthorOnlyCommitDetails);
@@ -392,6 +397,7 @@ async function loadSettings() {
   hideRepositoryStarInput.checked = Boolean(settings.hideRepositoryStar ?? settings.hideRepositorySocialActions);
   hideRepositoryForkInput.checked = Boolean(settings.hideRepositoryFork ?? settings.hideRepositorySocialActions);
   hideRepositoryPinsInput.checked = Boolean(settings.hideRepositoryPins);
+  autoSetupNewForksInput.checked = Boolean(settings.autoSetupNewForks);
   hideRepositoryOverviewNameInput.checked = Boolean(settings.hideRepositoryOverviewName);
   hideMyNavigationLinksInput.checked = Boolean(settings.hideMyNavigationLinks);
   hideHamburgerMenuInput.checked = Boolean(settings.hideHamburgerMenu);
@@ -473,6 +479,7 @@ async function saveSettings() {
     commitTitleEmojis: commitTitleEmojisInput.checked,
     simplifyCommitMessages: simplifyCommitMessagesInput.checked,
     wrapDiffLines: wrapDiffLinesInput.checked,
+    pullRequestSidebarToggleEnabled: pullRequestSidebarToggleInput.checked,
     spellcheckUseChatgptProject: spellcheckUseProjectInput.checked,
     spellcheckChatgptProjectUrl: projectUrl || providedProjectUrl,
     hideCoauthorOnlyCommitDetails: hideCoauthorOnlyCommitDetailsInput.checked,
@@ -491,6 +498,7 @@ async function saveSettings() {
     hideRepositoryStar: hideRepositoryStarInput.checked,
     hideRepositoryFork: hideRepositoryForkInput.checked,
     hideRepositoryPins: hideRepositoryPinsInput.checked,
+    autoSetupNewForks: autoSetupNewForksInput.checked,
     hideRepositoryOverviewName: hideRepositoryOverviewNameInput.checked,
     hideMyNavigationLinks: hideMyNavigationLinksInput.checked,
     hideHamburgerMenu: hideHamburgerMenuInput.checked,
@@ -520,6 +528,7 @@ async function saveSettings() {
 commitTitleEmojisInput.addEventListener('change', () => void saveSettings());
 simplifyCommitMessagesInput.addEventListener('change', () => void saveSettings());
 wrapDiffLinesInput.addEventListener('change', () => void saveSettings());
+pullRequestSidebarToggleInput.addEventListener('change', () => void saveSettings());
 spellcheckUseProjectInput.addEventListener('change', () => void saveSettings());
 spellcheckProjectUrlInput.addEventListener('input', () => {
   spellcheckProjectUrlInput.setCustomValidity('');
@@ -541,6 +550,7 @@ hideRepositoryWatchInput.addEventListener('change', () => void saveSettings());
 hideRepositoryStarInput.addEventListener('change', () => void saveSettings());
 hideRepositoryForkInput.addEventListener('change', () => void saveSettings());
 hideRepositoryPinsInput.addEventListener('change', () => void saveSettings());
+autoSetupNewForksInput.addEventListener('change', () => void saveSettings());
 hideRepositoryOverviewNameInput.addEventListener('change', () => void saveSettings());
 hideMyNavigationLinksInput.addEventListener('change', () => void saveSettings());
 hideHamburgerMenuInput.addEventListener('change', () => void saveSettings());
