@@ -3,6 +3,7 @@ const DEFAULT_MUTED_USERS = [];
 const commitTitleEmojisInput = document.getElementById('commit-title-emojis');
 const simplifyCommitMessagesInput = document.getElementById('simplify-commit-messages');
 const wrapDiffLinesInput = document.getElementById('wrap-diff-lines');
+const pullRequestSidebarToggleInput = document.getElementById('pull-request-sidebar-toggle-enabled');
 const hideCoauthorOnlyCommitDetailsInput = document.getElementById('hide-coauthor-only-commit-details');
 
 const blockTooltipsInput = document.getElementById('block-tooltips');
@@ -329,6 +330,7 @@ async function loadSettings() {
     commitTitleEmojis: false,
     simplifyCommitMessages: false,
     wrapDiffLines: true,
+    pullRequestSidebarToggleEnabled: true,
     hideCoauthorOnlyCommitDetails: false,
     blockTooltips: false,
     hideCopilot: true,
@@ -370,6 +372,7 @@ async function loadSettings() {
   commitTitleEmojisInput.checked = Boolean(settings.commitTitleEmojis);
   simplifyCommitMessagesInput.checked = Boolean(settings.simplifyCommitMessages);
   wrapDiffLinesInput.checked = Boolean(settings.wrapDiffLines);
+  pullRequestSidebarToggleInput.checked = Boolean(settings.pullRequestSidebarToggleEnabled);
   hideCoauthorOnlyCommitDetailsInput.checked = Boolean(settings.hideCoauthorOnlyCommitDetails);
   blockTooltipsInput.checked = Boolean(settings.blockTooltips);
   hideCopilotInput.checked = Boolean(settings.hideCopilot);
@@ -444,6 +447,7 @@ async function saveSettings() {
     commitTitleEmojis: commitTitleEmojisInput.checked,
     simplifyCommitMessages: simplifyCommitMessagesInput.checked,
     wrapDiffLines: wrapDiffLinesInput.checked,
+    pullRequestSidebarToggleEnabled: pullRequestSidebarToggleInput.checked,
     hideCoauthorOnlyCommitDetails: hideCoauthorOnlyCommitDetailsInput.checked,
     blockTooltips: blockTooltipsInput.checked,
     hideCopilot: hideCopilotInput.checked,
@@ -489,6 +493,7 @@ async function saveSettings() {
 commitTitleEmojisInput.addEventListener('change', () => void saveSettings());
 simplifyCommitMessagesInput.addEventListener('change', () => void saveSettings());
 wrapDiffLinesInput.addEventListener('change', () => void saveSettings());
+pullRequestSidebarToggleInput.addEventListener('change', () => void saveSettings());
 hideCoauthorOnlyCommitDetailsInput.addEventListener('change', () => void saveSettings());
 blockTooltipsInput.addEventListener('change', () => void saveSettings());
 hideCopilotInput.addEventListener('change', () => void saveSettings());
