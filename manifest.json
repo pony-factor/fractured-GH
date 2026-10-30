@@ -26,7 +26,8 @@
       ],
       "css": [
         "features/pony-headings.css",
-        "features/promote-display-names.css"
+        "features/promote-display-names.css",
+        "features/comment-highlights.css"
       ],
       "js": [
         "features/notifications/hide-inbox-while-busy.js",
@@ -34,20 +35,24 @@
         "features/interface/hide-my-navigation-links.js",
         "features/interface/hide-hamburger-menu.js",
         "features/people/owner-avatar-header.js",
+        "features/interface/rotating-404-fan-art.js",
         "features/people/profile-name-cache.js",
         "features/people/user-nicknames.js",
+        "features/people/comment-highlights.js",
         "features/people/promote-display-names.js",
         "features/people/mute-users.js",
         "features/interface/block-tooltips.js",
         "features/pull-requests/hide-contributing-guidelines-notice.js",
         "features/pull-requests/hide-pull-request-protip.js",
         "features/pull-requests/hide-pull-request-milestone.js",
+        "features/pull-requests/hide-pull-request-participants.js",
         "features/pull-requests/hide-pr-heading-actions.js",
         "features/interface/hide-footer.js",
         "features/repositories/hide-suggested-workflows.js",
         "features/repositories/hide-repository-languages.js",
         "features/repositories/repository-code-shortcuts.js",
         "features/repositories/hide-empty-repository-description.js",
+        "features/repositories/automatic-fork-setup.js",
         "features/repositories/hide-unused-repository-tabs.js",
         "features/repositories/hide-repository-social-actions.js",
         "features/notifications/organization-notifications.js",
@@ -56,8 +61,11 @@
         "features/commits/commit-message-simplifier.js",
         "features/notifications/hide-notification-reason.js",
         "features/pull-requests/hide-empty-development-copy.js",
+        "features/pull-requests/hide-coauthor-only-commit-details.js",
         "features/pull-requests/wrap-diff-lines.js",
+        "features/pull-requests/toggle-pull-request-sidebar.js",
         "features/writing/spellcheck-image-attachments.js",
+        "features/writing/spellcheck-image-dialog.js",
         "features/writing/spellcheck-link-protection.js",
         "features/writing/spellcheck-issue-pr-drafts.js"
       ],
@@ -89,5 +97,9 @@
     "32": "icons/fractured-32.png",
     "48": "icons/fractured-48.png",
     "128": "icons/fractured-128.png"
-  }
+  },
+  "host_permissions": [
+    "https://derpibooru.org/*",
+    "https://derpicdn.net/*"
+  ]
 }
