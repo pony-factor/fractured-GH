@@ -132,13 +132,14 @@ test('respects a disabled preference and ignores unrelated storage changes', asy
   assert.equal(patch.hidden, true);
 });
 
-test('both notice switches appear only under General > Footer', () => {
+test('both notice switches appear only under Pull requests > Hints and reminders', () => {
   const html = fs.readFileSync(path.join(__dirname, '../../options.html'), 'utf8');
-  const footer = html.split('<span>Footer</span>')[1].split('</details>')[0];
-  const pullRequests = html.split('id="settings-panel-pull-requests"')[1];
+  const general = html.split('id="settings-panel-general"')[1].split('</section>')[0];
+  const pullRequests = html.split('id="settings-panel-pull-requests"')[1].split('</section>')[0];
+  const hints = pullRequests.split('<span>Hints and reminders</span>')[1].split('</details>')[0];
   for (const setting of ['hide-contributing-guidelines-notice', 'hide-pull-request-protip']) {
     assert.equal((html.match(new RegExp('id="' + setting + '"', 'g')) || []).length, 1);
-    assert.ok(footer.includes('id="' + setting + '"'));
-    assert.ok(!pullRequests.includes('id="' + setting + '"'));
+    assert.ok(hints.includes('id="' + setting + '"'));
+    assert.ok(!general.includes('id="' + setting + '"'));
   }
 });
