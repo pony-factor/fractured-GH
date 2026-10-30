@@ -54,3 +54,14 @@ test('distinct count and button sections are labeled and linked to inputs', () =
     assert.match(options, new RegExp('Hide ' + metric + ' button'));
   }
 });
+
+test('help text is concise and avoids repeating on/off defaults', () => {
+  const descriptions = [...options.matchAll(/<small(?: [^>]*)?>(.*?)<\/small>/gs)]
+    .map(match => match[1]);
+  assert.ok(descriptions.length >= 40);
+  for (const description of descriptions) {
+    assert.ok(description.length <= 145, description);
+    assert.doesNotMatch(description, /\b(?:on|off) by default\b/i);
+  }
+  assert.match(options, /Hide ProTip reminders below PR comments/);
+});
