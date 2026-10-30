@@ -366,6 +366,21 @@
             <span class="summary-meta">Sidebar + contribution notices</span>
           </summary>
           <div class="foldout-body">
+            <div class="spellcheck-project-settings">
+              <label class="preference">
+                <input id="spellcheck-use-chatgpt-project" type="checkbox" />
+                <span>
+                  <strong>Send Spellcheck Only requests to a ChatGPT Project</strong>
+                  <small>Off by default. Use a chosen project instead of a regular ChatGPT chat for new spellcheck requests.</small>
+                </span>
+              </label>
+              <label for="spellcheck-chatgpt-project-url">ChatGPT Project URL</label>
+              <input id="spellcheck-chatgpt-project-url" type="url" autocomplete="off"
+                spellcheck="false" placeholder="https://chatgpt.com/g/g-p-…/project"
+                aria-describedby="spellcheck-project-help" />
+              <small id="spellcheck-project-help">Paste the project's address ending in /project. If the project is shared, its members may see your spellcheck conversations. An invalid URL will stop the request rather than redirect it to a regular chat.</small>
+            </div>
+            <hr class="preference-divider" />
             <label class="preference">
               <input id="hide-coauthor-only-commit-details" type="checkbox" />
               <span>
