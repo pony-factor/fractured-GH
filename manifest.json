@@ -26,7 +26,8 @@
       ],
       "css": [
         "features/pony-headings.css",
-        "features/promote-display-names.css"
+        "features/promote-display-names.css",
+        "features/comment-highlights.css"
       ],
       "js": [
         "features/notifications/hide-inbox-while-busy.js",
@@ -37,6 +38,7 @@
         "features/interface/rotating-404-fan-art.js",
         "features/people/profile-name-cache.js",
         "features/people/user-nicknames.js",
+        "features/people/comment-highlights.js",
         "features/people/promote-display-names.js",
         "features/people/mute-users.js",
         "features/interface/block-tooltips.js",
