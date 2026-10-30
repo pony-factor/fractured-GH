@@ -71,7 +71,7 @@ form {
   border-radius: 12px;
   display: grid;
   gap: 4px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   margin-bottom: 12px;
   padding: 4px;
   position: sticky;
@@ -317,7 +317,7 @@ button.secondary:hover {
 
 @media (max-width: 560px) {
   .settings-category-tabs {
-    grid-template-columns: repeat(4, minmax(112px, 1fr));
+    grid-template-columns: repeat(5, minmax(112px, 1fr));
     overflow-x: auto;
   }
 

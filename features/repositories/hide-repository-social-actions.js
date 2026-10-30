@@ -3,12 +3,32 @@
 
   const ATTRIBUTE = 'data-fractured-hidden-repository-control';
   const KEYS = ['hideRepositoryWatch', 'hideRepositoryStar', 'hideRepositoryFork',
+    'hideRepositoryWatchButton', 'hideRepositoryStarButton', 'hideRepositoryForkButton',
     'hideRepositoryPins', 'hideRepositoryOverviewName', 'hideRepositorySocialActions',
     'hideRepositoryCustomProperties', 'hideReportRepository'];
   let settings = {};
   let scheduled = false;
 
   const COMPACT_ATTRIBUTE = 'data-fractured-compact-repository-action';
+
+  function headerActionMode(action, preferences) {
+    if (action === 'pins') return (preferences.hideRepositoryPins ?? true) ? 'hide' : 'show';
+    const controls = {
+      watch: ['hideRepositoryWatch', 'hideRepositoryWatchButton'],
+      star: ['hideRepositoryStar', 'hideRepositoryStarButton'],
+      fork: ['hideRepositoryFork', 'hideRepositoryForkButton'],
+    };
+    const keys = controls[action];
+    if (!keys) return 'show';
+    if (preferences[keys[1]]) return 'hide';
+    return (preferences[keys[0]] ?? preferences.hideRepositorySocialActions)
+      ? 'compact' : 'show';
+  }
+
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { headerActionMode };
+    return;
+  }
 
   function compactHeaderAction(item, action, repository) {
     const destinations = { watch: 'watchers', star: 'stargazers', fork: 'forks' };
@@ -181,15 +201,10 @@
           ['fork', 'hideRepositoryFork', /^(?:fork|cannot fork|can't fork|unable to fork)(?:\s|:|$)/i],
           ['pins', 'hideRepositoryPins', /^(?:edit pins|(?:un)?pin(?: repository)?)(?:\s|:|$)/i],
         ]) {
-          const hide = key === 'hideRepositoryPins'
-            ? (settings[key] ?? true)
-            : (settings[key] ?? settings.hideRepositorySocialActions);
-          if (!hide || !labels.some(label => pattern.test(label))) continue;
-          if (action === 'pins') {
-            item.setAttribute(ATTRIBUTE, action);
-          } else {
-            compactHeaderAction(item, action, repository);
-          }
+          const mode = headerActionMode(action, settings);
+          if (mode === 'show' || !labels.some(label => pattern.test(label))) continue;
+          if (mode === 'hide') item.setAttribute(ATTRIBUTE, action + '-button');
+          else compactHeaderAction(item, action, repository);
         }
       }
     }

@@ -18,193 +18,443 @@
 
       <nav class="settings-category-tabs" role="tablist" aria-label="Settings categories">
         <button id="settings-tab-general" class="settings-category-tab" type="button" role="tab" aria-selected="true" aria-controls="settings-panel-general">General</button>
+        <button id="settings-tab-repositories" class="settings-category-tab" type="button" role="tab" aria-selected="false" aria-controls="settings-panel-repositories" tabindex="-1">Repositories</button>
         <button id="settings-tab-people" class="settings-category-tab" type="button" role="tab" aria-selected="false" aria-controls="settings-panel-people" tabindex="-1">People</button>
-        <button id="settings-tab-commits" class="settings-category-tab" type="button" role="tab" aria-selected="false" aria-controls="settings-panel-commits" tabindex="-1">Copilot web commits</button>
+        <button id="settings-tab-commits" class="settings-category-tab" type="button" role="tab" aria-selected="false" aria-controls="settings-panel-commits" tabindex="-1">Copilot</button>
         <button id="settings-tab-pull-requests" class="settings-category-tab" type="button" role="tab" aria-selected="false" aria-controls="settings-panel-pull-requests" tabindex="-1">Pull requests</button>
       </nav>
 
       <form id="settings-form">
-        <section id="settings-panel-general" class="settings-panel" role="tabpanel" aria-labelledby="settings-tab-general">
+                <section id="settings-panel-general" class="settings-panel" role="tabpanel" aria-labelledby="settings-tab-general">
+
         <details class="settings-foldout" open>
           <summary>
             <span>Notifications</span>
-            <span class="summary-meta">Busy + organization inboxes</span>
+            <span class="summary-meta">Busy status and organization inboxes</span>
           </summary>
           <div class="foldout-body">
             <label class="preference">
-              <input id="hide-inbox-while-busy" type="checkbox" />
-              <span>
-                <strong>Hide notifications while Busy</strong>
-                <small>Hide GitHub's notification control whenever your GitHub status is marked Busy.</small>
-              </span>
+
+            <input id="hide-inbox-while-busy" type="checkbox" />
+
+            <span>
+
+            <strong>Hide notifications while Busy</strong>
+
+            <small>Hide the notification icon while your status is Busy.</small>
+
+            </span>
+
             </label>
 
-            <hr class="preference-divider" />
-
             <label class="preference">
-              <input id="organization-notification-inboxes-enabled" type="checkbox" />
-              <span>
-                <strong>Organization notification inboxes</strong>
-                <small>Show a dedicated header icon only while a configured organization has unread notifications.</small>
-              </span>
+
+            <input id="organization-notification-inboxes-enabled" type="checkbox" />
+
+            <span>
+
+            <strong>Organization notification inboxes</strong>
+
+            <small>Show inbox icons for organizations with unread notifications.</small>
+
+            </span>
+
             </label>
 
             <p class="help setup-note">
-              Each icon opens GitHub's notification inbox filtered to that organization, so notifications from other owners stay out of the view.
+
+            Each icon opens GitHub's notification inbox filtered to that organization, so notifications from other owners stay out of the view.
+
             </p>
+
             <div
-              id="notification-organizations"
-              class="organization-list"
-              aria-label="Organizations with dedicated notification inboxes"
+
+            id="notification-organizations"
+
+            class="organization-list"
+
+            aria-label="Organizations with dedicated notification inboxes"
+
             ></div>
+
             <div class="row-actions">
-              <button id="add-notification-organization" class="secondary" type="button">Add organization</button>
+
+            <button id="add-notification-organization" class="secondary" type="button">Add organization</button>
+
             </div>
           </div>
         </details>
 
+
         <details class="settings-foldout" open>
           <summary>
-            <span>Interface</span>
-            <span class="summary-meta">Copilot + tooltips + navigation + repository home</span>
+            <span>Navigation</span>
+            <span class="summary-meta">Global GitHub controls</span>
           </summary>
           <div class="foldout-body">
             <label class="preference">
-              <input id="block-tooltips" type="checkbox" />
-              <span>
-                <strong>Block tooltips</strong>
-                <small>Hide GitHub hover tooltips and browser title popups, plus repository-list ProTip banners.</small>
-              </span>
-            </label>
-            <label class="preference">
-              <input id="rotate-404-fan-art" type="checkbox" />
-              <span>
-                <strong>Rotate fan art on GitHub 404 pages</strong>
-                <small>Replace GitHub's 404 illustration with a rotating selection of safe-rated pony fan art, including artist credits and source links. Falls back to GitHub's image when unavailable.</small>
-              </span>
-            </label>
-            <label class="preference">
-              <input id="hide-copilot" type="checkbox" />
-              <span>
-                <strong>Hide Copilot</strong>
-                <small>Hide Copilot buttons, navigation links, promotions, and chat panels across GitHub.</small>
-              </span>
-            </label>
-            <label class="preference">
-              <input id="hide-hamburger-menu" type="checkbox" />
-              <span>
-                <strong>Hide hamburger menu</strong>
-                <small>Hide the global navigation menu button in GitHub's top-left corner.</small>
-              </span>
+
+            <input id="block-tooltips" type="checkbox" />
+
+            <span>
+
+            <strong>Block tooltips</strong>
+
+            <small>Hide hover tooltips and repository-list ProTips.</small>
+
+            </span>
+
             </label>
 
-            <hr class="preference-divider" />
+            <label class="preference">
+
+            <input id="hide-hamburger-menu" type="checkbox" />
+
+            <span>
+
+            <strong>Hide hamburger menu</strong>
+
+            <small>Hide GitHub’s top-left menu button.</small>
+
+            </span>
+
+            </label>
 
             <label class="preference">
-              <input id="open-code-in-vscode-web" type="checkbox" />
-              <span>
-                <strong>Open Code in VS Code Web</strong>
-                <small>Make the repository Code button open vscode.dev in a new tab instead of showing the clone menu. On by default.</small>
-              </span>
+
+            <input id="hide-my-navigation-links" type="checkbox" />
+
+            <span>
+
+            <strong>Hide My navigation shortcuts</strong>
+
+            <small>Hide My PRs, My Issues, and My Repos shortcuts.</small>
+
+            </span>
+
             </label>
+          </div>
+        </details>
+
+
+        <details class="settings-foldout" open>
+          <summary>
+            <span>Appearance</span>
+            <span class="summary-meta">Fan art and relative timestamps</span>
+          </summary>
+          <div class="foldout-body">
             <label class="preference">
-              <input id="hide-repository-tags-shortcut" type="checkbox" />
-              <span>
-                <strong>Hide repository Tags shortcut</strong>
-                <small>Hide the tag icon beside the branch selector, without hiding tag pages. On by default.</small>
-              </span>
-            </label>
-            <label class="preference">
-              <input id="hide-unprotected-branch-warning" type="checkbox" />
-              <span>
-                <strong>Hide unprotected main branch warning</strong>
-                <small>Hide the repository branch-protection suggestion; this does not change branch protection settings. On by default.</small>
-              </span>
+
+            <input id="rotate-404-fan-art" type="checkbox" />
+
+            <span>
+
+            <strong>Rotate fan art on GitHub 404 pages</strong>
+
+            <small>Show rotating pony fan art on GitHub 404 pages, with credits.</small>
+
+            </span>
+
             </label>
 
-            <hr class="preference-divider" />
+            <label class="preference">
+
+            <input id="relative-times-only" type="checkbox" />
+
+            <span>
+
+            <strong>Use only relative times</strong>
+
+            <small>Use relative timestamps throughout GitHub, shortening them when space is tight.</small>
+
+            </span>
+
+            </label>
+          </div>
+        </details>
+
+
+        <details class="settings-foldout" open>
+          <summary>
+            <span>Footer</span>
+            <span class="summary-meta">Sitewide footer only</span>
+          </summary>
+          <div class="foldout-body">
+            <label class="preference">
+
+            <input id="hide-footer" type="checkbox" />
+
+            <span>
+
+            <strong>Hide GitHub footer</strong>
+
+            <small>Hide GitHub’s footer and its links.</small>
+
+            </span>
+
+            </label>
+          </div>
+        </details>
+
+        </section>
+
+        <section id="settings-panel-repositories" class="settings-panel" role="tabpanel" aria-labelledby="settings-tab-repositories" hidden>
+
+        <details class="settings-foldout" open>
+          <summary>
+            <span>Action counts</span>
+            <span class="summary-meta">Keep Watch, Star and Fork buttons usable</span>
+          </summary>
+          <div class="foldout-body">
+            <label class="preference">
+
+            <input id="hide-repository-watch" type="checkbox" />
+
+            <span>
+
+            <strong>Hide Watch counts and dropdown</strong>
+
+            <small>Hide Watch counts in headers and About; keep the button usable.</small>
+
+            </span>
+
+            </label>
 
             <label class="preference">
-              <input id="hide-repository-watch" type="checkbox" />
-              <span>
-                <strong>Hide Watch count and dropdown</strong>
-                <small>Keep the Watch action available while removing its header count and separate dropdown arrow. Hide Watch statistics in the About sidebar.</small>
-              </span>
+
+            <input id="hide-repository-star" type="checkbox" />
+
+            <span>
+
+            <strong>Hide Star counts and dropdown</strong>
+
+            <small>Hide Star counts in headers and listings; keep Star usable.</small>
+
+            </span>
+
             </label>
-            <label class="preference">
-              <input id="hide-repository-star" type="checkbox" />
-              <span>
-                <strong>Hide Star count and dropdown</strong>
-                <small>Keep Star and Unstar available while removing their header count and separate menu arrow. Hide star statistics in the About sidebar, pinned cards, and repository lists.</small>
-              </span>
-            </label>
-            <label class="preference">
-              <input id="hide-repository-fork" type="checkbox" />
-              <span>
-                <strong>Hide Fork count and dropdown</strong>
-                <small>Keep Fork available while removing its header count and separate menu arrow. Hide fork statistics in the About sidebar, pinned cards, and repository lists.</small>
-              </span>
-            </label>
-            <label class="preference">
-              <input id="hide-repository-pins" type="checkbox" />
-              <span>
-                <strong>Hide repository Pin button</strong>
-                <small>Hide Pin, Unpin, and Edit pins controls in repository headers. On by default.</small>
-              </span>
-            </label>
-            <label class="preference">
-              <input id="hide-repository-overview-name" type="checkbox" />
-              <span>
-                <strong>Hide repository name in overview</strong>
-                <small>Hide the duplicate repository name, avatar, and Public or Private badge below the main header.</small>
-              </span>
-            </label>
-            <hr class="preference-divider" />
 
             <label class="preference">
-              <input id="hide-my-navigation-links" type="checkbox" />
-              <span>
-                <strong>Hide My navigation shortcuts</strong>
-                <small>Hide the My PRs, My Issues, and My Repos buttons from GitHub's top navigation.</small>
-              </span>
+
+            <input id="hide-repository-fork" type="checkbox" />
+
+            <span>
+
+            <strong>Hide Fork counts and dropdown</strong>
+
+            <small>Hide Fork counts in headers and listings; keep Fork usable.</small>
+
+            </span>
+
+            </label>
+          </div>
+        </details>
+
+
+        <details class="settings-foldout" open>
+          <summary>
+            <span>Action buttons</span>
+            <span class="summary-meta">Hide entire repository header controls independently</span>
+          </summary>
+          <div class="foldout-body">
+            <label class="preference">
+
+            <input id="hide-repository-watch-button" type="checkbox" />
+
+            <span>
+
+            <strong>Hide Watch button</strong>
+
+            <small>Hide Watch in repository headers; counts are controlled separately.</small>
+
+            </span>
+
             </label>
 
-            <hr class="preference-divider" />
+            <label class="preference">
+
+            <input id="hide-repository-star-button" type="checkbox" />
+
+            <span>
+
+            <strong>Hide Star button</strong>
+
+            <small>Hide Star/Unstar in repository headers; counts are controlled separately.</small>
+
+            </span>
+
+            </label>
 
             <label class="preference">
-              <input id="hide-suggested-workflows" type="checkbox" />
-              <span>
-                <strong>Hide suggested workflows</strong>
-                <small>Hide GitHub's “Suggested workflows” recommendations on repository home pages.</small>
-              </span>
+
+            <input id="hide-repository-fork-button" type="checkbox" />
+
+            <span>
+
+            <strong>Hide Fork button</strong>
+
+            <small>Hide Fork in repository headers; counts are controlled separately.</small>
+
+            </span>
+
             </label>
+
             <label class="preference">
-              <input id="hide-repository-custom-properties" type="checkbox" />
-              <span>
-                <strong>Hide custom properties</strong>
-                <small>Hide the Custom properties link in the repository About sidebar. Off by default.</small>
-              </span>
+
+            <input id="hide-repository-pins" type="checkbox" />
+
+            <span>
+
+            <strong>Hide repository Pin button</strong>
+
+            <small>Hide Pin and Unpin in repository headers.</small>
+
+            </span>
+
             </label>
+          </div>
+        </details>
+
+
+        <details class="settings-foldout" open>
+          <summary>
+            <span>Repository navigation</span>
+            <span class="summary-meta">Code, tabs, and workspace notices</span>
+          </summary>
+          <div class="foldout-body">
             <label class="preference">
-              <input id="hide-report-repository" type="checkbox" />
-              <span>
-                <strong>Hide report repository</strong>
-                <small>Hide the Report repository link in the repository About sidebar. Off by default.</small>
-              </span>
+
+            <input id="open-code-in-vscode-web" type="checkbox" />
+
+            <span>
+
+            <strong>Open Code in VS Code Web</strong>
+
+            <small>Open the repository in VS Code Web using the Code button.</small>
+
+            </span>
+
             </label>
+
             <label class="preference">
-              <input id="hide-repository-insights" type="checkbox" />
-              <span>
-                <strong>Hide repository Insights tab</strong>
-                <small>Hide Insights from repository navigation without disabling its pages. Off by default.</small>
-              </span>
+
+            <input id="hide-repository-tags-shortcut" type="checkbox" />
+
+            <span>
+
+            <strong>Hide repository Tags shortcut</strong>
+
+            <small>Hide the Tags shortcut beside the branch selector.</small>
+
+            </span>
+
             </label>
+
             <label class="preference">
-              <input id="hide-repository-languages" type="checkbox" />
-              <span>
-                <strong>Hide repository languages</strong>
-                <small>Hide the Languages section and its breakdown from repository home pages. Off by default.</small>
-              </span>
+
+            <input id="hide-repository-insights" type="checkbox" />
+
+            <span>
+
+            <strong>Hide repository Insights tab</strong>
+
+            <small>Hide the Insights tab without disabling its pages.</small>
+
+            </span>
+
+            </label>
+
+            <label class="preference">
+
+            <input id="hide-unprotected-branch-warning" type="checkbox" />
+
+            <span>
+
+            <strong>Hide unprotected main branch warning</strong>
+
+            <small>Hide the unprotected-branch warning; branch protection is unchanged.</small>
+
+            </span>
+
+            </label>
+
+            <label class="preference">
+
+            <input id="hide-suggested-workflows" type="checkbox" />
+
+            <span>
+
+            <strong>Hide suggested workflows</strong>
+
+            <small>Hide suggested workflows on repository pages.</small>
+
+            </span>
+
+            </label>
+          </div>
+        </details>
+
+
+        <details class="settings-foldout" open>
+          <summary>
+            <span>Repository overview</span>
+            <span class="summary-meta">Overview and About sidebar</span>
+          </summary>
+          <div class="foldout-body">
+            <label class="preference">
+
+            <input id="hide-repository-overview-name" type="checkbox" />
+
+            <span>
+
+            <strong>Hide repository name in overview</strong>
+
+            <small>Hide the duplicate repository title, avatar, and visibility badge.</small>
+
+            </span>
+
+            </label>
+
+            <label class="preference">
+
+            <input id="hide-repository-languages" type="checkbox" />
+
+            <span>
+
+            <strong>Hide repository languages</strong>
+
+            <small>Hide the Languages breakdown on repository pages.</small>
+
+            </span>
+
+            </label>
+
+            <label class="preference">
+
+            <input id="hide-repository-custom-properties" type="checkbox" />
+
+            <span>
+
+            <strong>Hide custom properties</strong>
+
+            <small>Hide Custom properties in the About sidebar.</small>
+
+            </span>
+
+            </label>
+
+            <label class="preference">
+
+            <input id="hide-report-repository" type="checkbox" />
+
+            <span>
+
+            <strong>Hide report repository</strong>
+
+            <small>Hide Report repository in the About sidebar.</small>
+
+            </span>
+
             </label>
           </div>
         </details>
@@ -219,63 +469,14 @@
               <input id="auto-setup-new-forks" type="checkbox" />
               <span>
                 <strong>Automatically configure new repositories and forks</strong>
-                <small>After creating a repository or fork through GitHub, clear its description and website URL, hide Releases and Packages in About, disable Projects and Wikis, and enable automatic deletion of merged head branches. Applies only to newly created repositories and forks. On by default.</small>
-              </span>
-            </label>
-          </div>
-        </details>
-
-        <details class="settings-foldout" open>
-          <summary>
-            <span>Dates and times</span>
-            <span class="summary-meta">Relative only</span>
-          </summary>
-          <div class="foldout-body">
-            <label class="preference">
-              <input id="relative-times-only" type="checkbox" />
-              <span>
-                <strong>Use only relative times</strong>
-                <small>Replace GitHub's visible dates and clock times with relative ages such as “3 weeks ago” or “2 years, 4 months ago,” including issues, pull requests, and commits. In cramped repository file lists, use shorter labels such as “2y 11mo” rather than clipping the date.</small>
-              </span>
-            </label>
-          </div>
-        </details>
-
-        <details class="settings-foldout" open>
-          <summary>
-            <span>Footer</span>
-            <span class="summary-meta">Sitewide links + conversation notices</span>
-          </summary>
-          <div class="foldout-body">
-            <label class="preference">
-              <input id="hide-footer" type="checkbox" />
-              <span>
-                <strong>Hide GitHub footer</strong>
-                <small>Hide GitHub's sitewide footer, including the copyright, legal, support, and cookie links.</small>
-              </span>
-            </label>
-            <hr class="preference-divider" />
-
-            <label class="preference">
-              <input id="hide-contributing-guidelines-notice" type="checkbox" />
-              <span>
-                <strong>Hide contributing guidelines reminder</strong>
-                <small>Hide GitHub's “Remember, contributions…” reminder for repository contributing guidelines and GitHub Community Guidelines.</small>
-              </span>
-            </label>
-
-            <label class="preference">
-              <input id="hide-pull-request-protip" type="checkbox" />
-              <span>
-                <strong>Hide pull request ProTip</strong>
-                <small>Hide GitHub’s pull request tips below the comment box, including the Files changed and .patch/.diff URL tips. Off by default.</small>
+                <small>For new repositories and forks, clear the description and website; disable Releases, Packages, Projects, and Wikis; delete merged branches.</small>
               </span>
             </label>
           </div>
         </details>
         </section>
 
-        <section id="settings-panel-people" class="settings-panel" role="tabpanel" aria-labelledby="settings-tab-people" hidden>
+<section id="settings-panel-people" class="settings-panel" role="tabpanel" aria-labelledby="settings-tab-people" hidden>
         <details class="settings-foldout" open>
           <summary>
             <span>Identity</span>
@@ -286,7 +487,7 @@
               <input id="owner-avatar-header-enabled" type="checkbox" />
               <span>
                 <strong>Use repository owner avatar in the header</strong>
-                <small>Replace GitHub's mark with the repository owner's profile image and hide the redundant owner name on repository pages.</small>
+                <small>Use the repository owner’s avatar instead of GitHub’s header logo.</small>
               </span>
             </label>
 
@@ -296,7 +497,7 @@
               <input id="prefer-display-names-enabled" type="checkbox" />
               <span>
                 <strong>Emphasize display names over usernames</strong>
-                <small>Show the display name in bold and the GitHub username in smaller, muted text in profile hovercards, the account menu, and contributor lists. Off keeps GitHub's original styling.</small>
+                <small>Emphasize display names and show smaller usernames.</small>
               </span>
             </label>
 
@@ -306,7 +507,7 @@
               <input id="user-nicknames-enabled" type="checkbox" />
               <span>
                 <strong>Use GitHub display-name nicknames</strong>
-                <small>Replace each configured account's display name with your nickname. On issue and pull request comments that show only the account handle, replace that handle there instead; hovercards keep the GitHub username.</small>
+                <small>Replace display names with nicknames; comments use handles where needed.</small>
               </span>
             </label>
 
@@ -316,7 +517,7 @@
               <input id="conversation-first-names-enabled" type="checkbox" />
               <span>
                 <strong>Use first names in conversations</strong>
-                <small>Replace commit author handles, conversation author handles, and @mentions in issues, pull requests, commits, and discussions with the person's first name. A configured nickname takes priority over their GitHub display name.</small>
+                <small>Use first names for authors and mentions; nicknames take priority.</small>
               </span>
             </label>
 
@@ -338,7 +539,7 @@
               <input id="mute-users-enabled" type="checkbox" />
               <span>
                 <strong>Mute selected people</strong>
-                <small>Hide their profiles, repositories, comments, avatars, and related GitHub content.</small>
+                <small>Hide selected people and their GitHub content.</small>
               </span>
             </label>
 
@@ -352,114 +553,268 @@
         </section>
 
         <section id="settings-panel-commits" class="settings-panel" role="tabpanel" aria-labelledby="settings-tab-commits" hidden>
+
         <details class="settings-foldout" open>
           <summary>
-            <span>Copilot web commits</span>
-            <span class="summary-meta">Emojis + concise messages</span>
+            <span>Copilot visibility</span>
+            <span class="summary-meta">GitHub Copilot UI</span>
           </summary>
           <div class="foldout-body">
             <label class="preference">
-              <input id="commit-title-emojis" type="checkbox" />
-              <span>
-                <strong>Add emoji to commit titles</strong>
-                <small>Prefix GitHub web commit and merge titles with an emoji matching the change. Existing emoji prefixes are preserved. Off by default.</small>
-              </span>
-            </label>
-            <label class="preference">
-              <input id="simplify-commit-messages" type="checkbox" />
-              <span>
-                <strong>Simplify commit messages</strong>
-                <small>Shorten GitHub web commit and merge titles, using the description as context. Clear the description on submission to create a title-only commit. Existing emoji prefixes are preserved. Off by default.</small>
-              </span>
+
+            <input id="hide-copilot" type="checkbox" />
+
+            <span>
+
+            <strong>Hide Copilot</strong>
+
+            <small>Hide Copilot controls, links, promotions, and chat.</small>
+
+            </span>
+
             </label>
           </div>
         </details>
+
+
+        <details class="settings-foldout" open>
+          <summary>
+            <span>Web commits</span>
+            <span class="summary-meta">Titles and commit messages</span>
+          </summary>
+          <div class="foldout-body">
+            <label class="preference">
+
+            <input id="commit-title-emojis" type="checkbox" />
+
+            <span>
+
+            <strong>Add emoji to commit titles</strong>
+
+            <small>Add a matching emoji to web commit and merge titles.</small>
+
+            </span>
+
+            </label>
+
+            <label class="preference">
+
+            <input id="simplify-commit-messages" type="checkbox" />
+
+            <span>
+
+            <strong>Simplify commit messages</strong>
+
+            <small>Shorten web commit titles and clear their descriptions on submission.</small>
+
+            </span>
+
+            </label>
+          </div>
+        </details>
+
         </section>
 
         <section id="settings-panel-pull-requests" class="settings-panel" role="tabpanel" aria-labelledby="settings-tab-pull-requests" hidden>
+
         <details class="settings-foldout" open>
           <summary>
-            <span>Pull requests</span>
-            <span class="summary-meta">Header buttons + commit details + sidebar</span>
+            <span>Spellcheck Only</span>
+            <span class="summary-meta">ChatGPT Project destination</span>
           </summary>
           <div class="foldout-body">
             <div class="spellcheck-project-settings">
-              <label class="preference">
-                <input id="spellcheck-use-chatgpt-project" type="checkbox" />
-                <span>
-                  <strong>Send Spellcheck Only requests to a ChatGPT Project</strong>
-                  <small>Off by default. Use a chosen project instead of a regular ChatGPT chat for new spellcheck requests.</small>
-                </span>
-              </label>
-              <label for="spellcheck-chatgpt-project-url">ChatGPT Project URL</label>
-              <input id="spellcheck-chatgpt-project-url" type="url" autocomplete="off"
-                spellcheck="false" placeholder="https://chatgpt.com/g/g-p-…/project"
-                aria-describedby="spellcheck-project-help" />
-              <small id="spellcheck-project-help">Paste the project's address ending in /project. If the project is shared, its members may see your spellcheck conversations. An invalid URL will stop the request rather than redirect it to a regular chat.</small>
+
+            <label class="preference">
+
+            <input id="spellcheck-use-chatgpt-project" type="checkbox" />
+
+            <span>
+
+            <strong>Send Spellcheck Only requests to a ChatGPT Project</strong>
+
+            <small>Send new spellcheck requests to a selected ChatGPT Project.</small>
+
+            </span>
+
+            </label>
+
+            <label for="spellcheck-chatgpt-project-url">ChatGPT Project URL</label>
+
+            <input id="spellcheck-chatgpt-project-url" type="url" autocomplete="off"
+
+            spellcheck="false" placeholder="https://chatgpt.com/g/g-p-…/project"
+
+            aria-describedby="spellcheck-project-help" />
+
+            <small id="spellcheck-project-help">Use a /project URL. Shared-project members may see chats; invalid URLs block requests.</small>
+
             </div>
-            <hr class="preference-divider" />
+          </div>
+        </details>
+
+
+        <details class="settings-foldout" open>
+          <summary>
+            <span>Heading actions</span>
+            <span class="summary-meta">Buttons above pull request titles</span>
+          </summary>
+          <div class="foldout-body">
             <label class="preference">
-              <input id="hide-pull-request-merge-status" type="checkbox" />
-              <span>
-                <strong>Hide Merge status button</strong>
-                <small>Hide the Merge status button above the pull request title. Off by default.</small>
-              </span>
+
+            <input id="hide-pull-request-merge-status" type="checkbox" />
+
+            <span>
+
+            <strong>Hide Merge status button</strong>
+
+            <small>Hide Merge status above pull request titles.</small>
+
+            </span>
+
             </label>
 
             <label class="preference">
-              <input id="hide-pull-request-code-button" type="checkbox" />
-              <span>
-                <strong>Hide pull request Code button</strong>
-                <small>Hide the Code dropdown above the pull request title, without hiding repository Code navigation. Off by default.</small>
-              </span>
-            </label>
 
-            <hr class="preference-divider" />
+            <input id="hide-pull-request-code-button" type="checkbox" />
 
-            <label class="preference">
-              <input id="hide-coauthor-only-commit-details" type="checkbox" />
-              <span>
-                <strong>Hide co-author-only commit details</strong>
-                <small>Hide the … expander on pull request commits when the description contains only Co-authored-by trailers. Commit metadata stays intact. Off by default.</small>
-              </span>
-            </label>
+            <span>
 
-            <label class="preference">
-              <input id="wrap-diff-lines" type="checkbox" />
-              <span>
-                <strong>Wrap diff lines</strong>
-                <small>Wrap long added, removed, and context lines in GitHub diffs and keep split diffs within the available width. On by default.</small>
-              </span>
-            </label>
+            <strong>Hide pull request Code button</strong>
 
-            <label class="preference">
-              <input id="pull-request-sidebar-toggle-enabled" type="checkbox" />
-              <span>
-                <strong>Show pull request sidebar hamburger</strong>
-                <small>Add a three-line toggle on pull request conversations that collapses the entire right sidebar and expands the conversation to fill the available width. On by default; remembers the last sidebar state.</small>
-              </span>
-            </label>
+            <small>Hide Code above pull request titles, not the repository Code button.</small>
 
+            </span>
 
-
-            <hr class="preference-divider" />
-
-            <label class="preference">
-              <input id="hide-pull-request-milestone" type="checkbox" />
-              <span>
-                <strong>Hide milestone sidebar item</strong>
-                <small>Hide the Milestone section from pull request sidebars.</small>
-              </span>
-            </label>
-            <label class="preference">
-              <input id="hide-pull-request-participants" type="checkbox" />
-              <span>
-                <strong>Hide participants sidebar item</strong>
-                <small>Hide the Participants section, including its count and avatars, from pull request sidebars. Off by default.</small>
-              </span>
             </label>
           </div>
         </details>
+
+
+        <details class="settings-foldout" open>
+          <summary>
+            <span>Diffs and commits</span>
+            <span class="summary-meta">Review text and details</span>
+          </summary>
+          <div class="foldout-body">
+            <label class="preference">
+
+            <input id="hide-coauthor-only-commit-details" type="checkbox" />
+
+            <span>
+
+            <strong>Hide co-author-only commit details</strong>
+
+            <small>Hide commit-detail expanders containing only co-author trailers.</small>
+
+            </span>
+
+            </label>
+
+            <label class="preference">
+
+            <input id="wrap-diff-lines" type="checkbox" />
+
+            <span>
+
+            <strong>Wrap diff lines</strong>
+
+            <small>Wrap long diff lines, including in split view.</small>
+
+            </span>
+
+            </label>
+          </div>
+        </details>
+
+
+        <details class="settings-foldout" open>
+          <summary>
+            <span>Conversation sidebar</span>
+            <span class="summary-meta">Visibility and collapsible controls</span>
+          </summary>
+          <div class="foldout-body">
+            <label class="preference">
+
+            <input id="pull-request-sidebar-toggle-enabled" type="checkbox" />
+
+            <span>
+
+            <strong>Show pull request sidebar hamburger</strong>
+
+            <small>Add a toggle to collapse the PR sidebar; remember its state.</small>
+
+            </span>
+
+            </label>
+
+            <label class="preference">
+
+            <input id="hide-pull-request-milestone" type="checkbox" />
+
+            <span>
+
+            <strong>Hide milestone sidebar item</strong>
+
+            <small>Hide Milestone from pull request sidebars.</small>
+
+            </span>
+
+            </label>
+
+            <label class="preference">
+
+            <input id="hide-pull-request-participants" type="checkbox" />
+
+            <span>
+
+            <strong>Hide participants sidebar item</strong>
+
+            <small>Hide Participants and avatars from pull request sidebars.</small>
+
+            </span>
+
+            </label>
+          </div>
+        </details>
+
+
+        <details class="settings-foldout" open>
+          <summary>
+            <span>Hints and reminders</span>
+            <span class="summary-meta">GitHub guidance on pull requests</span>
+          </summary>
+          <div class="foldout-body">
+            <label class="preference">
+
+            <input id="hide-contributing-guidelines-notice" type="checkbox" />
+
+            <span>
+
+            <strong>Hide contributing guidelines reminder</strong>
+
+            <small>Hide contributing guidelines reminders in GitHub conversations.</small>
+
+            </span>
+
+            </label>
+
+            <label class="preference">
+
+            <input id="hide-pull-request-protip" type="checkbox" />
+
+            <span>
+
+            <strong>Hide pull request ProTip</strong>
+
+            <small>Hide ProTip reminders below PR comments, including Files changed tips.</small>
+
+            </span>
+
+            </label>
+          </div>
+        </details>
+
         </section>
 
         <p id="status" role="status" aria-live="polite">Changes save automatically.</p>
