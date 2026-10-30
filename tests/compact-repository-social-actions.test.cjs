@@ -67,6 +67,18 @@ function setup(preferences = {}) {
     return { main, counter, shell, toggle };
   }
 
+
+  // GitHub renders Pin as its own button in the repository header.
+  function addHeaderButton(label, { ariaLabel = '', title = '' } = {}) {
+    const control = element(label);
+    if (ariaLabel) control.setAttribute('aria-label', ariaLabel);
+    if (title) control.setAttribute('title', title);
+    const group = element('', { tag: 'div' });
+    group.querySelectorAll = selector => selector === 'a, button, summary' ? [control] : [];
+    groups.push(group);
+    return { control, group };
+  }
+
   const document = {
     head: { append() {} },
     documentElement: {},
@@ -112,7 +124,7 @@ function setup(preferences = {}) {
     }
   }
   return {
-    addAction, settings, settle,
+    addAction, addHeaderButton, settings, settle,
     async toggle(name, enabled) {
       settings[name] = enabled;
       onChange({ [name]: { newValue: enabled } }, 'local');
@@ -178,4 +190,44 @@ test('ignores nonnumeric destination links but updates after GitHub replaces hea
   assert.equal(later.shell.getAttribute(hidden), 'star-menu');
   await app.navigate();
   assert.equal(later.main.hasAttribute(hidden), false);
+});
+
+test('hides the short Pin button while preserving Star and Fork and responds to preference changes', async () => {
+  const app = setup({ hideRepositoryStar: true, hideRepositoryFork: true });
+  const pin = app.addHeaderButton('Pin');
+  const star = app.addAction('Star');
+  const fork = app.addAction('Fork');
+  await app.settle();
+
+  assert.equal(pin.group.getAttribute(hidden), 'pins');
+  assert.equal(star.main.hasAttribute(hidden), false);
+  assert.equal(fork.main.hasAttribute(hidden), false);
+
+  await app.toggle('hideRepositoryPins', false);
+  assert.equal(pin.group.hasAttribute(hidden), false);
+  assert.equal(star.main.hasAttribute(hidden), false);
+  assert.equal(fork.main.hasAttribute(hidden), false);
+
+  await app.toggle('hideRepositoryPins', true);
+  assert.equal(pin.group.getAttribute(hidden), 'pins');
+});
+
+test('recognizes Pin, Unpin, and Edit pins labels including accessible-only buttons', async () => {
+  const app = setup();
+  const pinByTitle = app.addHeaderButton('', { title: 'Pin' });
+  const pinByAria = app.addHeaderButton('', { ariaLabel: 'Pin repository' });
+  const unpin = app.addHeaderButton('Unpin');
+  const editPins = app.addHeaderButton('Edit pins');
+  const unrelated = app.addHeaderButton('Pinned');
+
+  await app.settle();
+  for (const action of [pinByTitle, pinByAria, unpin, editPins]) {
+    assert.equal(action.group.getAttribute(hidden), 'pins');
+  }
+  assert.equal(unrelated.group.hasAttribute(hidden), false);
+
+  await app.rerender();
+  assert.equal(pinByTitle.group.getAttribute(hidden), 'pins');
+  await app.navigate();
+  assert.equal(pinByAria.group.getAttribute(hidden), 'pins');
 });

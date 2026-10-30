@@ -203,3 +203,33 @@ test('the current anchored account menu shows the nickname above the username an
   assert.equal(handle.textContent, 'Windsor Filth');
   assert.equal(name.textContent, 'JFWooten4');
 });
+
+test('commit signature popovers preserve verified signer identity', async () => {
+  let fetchCount = 0;
+  const signature = {
+    textContent: "This commit was signed with the committer's verified signature. GPG key ID: 7539",
+    matches: () => false,
+    querySelectorAll: () => [link],
+  };
+  class Anchor {
+    constructor() {
+      this.textContent = 'JFWooten4';
+      this.isConnected = true;
+    }
+    getAttribute(name) { return name === 'href' ? '/JFWooten4' : null; }
+    closest(selector) { return selector === '.Popover-message' ? signature : null; }
+  }
+  const link = new Anchor();
+  const feature = startFeature({ preferDisplayNamesEnabled: true }, {
+    querySelectorAll: (selector) => selector.includes('.Popover-message') ? [signature] : [],
+  }, {
+    HTMLAnchorElement: Anchor,
+    FracturedProfileNameCache: {
+      getDisplayName: async () => { fetchCount++; return 'John Wooten'; },
+    },
+  });
+  await feature.ready();
+  assert.equal(fetchCount, 0);
+  assert.equal(link.textContent, 'JFWooten4');
+  assert.match(signature.textContent, /GPG key ID: 7539/);
+});

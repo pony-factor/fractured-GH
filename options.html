@@ -148,8 +148,8 @@
             <label class="preference">
               <input id="hide-repository-pins" type="checkbox" />
               <span>
-                <strong>Hide repository Edit Pins button</strong>
-                <small>Hide the repository pinning control in repository headers. On by default.</small>
+                <strong>Hide repository Pin button</strong>
+                <small>Hide Pin, Unpin, and Edit pins controls in repository headers. On by default.</small>
               </span>
             </label>
             <label class="preference">
@@ -211,6 +211,22 @@
 
         <details class="settings-foldout" open>
           <summary>
+            <span>New forks</span>
+            <span class="summary-meta">Automatic repository setup</span>
+          </summary>
+          <div class="foldout-body">
+            <label class="preference">
+              <input id="auto-setup-new-forks" type="checkbox" />
+              <span>
+                <strong>Automatically configure new forks</strong>
+                <small>After you create a fork on GitHub, clear its description, hide Releases and Packages in About, disable Projects and Wikis, and enable automatic deletion of merged head branches. Runs only for newly created forks. On by default.</small>
+              </span>
+            </label>
+          </div>
+        </details>
+
+        <details class="settings-foldout" open>
+          <summary>
             <span>Dates and times</span>
             <span class="summary-meta">Relative only</span>
           </summary>
@@ -219,7 +235,7 @@
               <input id="relative-times-only" type="checkbox" />
               <span>
                 <strong>Use only relative times</strong>
-                <small>Replace GitHub's visible dates and clock times with relative ages such as “3 weeks ago” or “2 years, 4 months ago,” including issues, pull requests, and commits.</small>
+                <small>Replace GitHub's visible dates and clock times with relative ages such as “3 weeks ago” or “2 years, 4 months ago,” including issues, pull requests, and commits. In cramped repository file lists, use shorter labels such as “2y 11mo” rather than clipping the date.</small>
               </span>
             </label>
           </div>
@@ -378,6 +394,14 @@
               <span>
                 <strong>Wrap diff lines</strong>
                 <small>Wrap long added, removed, and context lines in GitHub diffs and keep split diffs within the available width. On by default.</small>
+              </span>
+            </label>
+
+            <label class="preference">
+              <input id="pull-request-sidebar-toggle-enabled" type="checkbox" />
+              <span>
+                <strong>Show pull request sidebar hamburger</strong>
+                <small>Add a three-line toggle on pull request conversations that collapses the entire right sidebar and expands the conversation to fill the available width. On by default; remembers the last sidebar state.</small>
               </span>
             </label>
 
