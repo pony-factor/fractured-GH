@@ -57,6 +57,7 @@
         "features/repositories/hide-unused-tabs.js",
         "features/repositories/hide-social-actions.js",
         "features/notifications/organization.js",
+        "features/notifications/main-inbox.js",
         "features/interface/relative-times.js",
         "features/commits/title-emojis.js",
         "features/commits/message-simplifier.js",
