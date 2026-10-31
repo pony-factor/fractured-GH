@@ -2,7 +2,6 @@
   'use strict';
 
   let enabled = false;
-  let webSquashFormattingEnabled = false;
 
   const ACTION_RE = /\b(commit changes|propose changes|merge pull request|squash and merge|rebase and merge|confirm merge|confirm squash|confirm rebase)\b/i;
   const EMOJI_RE = /^\p{Extended_Pictographic}(?:\uFE0E|\uFE0F)?(?:\u200D\p{Extended_Pictographic}(?:\uFE0E|\uFE0F)?)*\s+/u;
@@ -28,12 +27,14 @@
   }
 
   function isManagedSquash(field) {
-    if (!webSquashFormattingEnabled) return false;
-    const scope = field.closest("form, [role=\"dialog\"]");
-    if (!scope) return false;
-    const buttons = [...scope.querySelectorAll("button, input[type=\"submit\"]")];
-    return buttons.some(button => /^(?:confirm\s+)?squash and merge$/i.test(
-      (button.textContent || button.value || "").trim().replace(/\s+/g, " ")));
+    // PR merge messages contain commit lists and attribution, not disposable AI descriptions.
+    if (!/^\/[^/]+\/[^/]+\/pull\/\d+(?:\/|$)/.test(window.location.pathname)) return false;
+    if (field.id === "merge_title_field" || field.id === "merge_message_field"
+      || field.closest("#merge_pull_request_form")) return true;
+    const scope = scopeFor(field);
+    return Boolean(scope) && Array.from(scope.querySelectorAll("button, input[type=\"submit\"], input[type=\"button\"]"))
+      .some(control => /\b(?:squash and merge|rebase and merge|merge pull request|confirm merge|confirm squash|confirm rebase)\b/i
+        .test(control.textContent || control.value || ""));
   }
 
   function isTitle(field) {
@@ -230,16 +231,11 @@
   }
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName === 'local' && changes.webSquashFormattingEnabled) {
-      webSquashFormattingEnabled = changes.webSquashFormattingEnabled.newValue === true;
-    }
     if (areaName === 'local' && changes.simplifyCommitMessages) {
       setEnabled(changes.simplifyCommitMessages.newValue);
     }
   });
-  void chrome.storage.local.get({ simplifyCommitMessages: false, webSquashFormattingEnabled: false })
-    .then(({ simplifyCommitMessages, webSquashFormattingEnabled: managed }) => {
-      webSquashFormattingEnabled = managed === true;
-      setEnabled(simplifyCommitMessages);
-    });
+  void chrome.storage.local.get({ simplifyCommitMessages: false }).then(({ simplifyCommitMessages }) => {
+    setEnabled(simplifyCommitMessages);
+  });
 })();
