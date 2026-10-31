@@ -2,6 +2,10 @@ const DEFAULT_MUTED_USERS = [];
 
 const commitTitleEmojisInput = document.getElementById('commit-title-emojis');
 const simplifyCommitMessagesInput = document.getElementById('simplify-commit-messages');
+const webSquashFormattingInput = document.getElementById('web-squash-formatting-enabled');
+const webSquashOmitEmojiBulletsInput = document.getElementById('web-squash-omit-emoji-bullets');
+const webSquashFilterSyncInput = document.getElementById('web-squash-filter-sync');
+const webSquashSeparatorInput = document.getElementById('web-squash-separator');
 const wrapDiffLinesInput = document.getElementById('wrap-diff-lines');
 const pullRequestSidebarToggleInput = document.getElementById('pull-request-sidebar-toggle-enabled');
 const spellcheckUseProjectInput = document.getElementById('spellcheck-use-chatgpt-project');
@@ -337,6 +341,10 @@ async function loadSettings() {
   const settings = await chrome.storage.local.get({
     commitTitleEmojis: false,
     simplifyCommitMessages: false,
+    webSquashFormattingEnabled: false,
+    webSquashOmitEmojiBullets: false,
+    webSquashFilterSync: true,
+    webSquashSeparator: 'underscores',
     wrapDiffLines: true,
     pullRequestSidebarToggleEnabled: true,
     spellcheckUseChatgptProject: false,
@@ -387,6 +395,11 @@ async function loadSettings() {
 
   commitTitleEmojisInput.checked = Boolean(settings.commitTitleEmojis);
   simplifyCommitMessagesInput.checked = Boolean(settings.simplifyCommitMessages);
+  webSquashFormattingInput.checked = settings.webSquashFormattingEnabled === true;
+  webSquashOmitEmojiBulletsInput.checked = settings.webSquashOmitEmojiBullets === true;
+  webSquashFilterSyncInput.checked = settings.webSquashFilterSync !== false;
+  webSquashSeparatorInput.value = ['underscores', 'hyphens', 'none'].includes(settings.webSquashSeparator)
+    ? settings.webSquashSeparator : 'underscores';
   wrapDiffLinesInput.checked = Boolean(settings.wrapDiffLines);
   pullRequestSidebarToggleInput.checked = Boolean(settings.pullRequestSidebarToggleEnabled);
   spellcheckUseProjectInput.checked = settings.spellcheckUseChatgptProject === true;
@@ -493,6 +506,10 @@ async function saveSettings() {
   await chrome.storage.local.set({
     commitTitleEmojis: commitTitleEmojisInput.checked,
     simplifyCommitMessages: simplifyCommitMessagesInput.checked,
+    webSquashFormattingEnabled: webSquashFormattingInput.checked,
+    webSquashOmitEmojiBullets: webSquashOmitEmojiBulletsInput.checked,
+    webSquashFilterSync: webSquashFilterSyncInput.checked,
+    webSquashSeparator: webSquashSeparatorInput.value,
     wrapDiffLines: wrapDiffLinesInput.checked,
     pullRequestSidebarToggleEnabled: pullRequestSidebarToggleInput.checked,
     spellcheckUseChatgptProject: spellcheckUseProjectInput.checked,
@@ -547,6 +564,10 @@ async function saveSettings() {
 
 commitTitleEmojisInput.addEventListener('change', () => void saveSettings());
 simplifyCommitMessagesInput.addEventListener('change', () => void saveSettings());
+webSquashFormattingInput.addEventListener('change', () => void saveSettings());
+webSquashOmitEmojiBulletsInput.addEventListener('change', () => void saveSettings());
+webSquashFilterSyncInput.addEventListener('change', () => void saveSettings());
+webSquashSeparatorInput.addEventListener('change', () => void saveSettings());
 wrapDiffLinesInput.addEventListener('change', () => void saveSettings());
 pullRequestSidebarToggleInput.addEventListener('change', () => void saveSettings());
 spellcheckUseProjectInput.addEventListener('change', () => void saveSettings());
