@@ -61,6 +61,7 @@
         "features/interface/relative-times.js",
         "features/commits/title-emojis.js",
         "features/commits/message-simplifier.js",
+        "features/commits/web-squash-formatter.js",
         "features/notifications/hide-reason.js",
         "features/pull-requests/hide-empty-development-copy.js",
         "features/pull-requests/hide-coauthor-only-commit-details.js",

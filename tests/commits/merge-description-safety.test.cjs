@@ -102,3 +102,21 @@ test("ordinary commit titles still receive the emoji prefix", () => {
   assert.match(page.title.value, /Update code$/);
   assert.notEqual(page.title.value, "Update code");
 });
+
+test("SweetieBot-formatted merge summaries and co-author dividers are not cleared", () => {
+  const page = mount("message-simplifier.js", "/owner/repo/pull/27", "Confirm squash and merge", true);
+  const formatted = [
+    "- 🐛 Fix review panel",
+    "    Retain commit details and attribution.",
+    "- 🧪 Test additional cases",
+    "",
+    "__________",
+    "",
+    "Co-authored-by: Developer <dev@example.com>",
+    "Co-authored-by: Codex (Web) <noreply@openai.com>",
+  ].join("\n");
+  page.description.value = formatted;
+  page.activate();
+  page.prepare(page.form);
+  assert.equal(page.description.value, formatted);
+});

@@ -26,19 +26,19 @@
       .some((control) => ACTION_RE.test(control.textContent || control.value || ''));
   }
 
-  function isMergeConfirmation(field) {
-    // The generated squash message is a permanent merge record, not an AI commit description.
+  function isManagedSquash(field) {
+    // PR merge messages contain commit lists and attribution, not disposable AI descriptions.
     if (!/^\/[^/]+\/[^/]+\/pull\/\d+(?:\/|$)/.test(window.location.pathname)) return false;
-    if (field.id === 'merge_title_field' || field.id === 'merge_message_field'
-      || field.closest('#merge_pull_request_form')) return true;
+    if (field.id === "merge_title_field" || field.id === "merge_message_field"
+      || field.closest("#merge_pull_request_form")) return true;
     const scope = scopeFor(field);
-    return Boolean(scope) && Array.from(scope.querySelectorAll('button, input[type="submit"], input[type="button"]'))
-      .some((control) => /\b(?:squash and merge|rebase and merge|merge pull request|confirm merge|confirm squash|confirm rebase)\b/i
-        .test(control.textContent || control.value || ''));
+    return Boolean(scope) && Array.from(scope.querySelectorAll("button, input[type=\"submit\"], input[type=\"button\"]"))
+      .some(control => /\b(?:squash and merge|rebase and merge|merge pull request|confirm merge|confirm squash|confirm rebase)\b/i
+        .test(control.textContent || control.value || ""));
   }
 
   function isTitle(field) {
-    if (!(field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) || isMergeConfirmation(field)) return false;
+    if (!(field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) || isManagedSquash(field)) return false;
     const text = descriptor(field);
     if (/\b(description|body|extended|details)\b/.test(text)) return false;
     const match = /\bcommit (?:message|title|summary)\b/.test(text) || /\b(commitmessage|committitle)\b/.test(text) || /^(?:message|summary)$/.test(text);
@@ -46,7 +46,7 @@
   }
 
   function isBody(field) {
-    if (!(field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) || isMergeConfirmation(field) || isTitle(field)) return false;
+    if (!(field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) || isManagedSquash(field) || isTitle(field)) return false;
     if (!/\b(description|body|extended|details)\b/.test(descriptor(field))) return false;
     const scope = scopeFor(field);
     return hasAction(scope) || /\b(commit|merge|squash|rebase|propose)\b/i.test(scope?.textContent || '');

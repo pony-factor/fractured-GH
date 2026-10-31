@@ -632,6 +632,34 @@
         <section id="settings-panel-pull-requests" class="settings-panel" role="tabpanel" aria-labelledby="settings-tab-pull-requests" hidden>
 
         <details class="settings-foldout" open>
+          <summary><span>Squash merge formatting</span><span class="summary-meta">SweetieBot-style messages</span></summary>
+          <div class="foldout-body">
+            <label class="preference"><input id="web-squash-formatting-enabled" type="checkbox" /><span>
+              <strong>Format web squash merge messages</strong>
+              <small>Show Apply SweetieBot formatting in GitHub’s Squash and merge confirmation.</small>
+            </span></label>
+            <label class="preference"><input id="web-squash-omit-emoji-bullets" type="checkbox" /><span>
+              <strong>Omit bullets for emoji commit titles</strong>
+              <small>Use paragraphs when all included commit titles start with an emoji.</small>
+            </span></label>
+            <label class="preference"><input id="web-squash-filter-sync" type="checkbox" /><span>
+              <strong>Exclude sync commits from summaries</strong>
+              <small>Hide routine Sync brach/branch to main summaries without removing listed co-authors.</small>
+            </span></label>
+            <label class="preference" for="web-squash-separator"><span>
+              <strong>Co-author divider</strong>
+              <small>Choose the separator between commit summaries and co-author trailers.</small>
+            </span></label>
+            <select id="web-squash-separator">
+              <option value="underscores">Underscores (__________)</option>
+              <option value="hyphens">Hyphens (---------)</option>
+              <option value="none">None</option>
+            </select>
+          </div>
+        </details>
+
+
+        <details class="settings-foldout" open>
           <summary>
             <span>Spellcheck Only</span>
             <span class="summary-meta">ChatGPT Project destination</span>
