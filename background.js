@@ -1,6 +1,10 @@
 const DEFAULT_SETTINGS = {
   commitTitleEmojis: false,
   simplifyCommitMessages: false,
+  webSquashFormattingEnabled: false,
+  webSquashOmitEmojiBullets: false,
+  webSquashFilterSync: true,
+  webSquashSeparator: "underscores",
   wrapDiffLines: true,
   pullRequestSidebarToggleEnabled: true,
   pullRequestSidebarCollapsed: false,
