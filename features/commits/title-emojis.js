@@ -2,6 +2,7 @@
   'use strict';
 
   let enabled = false;
+  let webSquashFormattingEnabled = false;
   const BOUND_ATTR = 'data-fractured-commit-emoji-bound';
   const WRITING_ATTR = 'data-fractured-commit-emoji-writing';
   const BUG_EMOJIS = ['🐛', '🐜', '🐝', '🐞', '🦗', '🕷️', '🦟'];
@@ -70,8 +71,17 @@
     return Array.from(controls).some((control) => COMMIT_ACTION_RE.test(control.textContent || control.value || ''));
   }
 
+  function isManagedSquash(field) {
+    if (!webSquashFormattingEnabled) return false;
+    const scope = field.closest("form, [role=\"dialog\"]");
+    if (!scope) return false;
+    const buttons = [...scope.querySelectorAll("button, input[type=\"submit\"]")];
+    return buttons.some(button => /^(?:confirm\s+)?squash and merge$/i.test(
+      (button.textContent || button.value || "").trim().replace(/\s+/g, " ")));
+  }
+
   function isCommitTitleField(field) {
-    if (!(field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement)) return false;
+    if (!(field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) || isManagedSquash(field)) return false;
     if (field instanceof HTMLInputElement && !['', 'text'].includes(field.type)) return false;
 
     const descriptor = fieldDescriptor(field);
@@ -263,11 +273,16 @@
   }
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === 'local' && changes.webSquashFormattingEnabled) {
+      webSquashFormattingEnabled = changes.webSquashFormattingEnabled.newValue === true;
+    }
     if (areaName === 'local' && changes.commitTitleEmojis) {
       setEnabled(changes.commitTitleEmojis.newValue);
     }
   });
-  void chrome.storage.local.get({ commitTitleEmojis: false }).then(({ commitTitleEmojis }) => {
-    setEnabled(commitTitleEmojis);
-  });
+  void chrome.storage.local.get({ commitTitleEmojis: false, webSquashFormattingEnabled: false })
+    .then(({ commitTitleEmojis, webSquashFormattingEnabled: managed }) => {
+      webSquashFormattingEnabled = managed === true;
+      setEnabled(commitTitleEmojis);
+    });
 })();
