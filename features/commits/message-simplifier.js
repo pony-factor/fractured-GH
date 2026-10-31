@@ -2,6 +2,7 @@
   'use strict';
 
   let enabled = false;
+  let webSquashFormattingEnabled = false;
 
   const ACTION_RE = /\b(commit changes|propose changes|merge pull request|squash and merge|rebase and merge|confirm merge|confirm squash|confirm rebase)\b/i;
   const EMOJI_RE = /^\p{Extended_Pictographic}(?:\uFE0E|\uFE0F)?(?:\u200D\p{Extended_Pictographic}(?:\uFE0E|\uFE0F)?)*\s+/u;
@@ -26,8 +27,17 @@
       .some((control) => ACTION_RE.test(control.textContent || control.value || ''));
   }
 
+  function isManagedSquash(field) {
+    if (!webSquashFormattingEnabled) return false;
+    const scope = field.closest("form, [role=\"dialog\"]");
+    if (!scope) return false;
+    const buttons = [...scope.querySelectorAll("button, input[type=\"submit\"]")];
+    return buttons.some(button => /^(?:confirm\s+)?squash and merge$/i.test(
+      (button.textContent || button.value || "").trim().replace(/\s+/g, " ")));
+  }
+
   function isTitle(field) {
-    if (!(field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement)) return false;
+    if (!(field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) || isManagedSquash(field)) return false;
     const text = descriptor(field);
     if (/\b(description|body|extended|details)\b/.test(text)) return false;
     const match = /\bcommit (?:message|title|summary)\b/.test(text) || /\b(commitmessage|committitle)\b/.test(text) || /^(?:message|summary)$/.test(text);
@@ -35,7 +45,7 @@
   }
 
   function isBody(field) {
-    if (!(field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) || isTitle(field)) return false;
+    if (!(field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) || isManagedSquash(field) || isTitle(field)) return false;
     if (!/\b(description|body|extended|details)\b/.test(descriptor(field))) return false;
     const scope = scopeFor(field);
     return hasAction(scope) || /\b(commit|merge|squash|rebase|propose)\b/i.test(scope?.textContent || '');
@@ -220,11 +230,16 @@
   }
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === 'local' && changes.webSquashFormattingEnabled) {
+      webSquashFormattingEnabled = changes.webSquashFormattingEnabled.newValue === true;
+    }
     if (areaName === 'local' && changes.simplifyCommitMessages) {
       setEnabled(changes.simplifyCommitMessages.newValue);
     }
   });
-  void chrome.storage.local.get({ simplifyCommitMessages: false }).then(({ simplifyCommitMessages }) => {
-    setEnabled(simplifyCommitMessages);
-  });
+  void chrome.storage.local.get({ simplifyCommitMessages: false, webSquashFormattingEnabled: false })
+    .then(({ simplifyCommitMessages, webSquashFormattingEnabled: managed }) => {
+      webSquashFormattingEnabled = managed === true;
+      setEnabled(simplifyCommitMessages);
+    });
 })();
