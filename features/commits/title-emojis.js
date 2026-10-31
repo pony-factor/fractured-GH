@@ -70,8 +70,19 @@
     return Array.from(controls).some((control) => COMMIT_ACTION_RE.test(control.textContent || control.value || ''));
   }
 
+  function isMergeConfirmation(field) {
+    // The generated squash message is a permanent merge record, not an AI commit description.
+    if (!/^\/[^/]+\/[^/]+\/pull\/\d+(?:\/|$)/.test(window.location.pathname)) return false;
+    if (field.id === 'merge_title_field' || field.id === 'merge_message_field'
+      || field.closest('#merge_pull_request_form')) return true;
+    const scope = commitScope(field);
+    return Boolean(scope) && Array.from(scope.querySelectorAll('button, input[type="submit"], input[type="button"]'))
+      .some((control) => /\b(?:squash and merge|rebase and merge|merge pull request|confirm merge|confirm squash|confirm rebase)\b/i
+        .test(control.textContent || control.value || ''));
+  }
+
   function isCommitTitleField(field) {
-    if (!(field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement)) return false;
+    if (!(field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) || isMergeConfirmation(field)) return false;
     if (field instanceof HTMLInputElement && !['', 'text'].includes(field.type)) return false;
 
     const descriptor = fieldDescriptor(field);
