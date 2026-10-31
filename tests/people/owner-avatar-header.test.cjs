@@ -43,8 +43,10 @@ function harness(initiallyEnabled) {
   const logo = new Anchor();
   const header = {
     querySelector(selector) {
-      if (selector === '[data-fractured-owner-logo]') {
-        return logo.hasAttribute('data-fractured-owner-logo') ? logo : null;
+      if (selector === '[data-fractured-owner-logo], [data-fractured-brand-logo]'
+        || selector === '[data-fractured-owner-logo]') {
+        return logo.hasAttribute('data-fractured-owner-logo')
+          || logo.hasAttribute('data-fractured-brand-logo') ? logo : null;
       }
       return selector.includes('a.AppHeader-logo') ? logo : null;
     },
@@ -60,8 +62,10 @@ function harness(initiallyEnabled) {
         return { getAttribute() { return repositoryNwo; } };
       }
       if (selector === '.GlobalNav, #global-nav') return header;
-      if (selector === '[data-fractured-owner-logo]') {
-        return logo.hasAttribute('data-fractured-owner-logo') ? logo : null;
+      if (selector === '[data-fractured-owner-logo], [data-fractured-brand-logo]'
+        || selector === '[data-fractured-owner-logo]') {
+        return logo.hasAttribute('data-fractured-owner-logo')
+          || logo.hasAttribute('data-fractured-brand-logo') ? logo : null;
       }
       return null;
     },
@@ -73,6 +77,7 @@ function harness(initiallyEnabled) {
     location,
     window: { location, addEventListener(name, callback) { windowListeners.set(name, callback); } },
     chrome: {
+      runtime: { getURL(resource) { return 'chrome-extension://fractured/' + resource; } },
       storage: {
         local: { async get() { return { ownerAvatarHeaderEnabled: setting }; } },
         onChanged: { addListener(listener) { storageListener = listener; } },
@@ -124,7 +129,7 @@ test('matches the owner navigation button and hover shape to the rounded-square 
   await feature.settle();
 
   const css = feature.styles.get('fractured-owner-avatar-header-style')?.textContent;
-  const linkRule = css?.match(/\[data-fractured-owner-logo\]\s*\{([^}]+)\}/)?.[1];
+  const linkRule = css?.match(/\[data-fractured-owner-logo\],\s*\[data-fractured-brand-logo\]\s*\{([^}]+)\}/)?.[1];
   assert.ok(linkRule);
   for (const declaration of [
     'width: 28px !important;',
@@ -138,7 +143,8 @@ test('matches the owner navigation button and hover shape to the rounded-square 
   ]) {
     assert.ok(linkRule.includes(declaration), 'owner link missing ' + declaration);
   }
-  assert.match(css, /\[data-fractured-owner-logo\]::before,\s*\[data-fractured-owner-logo\]::after\s*\{[^}]*border-radius: inherit !important;/);
+  assert.match(css, /\[data-fractured-owner-logo\]::before,\s*\[data-fractured-owner-logo\]::after,/);
+  assert.match(css, /\[data-fractured-brand-logo\]::before,\s*\[data-fractured-brand-logo\]::after\s*\{[^}]*border-radius: inherit !important;/);
   assert.equal(feature.logo.getAttribute('href'), '/pony-factor');
   assert.equal(feature.logo.getAttribute('aria-label'), 'pony-factor');
   assert.equal(
@@ -187,22 +193,27 @@ test('updates the logo during Turbo, PJAX, and history navigation once repo meta
   }
 });
 
-test('restores GitHub branding when leaving a repository even if metadata remains stale', async () => {
+test('shows Fractured branding outside repositories and restores owner avatars on return', async () => {
   const feature = harness(true);
   await feature.settle();
 
-  for (const pathname of ['/stellar', '/orgs/stellar/repositories', '/settings/profile']) {
+  for (const pathname of ['/', '/stellar', '/orgs/stellar/repositories', '/settings/profile', '/search']) {
+    // Keep the previous repository metadata to simulate GitHub's stale Turbo state.
     feature.navigate(pathname);
     await feature.settle();
     assert.equal(feature.logo.hasAttribute('data-fractured-owner-logo'), false);
+    assert.equal(feature.logo.hasAttribute('data-fractured-brand-logo'), true);
     assert.equal(feature.logo.getAttribute('href'), '/');
     assert.equal(feature.logo.getAttribute('aria-label'), 'Homepage');
-    assert.equal(feature.logo.children.length, 0);
+    assert.equal(feature.logo.querySelector('[data-fractured-owner-avatar]')?.src,
+      'chrome-extension://fractured/icons/fractured.png');
+    assert.equal(feature.logo.children.length, 1, 'must not accumulate brand images');
   }
 
   feature.navigate('/stellar/stellar-protocol', 'turbo:load', 'stellar/stellar-protocol');
   await feature.settle();
   assert.equal(feature.logo.getAttribute('data-fractured-owner-logo'), 'stellar');
+  assert.equal(feature.logo.hasAttribute('data-fractured-brand-logo'), false);
   assert.equal(feature.logo.getAttribute('href'), '/stellar');
 });
 
@@ -212,8 +223,33 @@ test('does not brand a different repository while GitHub metadata is stale', asy
   feature.navigate('/stellar/stellar-protocol');
   await feature.settle();
   assert.equal(feature.logo.hasAttribute('data-fractured-owner-logo'), false);
+  assert.equal(feature.logo.hasAttribute('data-fractured-brand-logo'), true);
   assert.equal(feature.logo.getAttribute('href'), '/');
   feature.navigate('/stellar/stellar-protocol', 'turbo:load', 'stellar/stellar-protocol');
   await feature.settle();
   assert.equal(feature.logo.getAttribute('data-fractured-owner-logo'), 'stellar');
+});
+
+test('uses Fractured branding on non-repository routes despite stale repository metadata', async () => {
+  const feature = harness(true);
+  await feature.settle();
+  feature.navigate('/settings/profile', 'turbo:load', 'pony-factor/fractured-GH');
+  await feature.settle();
+  assert.equal(feature.logo.hasAttribute('data-fractured-owner-logo'), false);
+  assert.equal(feature.logo.hasAttribute('data-fractured-brand-logo'), true);
+  assert.equal(feature.logo.getAttribute('href'), '/');
+});
+
+test('restores the original GitHub homepage logo when the preference is disabled', async () => {
+  const feature = harness(true);
+  feature.navigate('/');
+  await feature.settle();
+  assert.equal(feature.logo.hasAttribute('data-fractured-brand-logo'), true);
+
+  feature.change(false);
+  await feature.settle();
+  assert.equal(feature.logo.hasAttribute('data-fractured-brand-logo'), false);
+  assert.equal(feature.logo.children.length, 0);
+  assert.equal(feature.logo.getAttribute('href'), '/');
+  assert.equal(feature.logo.getAttribute('aria-label'), 'Homepage');
 });

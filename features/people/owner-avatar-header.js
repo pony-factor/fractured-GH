@@ -4,6 +4,7 @@
   const ENABLED_KEY = 'ownerAvatarHeaderEnabled';
   const STYLE_ID = 'fractured-owner-avatar-header-style';
   const LOGO_ATTRIBUTE = 'data-fractured-owner-logo';
+  const BRAND_ATTRIBUTE = 'data-fractured-brand-logo';
   const AVATAR_ATTRIBUTE = 'data-fractured-owner-avatar';
   const HIDDEN_ATTRIBUTE = 'data-fractured-owner-heading-hidden';
   const ORIGINAL_HREF_ATTRIBUTE = 'data-fractured-owner-logo-original-href';
@@ -14,6 +15,7 @@
   let observer = null;
   let refreshQueued = false;
   let failedAvatarOwner = '';
+  let failedBrandLogo = false;
 
   function normalizeText(value) {
     return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -71,12 +73,14 @@
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
-      [${LOGO_ATTRIBUTE}] > :not([${AVATAR_ATTRIBUTE}]) {
+      [${LOGO_ATTRIBUTE}] > :not([${AVATAR_ATTRIBUTE}]),
+      [${BRAND_ATTRIBUTE}] > :not([${AVATAR_ATTRIBUTE}]) {
         display: none !important;
       }
 
       /* Match the navigation hit target and hover shape to the square owner avatar. */
-      [${LOGO_ATTRIBUTE}] {
+      [${LOGO_ATTRIBUTE}],
+      [${BRAND_ATTRIBUTE}] {
         width: 28px !important;
         height: 28px !important;
         min-width: 28px !important;
@@ -91,7 +95,9 @@
       }
 
       [${LOGO_ATTRIBUTE}]::before,
-      [${LOGO_ATTRIBUTE}]::after {
+      [${LOGO_ATTRIBUTE}]::after,
+      [${BRAND_ATTRIBUTE}]::before,
+      [${BRAND_ATTRIBUTE}]::after {
         border-radius: inherit !important;
       }
 
@@ -133,7 +139,7 @@
   }
 
   function findGitHubLogo(header) {
-    const existing = header.querySelector(`[${LOGO_ATTRIBUTE}]`);
+    const existing = header.querySelector(`[${LOGO_ATTRIBUTE}], [${BRAND_ATTRIBUTE}]`);
     if (existing instanceof HTMLAnchorElement) return existing;
 
     const appLogo = header.querySelector([
@@ -173,7 +179,7 @@
   }
 
   function restoreLogo() {
-    const logo = document.querySelector(`[${LOGO_ATTRIBUTE}]`);
+    const logo = document.querySelector(`[${LOGO_ATTRIBUTE}], [${BRAND_ATTRIBUTE}]`);
     if (!(logo instanceof HTMLAnchorElement)) return;
 
     const originalHref = logo.getAttribute(ORIGINAL_HREF_ATTRIBUTE);
@@ -185,6 +191,7 @@
 
     logo.querySelector(`[${AVATAR_ATTRIBUTE}]`)?.remove();
     logo.removeAttribute(LOGO_ATTRIBUTE);
+    logo.removeAttribute(BRAND_ATTRIBUTE);
     logo.removeAttribute(ORIGINAL_HREF_ATTRIBUTE);
     logo.removeAttribute(ORIGINAL_LABEL_ATTRIBUTE);
   }
@@ -212,7 +219,8 @@
       logo.setAttribute(ORIGINAL_LABEL_ATTRIBUTE, logo.getAttribute('aria-label') || '');
     }
 
-    logo.setAttribute(LOGO_ATTRIBUTE, owner);
+    if (logo.hasAttribute(BRAND_ATTRIBUTE)) logo.removeAttribute(BRAND_ATTRIBUTE);
+    if (logo.getAttribute(LOGO_ATTRIBUTE) !== owner) logo.setAttribute(LOGO_ATTRIBUTE, owner);
 
     const ownerHref = `/${owner}`;
     if (logo.getAttribute('href') !== ownerHref) logo.setAttribute('href', ownerHref);
@@ -233,6 +241,48 @@
     avatar.onerror = () => {
       if (!avatar.isConnected) return;
       failedAvatarOwner = owner.toLowerCase();
+      reset();
+    };
+  }
+
+  function installFracturedLogo(header) {
+    const logo = findGitHubLogo(header);
+    if (!(logo instanceof HTMLAnchorElement)) return;
+
+    if (!logo.hasAttribute(ORIGINAL_HREF_ATTRIBUTE)) {
+      logo.setAttribute(ORIGINAL_HREF_ATTRIBUTE, logo.getAttribute('href') || '/');
+    }
+    if (!logo.hasAttribute(ORIGINAL_LABEL_ATTRIBUTE)) {
+      logo.setAttribute(ORIGINAL_LABEL_ATTRIBUTE, logo.getAttribute('aria-label') || '');
+    }
+
+    if (logo.hasAttribute(LOGO_ATTRIBUTE)) logo.removeAttribute(LOGO_ATTRIBUTE);
+    if (!logo.hasAttribute(BRAND_ATTRIBUTE)) logo.setAttribute(BRAND_ATTRIBUTE, '');
+
+    // Preserve the original homepage link and accessible name outside repositories.
+    const homeHref = logo.getAttribute(ORIGINAL_HREF_ATTRIBUTE) || '/';
+    if (logo.getAttribute('href') !== homeHref) logo.setAttribute('href', homeHref);
+    const homeLabel = logo.getAttribute(ORIGINAL_LABEL_ATTRIBUTE);
+    if (homeLabel === '' && logo.hasAttribute('aria-label')) {
+      logo.removeAttribute('aria-label');
+    } else if (homeLabel !== null && homeLabel !== ''
+      && logo.getAttribute('aria-label') !== homeLabel) {
+      logo.setAttribute('aria-label', homeLabel);
+    }
+
+    let avatar = logo.querySelector(`[${AVATAR_ATTRIBUTE}]`);
+    if (!(avatar instanceof HTMLImageElement)) {
+      avatar = document.createElement('img');
+      avatar.setAttribute(AVATAR_ATTRIBUTE, '');
+      avatar.alt = '';
+      logo.append(avatar);
+    }
+
+    const imageUrl = chrome.runtime.getURL('icons/fractured.png');
+    if (avatar.src !== imageUrl) avatar.src = imageUrl;
+    avatar.onerror = () => {
+      if (!avatar.isConnected) return;
+      failedBrandLogo = true;
       reset();
     };
   }
@@ -292,16 +342,26 @@
     refreshQueued = false;
 
     if (!enabled) {
-      if (currentOwner) reset();
+      if (currentOwner || document.querySelector(`[${LOGO_ATTRIBUTE}], [${BRAND_ATTRIBUTE}]`)) reset();
       return;
     }
 
     const owner = repositoryOwner();
     const header = appHeader();
 
-    if (!owner || !header) {
+    if (!header) {
+      if (currentOwner || document.querySelector(`[${LOGO_ATTRIBUTE}], [${BRAND_ATTRIBUTE}]`)) reset();
+      return;
+    }
+
+    if (!owner) {
       failedAvatarOwner = '';
-      if (currentOwner || document.querySelector('[' + LOGO_ATTRIBUTE + ']')) reset();
+      if (currentOwner) reset();
+      clearHiddenOwnerNames();
+      if (!failedBrandLogo) {
+        ensureStyle();
+        installFracturedLogo(header);
+      }
       return;
     }
     if (failedAvatarOwner === owner.toLowerCase()) return;
