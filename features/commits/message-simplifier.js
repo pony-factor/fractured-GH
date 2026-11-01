@@ -2,6 +2,9 @@
   'use strict';
 
   let enabled = false;
+  // Track editor ownership so late generated values can be cleared without erasing notes.
+  let bodyStates = new WeakMap();
+  const bodyListeners = new WeakSet();
 
   const ACTION_RE = /\b(commit changes|propose changes|merge pull request|squash and merge|rebase and merge|confirm merge|confirm squash|confirm rebase)\b/i;
   const EMOJI_RE = /^\p{Extended_Pictographic}(?:\uFE0E|\uFE0F)?(?:\u200D\p{Extended_Pictographic}(?:\uFE0E|\uFE0F)?)*\s+/u;
@@ -139,14 +142,30 @@
     try { setValue(field, next); } finally { field.removeAttribute(WRITING); }
   }
 
+  function clearGeneratedBody(field) {
+    if (!isBody(field) || !fields(scopeFor(field), isTitle).length) return;
+    let state = bodyStates.get(field);
+    if (!state) {
+      state = { userEdited: false };
+      bodyStates.set(field, state);
+    }
+    if (!bodyListeners.has(field)) {
+      bodyListeners.add(field);
+      field.addEventListener('input', () => {
+        if (field.hasAttribute(WRITING)) return;
+        const current = bodyStates.get(field);
+        if (current) current.userEdited = true;
+      });
+    }
+    if (state.userEdited || !field.value) return;
+    field.setAttribute(WRITING, 'true');
+    try { setValue(field, ''); } finally { field.removeAttribute(WRITING); }
+  }
+
   function prepare(scope) {
     if (!enabled) return;
     const titles = fields(scope, isTitle);
     for (const title of titles) rewrite(title);
-    // Clear only descriptions paired with a detected commit title.
-    for (const titleScope of new Set(titles.map(scopeFor))) {
-      for (const body of fields(titleScope, isBody)) if (body.value) setValue(body, '');
-    }
   }
 
   function bind(field) {
@@ -170,9 +189,16 @@
 
   function scan(root = document) {
     if (!enabled) return;
-    if (root instanceof HTMLInputElement || root instanceof HTMLTextAreaElement) bind(root);
+    if (root instanceof HTMLInputElement || root instanceof HTMLTextAreaElement) {
+      clearGeneratedBody(root);
+      bind(root);
+    }
     if (!(root instanceof Document || root instanceof DocumentFragment || root instanceof Element)) return;
-    root.querySelectorAll(FIELD_SELECTOR).forEach(bind);
+    const inputs = Array.from(root.querySelectorAll(FIELD_SELECTOR));
+    // Clear generated descriptions as the editor opens, before title rewriting.
+    // Later hydration is allowed until the user enters their own text.
+    inputs.forEach(clearGeneratedBody);
+    inputs.forEach(bind);
   }
 
   function beforeSubmit(event) {
@@ -219,7 +245,10 @@
     document.removeEventListener('turbo:load', scanPage);
     document.removeEventListener('pjax:end', scanPage);
     window.removeEventListener('popstate', scanPage);
-    if (!enabled) return;
+    if (!enabled) {
+      bodyStates = new WeakMap();
+      return;
+    }
     // Generated input values and textarea text can arrive after the dialog.
     observer.observe(document, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['value'] });
     document.addEventListener('submit', beforeSubmit, true);
