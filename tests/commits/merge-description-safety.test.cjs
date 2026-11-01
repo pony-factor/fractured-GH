@@ -56,6 +56,7 @@ function mount(feature, pathname, action, mergeIds = false) {
     document: { addEventListener() {}, removeEventListener() {}, querySelectorAll() { return []; } },
     window: { location: { pathname }, addEventListener() {}, removeEventListener() {} },
     MutationObserver: class { observe() {} disconnect() {} },
+    requestAnimationFrame(callback) { callback(); },
     chrome: { storage: { onChanged: { addListener() {} }, local: { get: async defaults => defaults } } },
   });
   vm.runInContext(source.replace(/\}\)\(\);\s*$/, "globalThis.testHelpers = { " + exports + " };\n})();"), context);
