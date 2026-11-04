@@ -165,3 +165,29 @@ test('keeps comment controls and unrelated text visible', async () => {
   assert.equal(notice.hidden, true);
   assert.equal(commentBox.hidden, false);
 });
+
+test('hides the contribution reminder with security policy and code of conduct links', async () => {
+  const app = await setup();
+  const notice = el('div', el('svg'), el('p',
+    'Remember, contributions to this repository should follow its ',
+    anchor('contributing guidelines', '/stellar/stellar-docs/blob/main/CONTRIBUTING.md'),
+    ', ', anchor('security policy', '/stellar/.github/blob/main/SECURITY.md'),
+    ', and ', anchor('code of conduct', '/stellar/.github/blob/main/CODE_OF_CONDUCT.md'), '.'));
+  const draft = el('div', el('textarea', 'Keep my draft'), notice, el('button', 'Comment'));
+  app.container.append(draft);
+  await app.emit(notice);
+  assert.equal(notice.hidden, true);
+  assert.equal(draft.hidden, false);
+  await app.toggle(false);
+  assert.equal(notice.hidden, false);
+});
+
+test('does not hide an ancestor containing unrelated content before the reminder', async () => {
+  const app = await setup();
+  const notice = legacyNotice();
+  const wrapper = el('div', el('p', 'Keep this repository information.'), notice);
+  app.container.append(wrapper);
+  await app.emit(wrapper);
+  assert.equal(notice.hidden, true);
+  assert.equal(wrapper.hidden, false);
+});

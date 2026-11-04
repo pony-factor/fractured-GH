@@ -21,7 +21,9 @@
 
 /* GitHub's inline monospace code chip looks oversized in Celestia headings.
    Keep the markup semantic, but let heading text and inline code align. */
-.markdown-body :is(h1, h2, h3) :is(code, tt) {
+.markdown-body :is(h1, h2, h3) :is(code, tt),
+:is(h1, h2) .markdown-title :is(code, tt),
+.js-issue-title :is(code, tt) {
   font-family: inherit !important;
   font-size: inherit !important;
   font-weight: inherit !important;

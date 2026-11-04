@@ -14,7 +14,7 @@
 
   function isNotice(element) {
     const text = normalizeText(element.textContent);
-    const contributing = /\bcontributions to this repository should follow its contributing guidelines\.?$/i.test(text);
+    const contributing = /^(?:Remember,\s*)?contributions to this repository should follow its contributing guidelines(?:,? (?:and )?security policy)?(?:,? and code of conduct)?\.?$/i.test(text);
     const community = /\bcontributions to this repository should follow our GitHub Community Guidelines\.?$/i.test(text);
     if (!contributing && !community) return false;
 
