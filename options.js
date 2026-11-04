@@ -2,13 +2,26 @@ const DEFAULT_MUTED_USERS = [];
 
 const commitTitleEmojisInput = document.getElementById('commit-title-emojis');
 const simplifyCommitMessagesInput = document.getElementById('simplify-commit-messages');
+const webSquashFormattingInput = document.getElementById('web-squash-formatting-enabled');
+const webSquashOmitEmojiBulletsInput = document.getElementById('web-squash-omit-emoji-bullets');
+const webSquashFilterSyncInput = document.getElementById('web-squash-filter-sync');
+const webSquashSeparatorInput = document.getElementById('web-squash-separator');
 const wrapDiffLinesInput = document.getElementById('wrap-diff-lines');
+const pullRequestSidebarToggleInput = document.getElementById('pull-request-sidebar-toggle-enabled');
+const spellcheckUseProjectInput = document.getElementById('spellcheck-use-chatgpt-project');
+const spellcheckProjectUrlInput = document.getElementById('spellcheck-chatgpt-project-url');
+const hideCoauthorOnlyCommitDetailsInput = document.getElementById('hide-coauthor-only-commit-details');
 
 const blockTooltipsInput = document.getElementById('block-tooltips');
 const hideCopilotInput = document.getElementById('hide-copilot');
+const rotate404FanArtInput = document.getElementById('rotate-404-fan-art');
 const hideContributingGuidelinesNoticeInput = document.getElementById('hide-contributing-guidelines-notice');
 const hidePullRequestProtipInput = document.getElementById('hide-pull-request-protip');
 const hidePullRequestMilestoneInput = document.getElementById('hide-pull-request-milestone');
+const hideEmptySidebarSectionsInput = document.getElementById('hide-empty-sidebar-sections');
+const hidePullRequestParticipantsInput = document.getElementById('hide-pull-request-participants');
+const hidePullRequestMergeStatusInput = document.getElementById('hide-pull-request-merge-status');
+const hidePullRequestCodeButtonInput = document.getElementById('hide-pull-request-code-button');
 const hideFooterInput = document.getElementById('hide-footer');
 const openCodeInVsCodeWebInput = document.getElementById('open-code-in-vscode-web');
 const hideRepositoryTagsShortcutInput = document.getElementById('hide-repository-tags-shortcut');
@@ -16,7 +29,11 @@ const hideUnprotectedBranchWarningInput = document.getElementById('hide-unprotec
 const hideRepositoryWatchInput = document.getElementById('hide-repository-watch');
 const hideRepositoryStarInput = document.getElementById('hide-repository-star');
 const hideRepositoryForkInput = document.getElementById('hide-repository-fork');
+const hideRepositoryWatchButtonInput = document.getElementById('hide-repository-watch-button');
+const hideRepositoryStarButtonInput = document.getElementById('hide-repository-star-button');
+const hideRepositoryForkButtonInput = document.getElementById('hide-repository-fork-button');
 const hideRepositoryPinsInput = document.getElementById('hide-repository-pins');
+const autoSetupNewForksInput = document.getElementById('auto-setup-new-forks');
 const hideRepositoryOverviewNameInput = document.getElementById('hide-repository-overview-name');
 const hideMyNavigationLinksInput = document.getElementById('hide-my-navigation-links');
 const hideHamburgerMenuInput = document.getElementById('hide-hamburger-menu');
@@ -29,6 +46,7 @@ const hideInboxInput = document.getElementById('hide-inbox-while-busy');
 const relativeTimesInput = document.getElementById('relative-times-only');
 const ownerAvatarHeaderInput = document.getElementById('owner-avatar-header-enabled');
 const organizationInboxesInput = document.getElementById('organization-notification-inboxes-enabled');
+const excludeOrganizationNotificationsInput = document.getElementById('exclude-organization-notifications-from-main-inbox');
 const notificationOrganizationsList = document.getElementById('notification-organizations');
 const addNotificationOrganizationButton = document.getElementById('add-notification-organization');
 const notificationOrganizationTemplate = document.getElementById('notification-organization-template');
@@ -325,12 +343,25 @@ async function loadSettings() {
   const settings = await chrome.storage.local.get({
     commitTitleEmojis: false,
     simplifyCommitMessages: false,
+    webSquashFormattingEnabled: false,
+    webSquashOmitEmojiBullets: false,
+    webSquashFilterSync: true,
+    webSquashSeparator: 'underscores',
     wrapDiffLines: true,
+    pullRequestSidebarToggleEnabled: true,
+    spellcheckUseChatgptProject: false,
+    spellcheckChatgptProjectUrl: '',
+    hideCoauthorOnlyCommitDetails: false,
     blockTooltips: false,
     hideCopilot: true,
+    rotate404FanArtEnabled: true,
     hideContributingGuidelinesNotice: true,
     hidePullRequestProtip: false,
     hidePullRequestMilestone: false,
+    hideEmptySidebarSections: false,
+    hidePullRequestParticipants: false,
+    hidePullRequestMergeStatus: false,
+    hidePullRequestCodeButton: false,
     hideFooter: false,
     openCodeInVsCodeWeb: true,
     hideRepositoryTagsShortcut: true,
@@ -339,7 +370,11 @@ async function loadSettings() {
     hideRepositoryWatch: null,
     hideRepositoryStar: null,
     hideRepositoryFork: null,
+    hideRepositoryWatchButton: false,
+    hideRepositoryStarButton: false,
+    hideRepositoryForkButton: false,
     hideRepositoryPins: true,
+    autoSetupNewForks: true,
     hideRepositoryOverviewName: false,
     hideMyNavigationLinks: false,
     hideHamburgerMenu: false,
@@ -352,6 +387,7 @@ async function loadSettings() {
     relativeTimesOnly: false,
     ownerAvatarHeaderEnabled: true,
     organizationNotificationInboxesEnabled: false,
+    excludeOrganizationNotificationsFromMainInbox: false,
     notificationOrganizations: [],
     userNicknamesEnabled: true,
     userNicknames: [],
@@ -363,12 +399,26 @@ async function loadSettings() {
 
   commitTitleEmojisInput.checked = Boolean(settings.commitTitleEmojis);
   simplifyCommitMessagesInput.checked = Boolean(settings.simplifyCommitMessages);
+  webSquashFormattingInput.checked = settings.webSquashFormattingEnabled === true;
+  webSquashOmitEmojiBulletsInput.checked = settings.webSquashOmitEmojiBullets === true;
+  webSquashFilterSyncInput.checked = settings.webSquashFilterSync !== false;
+  webSquashSeparatorInput.value = ['underscores', 'hyphens', 'none'].includes(settings.webSquashSeparator)
+    ? settings.webSquashSeparator : 'underscores';
   wrapDiffLinesInput.checked = Boolean(settings.wrapDiffLines);
+  pullRequestSidebarToggleInput.checked = Boolean(settings.pullRequestSidebarToggleEnabled);
+  spellcheckUseProjectInput.checked = settings.spellcheckUseChatgptProject === true;
+  spellcheckProjectUrlInput.value = settings.spellcheckChatgptProjectUrl || '';
+  hideCoauthorOnlyCommitDetailsInput.checked = Boolean(settings.hideCoauthorOnlyCommitDetails);
   blockTooltipsInput.checked = Boolean(settings.blockTooltips);
   hideCopilotInput.checked = Boolean(settings.hideCopilot);
+  rotate404FanArtInput.checked = Boolean(settings.rotate404FanArtEnabled);
   hideContributingGuidelinesNoticeInput.checked = Boolean(settings.hideContributingGuidelinesNotice);
   hidePullRequestProtipInput.checked = Boolean(settings.hidePullRequestProtip);
   hidePullRequestMilestoneInput.checked = Boolean(settings.hidePullRequestMilestone);
+  hideEmptySidebarSectionsInput.checked = Boolean(settings.hideEmptySidebarSections);
+  hidePullRequestParticipantsInput.checked = Boolean(settings.hidePullRequestParticipants);
+  hidePullRequestMergeStatusInput.checked = Boolean(settings.hidePullRequestMergeStatus);
+  hidePullRequestCodeButtonInput.checked = Boolean(settings.hidePullRequestCodeButton);
   hideFooterInput.checked = Boolean(settings.hideFooter);
   openCodeInVsCodeWebInput.checked = Boolean(settings.openCodeInVsCodeWeb);
   hideRepositoryTagsShortcutInput.checked = Boolean(settings.hideRepositoryTagsShortcut);
@@ -376,7 +426,11 @@ async function loadSettings() {
   hideRepositoryWatchInput.checked = Boolean(settings.hideRepositoryWatch ?? settings.hideRepositorySocialActions);
   hideRepositoryStarInput.checked = Boolean(settings.hideRepositoryStar ?? settings.hideRepositorySocialActions);
   hideRepositoryForkInput.checked = Boolean(settings.hideRepositoryFork ?? settings.hideRepositorySocialActions);
+  hideRepositoryWatchButtonInput.checked = Boolean(settings.hideRepositoryWatchButton);
+  hideRepositoryStarButtonInput.checked = Boolean(settings.hideRepositoryStarButton);
+  hideRepositoryForkButtonInput.checked = Boolean(settings.hideRepositoryForkButton);
   hideRepositoryPinsInput.checked = Boolean(settings.hideRepositoryPins);
+  autoSetupNewForksInput.checked = Boolean(settings.autoSetupNewForks);
   hideRepositoryOverviewNameInput.checked = Boolean(settings.hideRepositoryOverviewName);
   hideMyNavigationLinksInput.checked = Boolean(settings.hideMyNavigationLinks);
   hideHamburgerMenuInput.checked = Boolean(settings.hideHamburgerMenu);
@@ -389,6 +443,7 @@ async function loadSettings() {
   relativeTimesInput.checked = Boolean(settings.relativeTimesOnly);
   ownerAvatarHeaderInput.checked = Boolean(settings.ownerAvatarHeaderEnabled);
   organizationInboxesInput.checked = Boolean(settings.organizationNotificationInboxesEnabled);
+  excludeOrganizationNotificationsInput.checked = Boolean(settings.excludeOrganizationNotificationsFromMainInbox);
   userNicknamesInput.checked = Boolean(settings.userNicknamesEnabled);
   preferDisplayNamesInput.checked = Boolean(settings.preferDisplayNamesEnabled);
   conversationFirstNamesInput.checked = Boolean(settings.conversationFirstNamesEnabled);
@@ -426,7 +481,30 @@ async function loadSettings() {
   updateSummary(mutedUsers);
 }
 
+function normalizeChatgptProjectUrl(value) {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  try {
+    const url = new URL(value.trim());
+    if (url.protocol !== 'https:' || url.hostname !== 'chatgpt.com'
+      || url.username || url.password || url.port || url.search || url.hash
+      || !/^\/g\/g-p-[A-Za-z0-9_-]+\/project\/?$/.test(url.pathname)) return null;
+    return `https://chatgpt.com${url.pathname.replace(/\/$/, '')}`;
+  } catch {
+    return null;
+  }
+}
+
 async function saveSettings() {
+  const providedProjectUrl = spellcheckProjectUrlInput.value.trim();
+  const projectUrl = normalizeChatgptProjectUrl(providedProjectUrl);
+  if (spellcheckUseProjectInput.checked && !projectUrl) {
+    spellcheckProjectUrlInput.setCustomValidity('Enter a ChatGPT Project URL, such as https://chatgpt.com/g/g-p-…/project');
+    status.textContent = 'A valid ChatGPT Project URL is required when project routing is enabled.';
+    status.dataset.state = 'error';
+    spellcheckProjectUrlInput.reportValidity();
+    return;
+  }
+  spellcheckProjectUrlInput.setCustomValidity('');
   const notificationOrganizations = notificationOrganizationsFromRows();
   const userNicknames = userNicknamesFromRows();
   const mutedUsers = mutedUsersFromRows();
@@ -434,12 +512,25 @@ async function saveSettings() {
   await chrome.storage.local.set({
     commitTitleEmojis: commitTitleEmojisInput.checked,
     simplifyCommitMessages: simplifyCommitMessagesInput.checked,
+    webSquashFormattingEnabled: webSquashFormattingInput.checked,
+    webSquashOmitEmojiBullets: webSquashOmitEmojiBulletsInput.checked,
+    webSquashFilterSync: webSquashFilterSyncInput.checked,
+    webSquashSeparator: webSquashSeparatorInput.value,
     wrapDiffLines: wrapDiffLinesInput.checked,
+    pullRequestSidebarToggleEnabled: pullRequestSidebarToggleInput.checked,
+    spellcheckUseChatgptProject: spellcheckUseProjectInput.checked,
+    spellcheckChatgptProjectUrl: projectUrl || providedProjectUrl,
+    hideCoauthorOnlyCommitDetails: hideCoauthorOnlyCommitDetailsInput.checked,
     blockTooltips: blockTooltipsInput.checked,
     hideCopilot: hideCopilotInput.checked,
+    rotate404FanArtEnabled: rotate404FanArtInput.checked,
     hideContributingGuidelinesNotice: hideContributingGuidelinesNoticeInput.checked,
     hidePullRequestProtip: hidePullRequestProtipInput.checked,
     hidePullRequestMilestone: hidePullRequestMilestoneInput.checked,
+    hideEmptySidebarSections: hideEmptySidebarSectionsInput.checked,
+    hidePullRequestParticipants: hidePullRequestParticipantsInput.checked,
+    hidePullRequestMergeStatus: hidePullRequestMergeStatusInput.checked,
+    hidePullRequestCodeButton: hidePullRequestCodeButtonInput.checked,
     hideFooter: hideFooterInput.checked,
     openCodeInVsCodeWeb: openCodeInVsCodeWebInput.checked,
     hideRepositoryTagsShortcut: hideRepositoryTagsShortcutInput.checked,
@@ -447,7 +538,11 @@ async function saveSettings() {
     hideRepositoryWatch: hideRepositoryWatchInput.checked,
     hideRepositoryStar: hideRepositoryStarInput.checked,
     hideRepositoryFork: hideRepositoryForkInput.checked,
+    hideRepositoryWatchButton: hideRepositoryWatchButtonInput.checked,
+    hideRepositoryStarButton: hideRepositoryStarButtonInput.checked,
+    hideRepositoryForkButton: hideRepositoryForkButtonInput.checked,
     hideRepositoryPins: hideRepositoryPinsInput.checked,
+    autoSetupNewForks: autoSetupNewForksInput.checked,
     hideRepositoryOverviewName: hideRepositoryOverviewNameInput.checked,
     hideMyNavigationLinks: hideMyNavigationLinksInput.checked,
     hideHamburgerMenu: hideHamburgerMenuInput.checked,
@@ -460,6 +555,7 @@ async function saveSettings() {
     relativeTimesOnly: relativeTimesInput.checked,
     ownerAvatarHeaderEnabled: ownerAvatarHeaderInput.checked,
     organizationNotificationInboxesEnabled: organizationInboxesInput.checked,
+    excludeOrganizationNotificationsFromMainInbox: excludeOrganizationNotificationsInput.checked,
     notificationOrganizations,
     userNicknamesEnabled: userNicknamesInput.checked,
     preferDisplayNamesEnabled: preferDisplayNamesInput.checked,
@@ -476,12 +572,28 @@ async function saveSettings() {
 
 commitTitleEmojisInput.addEventListener('change', () => void saveSettings());
 simplifyCommitMessagesInput.addEventListener('change', () => void saveSettings());
+webSquashFormattingInput.addEventListener('change', () => void saveSettings());
+webSquashOmitEmojiBulletsInput.addEventListener('change', () => void saveSettings());
+webSquashFilterSyncInput.addEventListener('change', () => void saveSettings());
+webSquashSeparatorInput.addEventListener('change', () => void saveSettings());
 wrapDiffLinesInput.addEventListener('change', () => void saveSettings());
+pullRequestSidebarToggleInput.addEventListener('change', () => void saveSettings());
+spellcheckUseProjectInput.addEventListener('change', () => void saveSettings());
+spellcheckProjectUrlInput.addEventListener('input', () => {
+  spellcheckProjectUrlInput.setCustomValidity('');
+  queueSave();
+});
+hideCoauthorOnlyCommitDetailsInput.addEventListener('change', () => void saveSettings());
 blockTooltipsInput.addEventListener('change', () => void saveSettings());
 hideCopilotInput.addEventListener('change', () => void saveSettings());
+rotate404FanArtInput.addEventListener('change', () => void saveSettings());
 hideContributingGuidelinesNoticeInput.addEventListener('change', () => void saveSettings());
 hidePullRequestProtipInput.addEventListener('change', () => void saveSettings());
 hidePullRequestMilestoneInput.addEventListener('change', () => void saveSettings());
+hideEmptySidebarSectionsInput.addEventListener('change', () => void saveSettings());
+hidePullRequestParticipantsInput.addEventListener('change', () => void saveSettings());
+hidePullRequestMergeStatusInput.addEventListener('change', () => void saveSettings());
+hidePullRequestCodeButtonInput.addEventListener('change', () => void saveSettings());
 hideFooterInput.addEventListener('change', () => void saveSettings());
 openCodeInVsCodeWebInput.addEventListener('change', () => void saveSettings());
 hideRepositoryTagsShortcutInput.addEventListener('change', () => void saveSettings());
@@ -489,7 +601,11 @@ hideUnprotectedBranchWarningInput.addEventListener('change', () => void saveSett
 hideRepositoryWatchInput.addEventListener('change', () => void saveSettings());
 hideRepositoryStarInput.addEventListener('change', () => void saveSettings());
 hideRepositoryForkInput.addEventListener('change', () => void saveSettings());
+hideRepositoryWatchButtonInput.addEventListener('change', () => void saveSettings());
+hideRepositoryStarButtonInput.addEventListener('change', () => void saveSettings());
+hideRepositoryForkButtonInput.addEventListener('change', () => void saveSettings());
 hideRepositoryPinsInput.addEventListener('change', () => void saveSettings());
+autoSetupNewForksInput.addEventListener('change', () => void saveSettings());
 hideRepositoryOverviewNameInput.addEventListener('change', () => void saveSettings());
 hideMyNavigationLinksInput.addEventListener('change', () => void saveSettings());
 hideHamburgerMenuInput.addEventListener('change', () => void saveSettings());
@@ -502,6 +618,7 @@ hideInboxInput.addEventListener('change', () => void saveSettings());
 relativeTimesInput.addEventListener('change', () => void saveSettings());
 ownerAvatarHeaderInput.addEventListener('change', () => void saveSettings());
 organizationInboxesInput.addEventListener('change', () => void saveSettings());
+excludeOrganizationNotificationsInput.addEventListener('change', () => void saveSettings());
 addNotificationOrganizationButton.addEventListener('click', () => {
   addNotificationOrganizationRow('', { focus: true });
 });

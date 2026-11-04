@@ -4,6 +4,7 @@
   const ENABLED_KEY = 'ownerAvatarHeaderEnabled';
   const STYLE_ID = 'fractured-owner-avatar-header-style';
   const LOGO_ATTRIBUTE = 'data-fractured-owner-logo';
+  const BRAND_ATTRIBUTE = 'data-fractured-brand-logo';
   const AVATAR_ATTRIBUTE = 'data-fractured-owner-avatar';
   const HIDDEN_ATTRIBUTE = 'data-fractured-owner-heading-hidden';
   const ORIGINAL_HREF_ATTRIBUTE = 'data-fractured-owner-logo-original-href';
@@ -13,37 +14,51 @@
   let currentOwner = '';
   let observer = null;
   let refreshQueued = false;
+  let failedAvatarOwner = '';
+  let failedBrandLogo = false;
 
   function normalizeText(value) {
     return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
   }
 
   function pageOwner() {
-    // GitHub can preserve stale octolytics metadata across Turbo/PJAX navigation,
-    // especially when following a fork back to a different repository owner.
-    // The current route is the source of truth for repository-page branding.
-    const parts = location.pathname.split('/').filter(Boolean);
-    if (!parts.length) return '';
-    const root = parts[0].toLowerCase();
-    const organizationRoute = root === 'orgs'
-      || (root === 'organizations' && parts.length >= 3);
-    const ownerPart = organizationRoute ? parts[1] : parts[0];
-    if (!ownerPart) return '';
+    // Resolve account and organization routes from the URL, but only treat a
+    // two-segment path as a repository when its metadata matches that route.
+    const parts = location.pathname.split("/").filter(Boolean);
+    if (!parts.length) return null;
+    // Preserve the branded fallback on missing profiles, repositories, and 404 pages.
+    if (document.querySelector("#parallax_wrapper, .container-404, .error-404")
+      || /(?:404|page not found)/i.test(document.title)) return null;
 
+    const root = parts[0].toLowerCase();
+    const organizationRoute = (root === "orgs" && parts.length >= 2)
+      || (root === "organizations" && parts.length >= 3
+        && parts[1].toLowerCase() !== "new");
     const reservedRoots = new Set([
-      'about', 'account', 'apps', 'codespaces', 'collections', 'dashboard',
-      'enterprise', 'events', 'explore', 'features', 'issues', 'login',
-      'marketplace', 'new', 'notifications', 'organizations', 'orgs',
-      'pricing', 'pulls', 'search', 'security', 'sessions', 'settings',
-      'signup', 'site', 'sponsors', 'stars', 'topics', 'trending', 'users',
+      "about", "account", "apps", "codespaces", "collections", "dashboard",
+      "enterprise", "events", "explore", "features", "issues", "login",
+      "marketplace", "new", "notifications", "organizations", "orgs",
+      "pricing", "pulls", "search", "security", "sessions", "settings",
+      "signup", "site", "sponsors", "stars", "topics", "trending", "users",
     ]);
-    if (!organizationRoute && reservedRoots.has(root)) return '';
+    if (!organizationRoute && reservedRoots.has(root)) return null;
 
     try {
-      const owner = decodeURIComponent(ownerPart);
-      return /^[a-z\d](?:[a-z\d-]{0,37}[a-z\d])?$/i.test(owner) ? owner : '';
+      const owner = decodeURIComponent(organizationRoute ? parts[1] : parts[0]);
+      if (!/^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$/i.test(owner)) return null;
+      if (organizationRoute || parts.length === 1) {
+        return { owner, repository: false };
+      }
+
+      const repo = decodeURIComponent(parts[1]);
+      const nwo = document.querySelector('meta[name="octolytics-dimension-repository_nwo"]')
+        ?.getAttribute("content") || "";
+      // Never infer a repository from stale metadata or an arbitrary account subpath.
+      return nwo.toLowerCase() === (owner + "/" + repo).toLowerCase()
+        ? { owner, repository: true }
+        : null;
     } catch {
-      return '';
+      return null;
     }
   }
 
@@ -66,12 +81,14 @@
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
-      [${LOGO_ATTRIBUTE}] > :not([${AVATAR_ATTRIBUTE}]) {
+      [${LOGO_ATTRIBUTE}] > :not([${AVATAR_ATTRIBUTE}]),
+      [${BRAND_ATTRIBUTE}] > :not([${AVATAR_ATTRIBUTE}]) {
         display: none !important;
       }
 
       /* Match the navigation hit target and hover shape to the square owner avatar. */
-      [${LOGO_ATTRIBUTE}] {
+      [${LOGO_ATTRIBUTE}],
+      [${BRAND_ATTRIBUTE}] {
         width: 28px !important;
         height: 28px !important;
         min-width: 28px !important;
@@ -86,7 +103,9 @@
       }
 
       [${LOGO_ATTRIBUTE}]::before,
-      [${LOGO_ATTRIBUTE}]::after {
+      [${LOGO_ATTRIBUTE}]::after,
+      [${BRAND_ATTRIBUTE}]::before,
+      [${BRAND_ATTRIBUTE}]::after {
         border-radius: inherit !important;
       }
 
@@ -128,7 +147,7 @@
   }
 
   function findGitHubLogo(header) {
-    const existing = header.querySelector(`[${LOGO_ATTRIBUTE}]`);
+    const existing = header.querySelector(`[${LOGO_ATTRIBUTE}], [${BRAND_ATTRIBUTE}]`);
     if (existing instanceof HTMLAnchorElement) return existing;
 
     const appLogo = header.querySelector([
@@ -168,7 +187,7 @@
   }
 
   function restoreLogo() {
-    const logo = document.querySelector(`[${LOGO_ATTRIBUTE}]`);
+    const logo = document.querySelector(`[${LOGO_ATTRIBUTE}], [${BRAND_ATTRIBUTE}]`);
     if (!(logo instanceof HTMLAnchorElement)) return;
 
     const originalHref = logo.getAttribute(ORIGINAL_HREF_ATTRIBUTE);
@@ -180,6 +199,7 @@
 
     logo.querySelector(`[${AVATAR_ATTRIBUTE}]`)?.remove();
     logo.removeAttribute(LOGO_ATTRIBUTE);
+    logo.removeAttribute(BRAND_ATTRIBUTE);
     logo.removeAttribute(ORIGINAL_HREF_ATTRIBUTE);
     logo.removeAttribute(ORIGINAL_LABEL_ATTRIBUTE);
   }
@@ -207,7 +227,8 @@
       logo.setAttribute(ORIGINAL_LABEL_ATTRIBUTE, logo.getAttribute('aria-label') || '');
     }
 
-    logo.setAttribute(LOGO_ATTRIBUTE, owner);
+    if (logo.hasAttribute(BRAND_ATTRIBUTE)) logo.removeAttribute(BRAND_ATTRIBUTE);
+    if (logo.getAttribute(LOGO_ATTRIBUTE) !== owner) logo.setAttribute(LOGO_ATTRIBUTE, owner);
 
     const ownerHref = `/${owner}`;
     if (logo.getAttribute('href') !== ownerHref) logo.setAttribute('href', ownerHref);
@@ -223,6 +244,55 @@
 
     const avatarUrl = `https://github.com/${encodeURIComponent(owner)}.png?size=64`;
     if (avatar.src !== avatarUrl) avatar.src = avatarUrl;
+    // A removed or inaccessible account may return an HTML 404 for owner.png.
+    // Restore the real GitHub logo instead of displaying a broken image.
+    avatar.onerror = () => {
+      if (!avatar.isConnected) return;
+      failedAvatarOwner = owner.toLowerCase();
+      reset();
+    };
+  }
+
+  function installFracturedLogo(header) {
+    const logo = findGitHubLogo(header);
+    if (!(logo instanceof HTMLAnchorElement)) return;
+
+    if (!logo.hasAttribute(ORIGINAL_HREF_ATTRIBUTE)) {
+      logo.setAttribute(ORIGINAL_HREF_ATTRIBUTE, logo.getAttribute('href') || '/');
+    }
+    if (!logo.hasAttribute(ORIGINAL_LABEL_ATTRIBUTE)) {
+      logo.setAttribute(ORIGINAL_LABEL_ATTRIBUTE, logo.getAttribute('aria-label') || '');
+    }
+
+    if (logo.hasAttribute(LOGO_ATTRIBUTE)) logo.removeAttribute(LOGO_ATTRIBUTE);
+    if (!logo.hasAttribute(BRAND_ATTRIBUTE)) logo.setAttribute(BRAND_ATTRIBUTE, '');
+
+    // Preserve the original homepage link and accessible name outside repositories.
+    const homeHref = logo.getAttribute(ORIGINAL_HREF_ATTRIBUTE) || '/';
+    if (logo.getAttribute('href') !== homeHref) logo.setAttribute('href', homeHref);
+    const homeLabel = logo.getAttribute(ORIGINAL_LABEL_ATTRIBUTE);
+    if (homeLabel === '' && logo.hasAttribute('aria-label')) {
+      logo.removeAttribute('aria-label');
+    } else if (homeLabel !== null && homeLabel !== ''
+      && logo.getAttribute('aria-label') !== homeLabel) {
+      logo.setAttribute('aria-label', homeLabel);
+    }
+
+    let avatar = logo.querySelector(`[${AVATAR_ATTRIBUTE}]`);
+    if (!(avatar instanceof HTMLImageElement)) {
+      avatar = document.createElement('img');
+      avatar.setAttribute(AVATAR_ATTRIBUTE, '');
+      avatar.alt = '';
+      logo.append(avatar);
+    }
+
+    const imageUrl = chrome.runtime.getURL('icons/fractured.png');
+    if (avatar.src !== imageUrl) avatar.src = imageUrl;
+    avatar.onerror = () => {
+      if (!avatar.isConnected) return;
+      failedBrandLogo = true;
+      reset();
+    };
   }
 
   function exactOwnerElement(element, ownerKey) {
@@ -280,31 +350,41 @@
     refreshQueued = false;
 
     if (!enabled) {
-      if (currentOwner) reset();
+      if (currentOwner || document.querySelector(`[${LOGO_ATTRIBUTE}], [${BRAND_ATTRIBUTE}]`)) reset();
       return;
     }
 
-    const owner = pageOwner();
+    const page = pageOwner();
+    const owner = page?.owner || "";
     const header = appHeader();
 
-    if (!owner || !header) {
-      if (currentOwner) reset();
+    if (!header) {
+      if (currentOwner || document.querySelector(`[${LOGO_ATTRIBUTE}], [${BRAND_ATTRIBUTE}]`)) reset();
       return;
     }
 
+    if (!owner) {
+      failedAvatarOwner = '';
+      if (currentOwner) reset();
+      clearHiddenOwnerNames();
+      if (!failedBrandLogo) {
+        ensureStyle();
+        installFracturedLogo(header);
+      }
+      return;
+    }
+    if (failedAvatarOwner === owner.toLowerCase()) return;
+
     if (currentOwner && currentOwner.toLowerCase() !== owner.toLowerCase()) {
+      failedAvatarOwner = '';
       reset();
     }
 
     ensureStyle();
     currentOwner = owner;
     installOwnerAvatar(header, owner);
-    const parts = location.pathname.split('/').filter(Boolean);
-    if (parts.length >= 2 && !['orgs', 'organizations'].includes(parts[0].toLowerCase())) {
-      hideOwnerName(header, owner);
-    } else {
-      clearHiddenOwnerNames();
-    }
+    if (page.repository) hideOwnerName(header, owner);
+    else clearHiddenOwnerNames();
   }
 
   function queueRefresh() {

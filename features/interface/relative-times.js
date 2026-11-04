@@ -13,10 +13,20 @@
   const ORIGINAL_TITLE_ATTR = 'data-gh-relative-time-original-title';
   const NO_TITLE_VALUE = '__none__';
   const REFRESH_INTERVAL_MS = 60_000;
+  const AGE_CELL_SELECTOR = [
+    '.react-directory-row-age-cell',
+    '[data-testid="age-cell"]',
+    'tr.react-directory-row td:last-child',
+    'tr.js-navigation-item td:last-child',
+  ].join(', ');
 
   let enabled = false;
   let observer = null;
   let refreshInterval = null;
+  let ageResizeObserver = null;
+  let resizeFrame = null;
+  let measurementContext = null;
+  const observedAgeCells = new Set();
 
   function formatUnit(value, unit) {
     return `${value} ${unit}${value === 1 ? '' : 's'}`;
@@ -55,6 +65,58 @@
     return isFuture ? `in ${phrase}` : `${phrase} ago`;
   }
 
+  // Keep verbose dates elsewhere. Repository file rows abbreviate only if
+  // the complete phrase cannot fit in the available age column.
+  function compactRelativeVariants(phrase) {
+    if (phrase === 'just now') return ['now'];
+    if (phrase === 'in less than a minute') return ['in <1m', '<1m'];
+
+    const units = { minute: 'm', hour: 'h', day: 'd', week: 'w', month: 'mo', year: 'y' };
+    const abbreviated = phrase
+      .replace(/\b(\d+) (minutes?|hours?|days?|weeks?|months?|years?)\b/g,
+        (_, count, unit) => count + units[unit.replace(/s$/, '')])
+      .replace(/, /g, ' ');
+    const withoutDirection = abbreviated.replace(/^in /, '').replace(/ ago$/, '');
+    return [...new Set([abbreviated, withoutDirection, withoutDirection.split(' ')[0]])];
+  }
+
+  function scheduleAgeRefresh() {
+    if (!enabled || resizeFrame !== null) return;
+    resizeFrame = window.requestAnimationFrame(() => {
+      resizeFrame = null;
+      processTree();
+    });
+  }
+
+  function fitRelativeTime(element, fullPhrase) {
+    const cell = element.closest?.(AGE_CELL_SELECTOR);
+    if (!cell || typeof getComputedStyle !== 'function') return fullPhrase;
+
+    if (ageResizeObserver && !observedAgeCells.has(cell)) {
+      observedAgeCells.add(cell);
+      ageResizeObserver.observe(cell);
+    }
+
+    const cellWidth = cell.getBoundingClientRect?.().width || cell.clientWidth;
+    if (!cellWidth) return fullPhrase;
+
+    const cellStyle = getComputedStyle(cell);
+    const horizontalPadding = (parseFloat(cellStyle.paddingLeft) || 0)
+      + (parseFloat(cellStyle.paddingRight) || 0);
+    const available = Math.max(0, cellWidth - horizontalPadding - 2);
+
+    if (!measurementContext) {
+      measurementContext = document.createElement('canvas').getContext('2d');
+    }
+    if (!measurementContext) return fullPhrase;
+
+    const textStyle = getComputedStyle(element);
+    measurementContext.font = textStyle.font || `${textStyle.fontSize} ${textStyle.fontFamily}`;
+    const alternatives = [fullPhrase, ...compactRelativeVariants(fullPhrase)];
+    return alternatives.find((candidate) => measurementContext.measureText(candidate).width <= available)
+      || alternatives[alternatives.length - 1];
+  }
+
   function rememberOriginal(element) {
     if (element.hasAttribute(PROCESSED_ATTR)) return;
 
@@ -73,7 +135,8 @@
     if (Number.isNaN(date.getTime())) return;
 
     rememberOriginal(element);
-    const label = relativePhrase(date);
+    const fullPhrase = relativePhrase(date);
+    const label = fitRelativeTime(element, fullPhrase);
 
     if (element.textContent !== label) element.textContent = label;
     if (element.shadowRoot && element.shadowRoot.textContent !== label) {
@@ -87,10 +150,10 @@
         element.setAttribute('data-github-tweaks-added-no-title', 'true');
         element.setAttribute('no-title', '');
       }
-      element.setAttribute('data-github-tweaks-blocked-title', label);
+      element.setAttribute('data-github-tweaks-blocked-title', fullPhrase);
       if (element.hasAttribute('title')) element.removeAttribute('title');
-    } else if (element.getAttribute('title') !== label) {
-      element.setAttribute('title', label);
+    } else if (element.getAttribute('title') !== fullPhrase) {
+      element.setAttribute('title', fullPhrase);
     }
   }
 
@@ -111,6 +174,7 @@
   function restoreOriginalTimes() {
     for (const element of document.querySelectorAll(`[${PROCESSED_ATTR}]`)) {
       element.textContent = element.getAttribute(ORIGINAL_TEXT_ATTR) ?? '';
+      if (element.shadowRoot) element.shadowRoot.textContent = element.textContent;
 
       const originalTitle = element.getAttribute(ORIGINAL_TITLE_ATTR);
       if (originalTitle === NO_TITLE_VALUE) {
@@ -161,6 +225,9 @@
       attributes: true,
       attributeFilter: ['datetime'],
     });
+    if (!ageResizeObserver && typeof ResizeObserver === 'function') {
+      ageResizeObserver = new ResizeObserver(scheduleAgeRefresh);
+    }
     processTree();
 
     if (refreshInterval === null) {
@@ -177,6 +244,11 @@
       refreshInterval = null;
     }
 
+    if (resizeFrame !== null) window.cancelAnimationFrame(resizeFrame);
+    resizeFrame = null;
+    ageResizeObserver?.disconnect();
+    ageResizeObserver = null;
+    observedAgeCells.clear();
     restoreOriginalTimes();
   }
 
@@ -197,8 +269,14 @@
     if (enabled) applyRelativeTime(event.target);
   });
 
-  document.addEventListener('turbo:load', () => processTree());
-  document.addEventListener('pjax:end', () => processTree());
+  function refreshOnNavigation() {
+    ageResizeObserver?.disconnect();
+    observedAgeCells.clear();
+    processTree();
+  }
+
+  document.addEventListener('turbo:load', refreshOnNavigation);
+  document.addEventListener('pjax:end', refreshOnNavigation);
 
   const settings = await chrome.storage.local.get({ [SETTING_KEY]: false });
   setEnabled(Boolean(settings[SETTING_KEY]));

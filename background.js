@@ -1,8 +1,15 @@
 const DEFAULT_SETTINGS = {
   commitTitleEmojis: false,
   simplifyCommitMessages: false,
+  webSquashFormattingEnabled: false,
+  webSquashOmitEmojiBullets: false,
+  webSquashFilterSync: true,
+  webSquashSeparator: "underscores",
   wrapDiffLines: true,
+  pullRequestSidebarToggleEnabled: true,
+  pullRequestSidebarCollapsed: false,
   hideCopilot: true,
+  rotate404FanArtEnabled: true,
   hideInboxWhileBusy: true,
   relativeTimesOnly: false,
   ownerAvatarHeaderEnabled: true,
@@ -14,6 +21,9 @@ const DEFAULT_SETTINGS = {
   preferDisplayNamesEnabled: false,
   hideContributingGuidelinesNotice: true,
   hidePullRequestMilestone: false,
+  hideEmptySidebarSections: false,
+  hidePullRequestMergeStatus: false,
+  hidePullRequestCodeButton: false,
   hideSuggestedWorkflows: false,
   hideRepositoryLanguages: false,
   hideRepositoryInsights: false,
@@ -21,10 +31,16 @@ const DEFAULT_SETTINGS = {
   hideReportRepository: false,
   hideRepositoryOverviewName: false,
   hideRepositoryPins: true,
+  hideRepositoryWatchButton: false,
+  hideRepositoryStarButton: false,
+  hideRepositoryForkButton: false,
+  autoSetupNewForks: true,
   hideMyNavigationLinks: false,
   hideHamburgerMenu: false,
   muteUsersEnabled: true,
   mutedUsers: [],
+  spellcheckUseChatgptProject: false,
+  spellcheckChatgptProjectUrl: '',
 };
 
 async function initializeMissingSettings() {
@@ -92,14 +108,47 @@ chrome.action.onClicked.addListener(() => {
   void chrome.runtime.openOptionsPage();
 });
 
+function normalizeChatgptProjectUrl(value) {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  try {
+    const url = new URL(value.trim());
+    if (url.protocol !== 'https:' || url.hostname !== 'chatgpt.com'
+      || url.username || url.password || url.port || url.search || url.hash
+      || !/^\/g\/g-p-[A-Za-z0-9_-]+\/project\/?$/.test(url.pathname)) return null;
+    return `https://chatgpt.com${url.pathname.replace(/\/$/, '')}`;
+  } catch {
+    return null;
+  }
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === 'fractured:open-spellcheck' && typeof message.jobId === 'string') {
-    const url = `https://chatgpt.com/?fractured-spellcheck=${encodeURIComponent(message.jobId)}`;
-    chrome.tabs.create({ url, active: false }, (tab) => {
-      const error = chrome.runtime.lastError;
-      sendResponse(error
-        ? { ok: false, error: error.message }
-        : { ok: true, tabId: tab?.id ?? null });
+    void (async () => {
+      const settings = await chrome.storage.local.get({
+        spellcheckUseChatgptProject: false,
+        spellcheckChatgptProjectUrl: '',
+      });
+      const projectMode = settings.spellcheckUseChatgptProject === true;
+      const projectUrl = projectMode
+        ? normalizeChatgptProjectUrl(settings.spellcheckChatgptProjectUrl) : null;
+      if (projectMode && !projectUrl) {
+        sendResponse({
+          ok: false,
+          error: 'Enter a valid ChatGPT Project URL in Fractured settings, or turn off project routing.',
+        });
+        return;
+      }
+      const target = new URL(projectUrl || 'https://chatgpt.com/');
+      target.searchParams.set('fractured-spellcheck', message.jobId);
+      if (projectMode) target.searchParams.set('fractured-project', '1');
+      chrome.tabs.create({ url: target.href, active: false }, (tab) => {
+        const error = chrome.runtime.lastError;
+        sendResponse(error
+          ? { ok: false, error: error.message }
+          : { ok: true, tabId: tab?.id ?? null });
+      });
+    })().catch((error) => {
+      sendResponse({ ok: false, error: error?.message || 'Could not open ChatGPT for spellcheck.' });
     });
     return true;
   }
@@ -116,3 +165,72 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 void applyActionIcon();
+
+
+// Curated, safe-rated fandom artworks. Fetch via the extension worker so that
+// GitHub's content security policy cannot break the images.
+const FRACTURED_404_IMAGE_IDS = [2961898, 2962441, 3150400, 2988636];
+const fractured404Cache = new Map();
+let fractured404LastId = null;
+
+async function loadFractured404Artwork(id) {
+  const cached = fractured404Cache.get(id);
+  if (cached && Date.now() - cached.createdAt < 30 * 60 * 1000) return cached.value;
+
+  const response = await fetch('https://derpibooru.org/api/v1/json/images/' + id, {
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!response.ok) throw new Error('Artwork metadata unavailable');
+  const { image } = await response.json();
+  const tags = Array.isArray(image?.tags) ? image.tags : [];
+  const artistTag = tags.find(tag => /^artist:[^ ]/i.test(tag));
+  if (!image || image.id !== id || !tags.includes('safe') || !artistTag) {
+    throw new Error('Artwork is not verified as safe and credited');
+  }
+  const imageUrl = image.representations?.large || image.representations?.medium;
+  const cdn = new URL(imageUrl);
+  if (cdn.protocol !== 'https:' || cdn.hostname !== 'derpicdn.net') {
+    throw new Error('Unexpected artwork host');
+  }
+  const asset = await fetch(cdn.href, { signal: AbortSignal.timeout(15000) });
+  const mime = (asset.headers.get('content-type') || '').split(';')[0].toLowerCase();
+  if (!asset.ok || !/^image\/(?:jpeg|png|webp|gif)$/.test(mime)) {
+    throw new Error('Artwork image unavailable');
+  }
+  const bytes = new Uint8Array(await asset.arrayBuffer());
+  if (!bytes.length || bytes.length > 5 * 1024 * 1024) throw new Error('Artwork too large');
+  let binary = '';
+  for (let offset = 0; offset < bytes.length; offset += 8192) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 8192));
+  }
+  let sourceUrl = '';
+  try {
+    const parsed = new URL(image.source_url || '');
+    if (parsed.protocol === 'https:') sourceUrl = parsed.href;
+  } catch {
+    // Source URL is optional; the Derpibooru post remains linked.
+  }
+  const value = {
+    ok: true,
+    id,
+    imageDataUrl: 'data:' + mime + ';base64,' + btoa(binary),
+    artist: artistTag.slice('artist:'.length),
+    postUrl: 'https://derpibooru.org/images/' + id,
+    sourceUrl,
+  };
+  fractured404Cache.set(id, { createdAt: Date.now(), value });
+  return value;
+}
+
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type !== 'fractured:load-404-fan-art') return false;
+  const candidates = FRACTURED_404_IMAGE_IDS.filter(id =>
+    id !== message.excludeId && id !== fractured404LastId);
+  const pool = candidates.length ? candidates : FRACTURED_404_IMAGE_IDS;
+  const id = pool[Math.floor(Math.random() * pool.length)];
+  fractured404LastId = id;
+  void loadFractured404Artwork(id)
+    .then(sendResponse)
+    .catch(error => sendResponse({ ok: false, error: String(error.message || error) }));
+  return true;
+});
