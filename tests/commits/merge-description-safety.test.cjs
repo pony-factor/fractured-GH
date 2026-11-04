@@ -22,6 +22,7 @@ function mount(feature, pathname, action, mergeIds = false) {
       this.type = "text";
       this.labels = [];
       this.attributes = new Set();
+      this.listeners = new Map();
     }
     getAttribute(name) { return name === "name" ? this.name : null; }
     closest(selector) {
@@ -31,8 +32,13 @@ function mount(feature, pathname, action, mergeIds = false) {
     hasAttribute(name) { return this.attributes.has(name); }
     setAttribute(name) { this.attributes.add(name); }
     removeAttribute(name) { this.attributes.delete(name); }
-    dispatchEvent() {}
-    addEventListener() {}
+    dispatchEvent(event) {
+      for (const listener of this.listeners.get(event.type) || []) listener(event);
+    }
+    addEventListener(type, listener) {
+      if (!this.listeners.has(type)) this.listeners.set(type, []);
+      this.listeners.get(type).push(listener);
+    }
   }
   class Textarea extends Input {}
   const form = new Form();
@@ -42,14 +48,15 @@ function mount(feature, pathname, action, mergeIds = false) {
 
   const source = fs.readFileSync(path.join(__dirname, "../../features/commits", feature), "utf8");
   const exports = feature === "message-simplifier.js"
-    ? "isTitle, isBody, prepare, beforeSubmit, activate: () => { enabled = true; }"
+    ? "isTitle, isBody, scan, prepare, beforeSubmit, activate: () => { enabled = true; }"
     : "isCommitTitleField, prefixField, activate: () => { enabled = true; }";
   const context = vm.createContext({
     Element, HTMLFormElement: Form, HTMLInputElement: Input, HTMLTextAreaElement: Textarea,
-    Document: class {}, DocumentFragment: class {}, Event: class {},
+    Document: class {}, DocumentFragment: class {}, Event: class { constructor(type) { this.type = type; } },
     document: { addEventListener() {}, removeEventListener() {}, querySelectorAll() { return []; } },
     window: { location: { pathname }, addEventListener() {}, removeEventListener() {} },
     MutationObserver: class { observe() {} disconnect() {} },
+    requestAnimationFrame(callback) { callback(); },
     chrome: { storage: { onChanged: { addListener() {} }, local: { get: async defaults => defaults } } },
   });
   vm.runInContext(source.replace(/\}\)\(\);\s*$/, "globalThis.testHelpers = { " + exports + " };\n})();"), context);
@@ -61,6 +68,7 @@ test("squash merge messages and titles survive commit simplification without oth
   const originalTitle = page.title.value;
   const originalDescription = page.description.value;
   page.activate();
+  page.scan(page.form);
   assert.equal(page.isTitle(page.title), false);
   assert.equal(page.isBody(page.description), false);
   page.beforeSubmit({ target: page.form });
@@ -78,11 +86,40 @@ test("merge actions protect messages even without GitHub's old merge field ids",
   }
 });
 
-test("ordinary commit descriptions still clear when simplification is enabled", () => {
+test("ordinary commit descriptions clear when the editor opens, not on submission", () => {
   const page = mount("message-simplifier.js", "/owner/repo/edit/main/file.js", "Commit changes");
   page.activate();
-  page.beforeSubmit({ target: page.form });
+  page.scan(page.form);
   assert.equal(page.description.value, "");
+  page.description.value = "Additional implementation details";
+  page.description.dispatchEvent({ type: "input" });
+  page.scan(page.form);
+  page.beforeSubmit({ target: page.form });
+  assert.equal(page.description.value, "Additional implementation details");
+});
+
+test("late generated descriptions clear before edits, but user text is preserved", () => {
+  const page = mount("message-simplifier.js", "/owner/repo/edit/main/file.js", "Commit changes");
+  page.activate();
+  page.description.value = "";
+  page.scan(page.form);
+  page.description.value = "Automatically generated explanation";
+  page.scan(page.form);
+  assert.equal(page.description.value, "");
+  page.description.value = "My additional information";
+  page.description.dispatchEvent({ type: "input" });
+  page.scan(page.form);
+  assert.equal(page.description.value, "My additional information");
+  page.beforeSubmit({ target: page.form });
+  assert.equal(page.description.value, "My additional information");
+});
+
+test("disabled commit simplification does not clear descriptions", () => {
+  const page = mount("message-simplifier.js", "/owner/repo/edit/main/file.js", "Commit changes");
+  const original = page.description.value;
+  page.scan(page.form);
+  page.beforeSubmit({ target: page.form });
+  assert.equal(page.description.value, original);
 });
 
 test("commit emoji prefixing does not rewrite PR merge titles", () => {
