@@ -197,7 +197,7 @@ test('shows Fractured branding outside repositories and restores owner avatars o
   const feature = harness(true);
   await feature.settle();
 
-  for (const pathname of ['/', '/stellar', '/orgs/stellar/repositories', '/settings/profile', '/search']) {
+  for (const pathname of ['/', '/orgs', '/organizations/new', '/settings/profile', '/search']) {
     // Keep the previous repository metadata to simulate GitHub's stale Turbo state.
     feature.navigate(pathname);
     await feature.settle();
@@ -215,6 +215,32 @@ test('shows Fractured branding outside repositories and restores owner avatars o
   assert.equal(feature.logo.getAttribute('data-fractured-owner-logo'), 'stellar');
   assert.equal(feature.logo.hasAttribute('data-fractured-brand-logo'), false);
   assert.equal(feature.logo.getAttribute('href'), '/stellar');
+});
+
+test("keeps account avatars on profile and organization pages, including in-app navigation", async () => {
+  const feature = harness(true);
+  await feature.settle();
+  for (const [pathname, eventName, owner] of [
+    ["/stellar", "turbo:load", "stellar"],
+    ["/orgs/stellar/repositories", "pjax:end", "stellar"],
+    ["/organizations/stellar/repositories/new", "popstate", "stellar"],
+    ["/JFWooten4", "turbo:load", "JFWooten4"],
+  ]) {
+    // Simulate stale metadata left behind by the previously visited repository.
+    feature.navigate(pathname, eventName, "pony-factor/fractured-GH");
+    await feature.settle();
+    assert.equal(feature.logo.getAttribute("data-fractured-owner-logo"), owner);
+    assert.equal(feature.logo.hasAttribute("data-fractured-brand-logo"), false);
+    assert.equal(feature.logo.getAttribute("href"), "/" + owner);
+    assert.equal(feature.logo.querySelector("[data-fractured-owner-avatar]")?.src,
+      "https://github.com/" + owner + ".png?size=64");
+    assert.equal(feature.logo.children.length, 1);
+  }
+
+  feature.navigate("/organizations/new");
+  await feature.settle();
+  assert.equal(feature.logo.hasAttribute("data-fractured-owner-logo"), false);
+  assert.equal(feature.logo.hasAttribute("data-fractured-brand-logo"), true);
 });
 
 test('does not brand a different repository while GitHub metadata is stale', async () => {

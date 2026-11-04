@@ -21,36 +21,44 @@
     return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
   }
 
-  function repositoryOwner() {
-    // GitHub can preserve stale octolytics metadata across Turbo/PJAX navigation,
-    // especially when following a fork back to a different repository owner.
-    // The current route is the source of truth for repository-page branding.
-    const parts = location.pathname.split('/').filter(Boolean);
-    if (parts.length < 2) return '';
-    // Error pages and non-repository routes must retain GitHub's original mark.
-    if (document.querySelector('#parallax_wrapper, .container-404, .error-404')
-      || /(?:404|page not found)/i.test(document.title)) return '';
+  function pageOwner() {
+    // Resolve account and organization routes from the URL, but only treat a
+    // two-segment path as a repository when its metadata matches that route.
+    const parts = location.pathname.split("/").filter(Boolean);
+    if (!parts.length) return null;
+    // Preserve the branded fallback on missing profiles, repositories, and 404 pages.
+    if (document.querySelector("#parallax_wrapper, .container-404, .error-404")
+      || /(?:404|page not found)/i.test(document.title)) return null;
 
+    const root = parts[0].toLowerCase();
+    const organizationRoute = (root === "orgs" && parts.length >= 2)
+      || (root === "organizations" && parts.length >= 3
+        && parts[1].toLowerCase() !== "new");
     const reservedRoots = new Set([
-      'about', 'account', 'apps', 'codespaces', 'collections', 'dashboard',
-      'enterprise', 'events', 'explore', 'features', 'issues', 'login',
-      'marketplace', 'new', 'notifications', 'organizations', 'orgs',
-      'pricing', 'pulls', 'search', 'security', 'sessions', 'settings',
-      'signup', 'site', 'sponsors', 'stars', 'topics', 'trending', 'users',
+      "about", "account", "apps", "codespaces", "collections", "dashboard",
+      "enterprise", "events", "explore", "features", "issues", "login",
+      "marketplace", "new", "notifications", "organizations", "orgs",
+      "pricing", "pulls", "search", "security", "sessions", "settings",
+      "signup", "site", "sponsors", "stars", "topics", "trending", "users",
     ]);
-    if (reservedRoots.has(parts[0].toLowerCase())) return '';
+    if (!organizationRoute && reservedRoots.has(root)) return null;
 
     try {
-      const owner = decodeURIComponent(parts[0]);
+      const owner = decodeURIComponent(organizationRoute ? parts[1] : parts[0]);
+      if (!/^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$/i.test(owner)) return null;
+      if (organizationRoute || parts.length === 1) {
+        return { owner, repository: false };
+      }
+
       const repo = decodeURIComponent(parts[1]);
       const nwo = document.querySelector('meta[name="octolytics-dimension-repository_nwo"]')
-        ?.getAttribute('content') || '';
-      // The route AND repository metadata must agree. Stale Turbo metadata alone
-      // must never turn a missing profile/repository into a broken avatar.
-      return /^[a-z\d](?:[a-z\d-]{0,37}[a-z\d])?$/i.test(owner)
-        && nwo.toLowerCase() === (owner + '/' + repo).toLowerCase() ? owner : '';
+        ?.getAttribute("content") || "";
+      // Never infer a repository from stale metadata or an arbitrary account subpath.
+      return nwo.toLowerCase() === (owner + "/" + repo).toLowerCase()
+        ? { owner, repository: true }
+        : null;
     } catch {
-      return '';
+      return null;
     }
   }
 
@@ -346,7 +354,8 @@
       return;
     }
 
-    const owner = repositoryOwner();
+    const page = pageOwner();
+    const owner = page?.owner || "";
     const header = appHeader();
 
     if (!header) {
@@ -374,7 +383,8 @@
     ensureStyle();
     currentOwner = owner;
     installOwnerAvatar(header, owner);
-    hideOwnerName(header, owner);
+    if (page.repository) hideOwnerName(header, owner);
+    else clearHiddenOwnerNames();
   }
 
   function queueRefresh() {
