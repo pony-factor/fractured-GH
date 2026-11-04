@@ -3,6 +3,7 @@
 
   const REFRESH_INTERVAL_MS = 60_000;
   const DOM_REFRESH_DELAY_MS = 100;
+  const REQUEST_TIMEOUT_MS = 15_000;
   const CONTROL_ATTRIBUTE = 'data-github-tweaks-organization-notification';
   const DEFAULT_CONTROL_SELECTORS = [
     '#AppHeader-notifications-button',
@@ -17,6 +18,7 @@
   let unreadOrganizations = new Set();
   let refreshGeneration = 0;
   let domRefreshTimer = null;
+  let activeRefresh = null;
 
   function normalizeOrganization(value) {
     return String(value || '')
@@ -127,28 +129,34 @@
   }
 
   async function hasUnreadNotifications(organization) {
-    const response = await window.fetch(
-      notificationUrl(organization, { unreadOnly: true }),
-      {
-        credentials: 'same-origin',
-        cache: 'no-store',
-        headers: {
-          Accept: 'text/html',
-          'X-Requested-With': 'XMLHttpRequest',
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const response = await window.fetch(
+        notificationUrl(organization, { unreadOnly: true }),
+        {
+          signal: controller.signal,
+          credentials: 'same-origin',
+          cache: 'no-store',
+          headers: {
+            Accept: 'text/html',
+            'X-Requested-With': 'XMLHttpRequest',
+          },
         },
-      },
-    );
-
-    if (!response.ok) {
-      throw new Error(
-        `Notification request for ${organization} returned ${response.status}`,
       );
-    }
 
-    return responseHasNotifications(await response.text());
+      if (!response.ok) {
+        throw new Error(`Notification request returned ${response.status}`);
+      }
+
+      return responseHasNotifications(await response.text());
+    } finally {
+      window.clearTimeout(timeout);
+    }
   }
 
   async function refreshOrganizationNotifications() {
+    if (activeRefresh?.generation === refreshGeneration) return;
     const generation = ++refreshGeneration;
 
     if (!enabled || organizations.length === 0) {
@@ -157,23 +165,31 @@
       return;
     }
 
-    const results = await Promise.all(organizations.map(async (organization) => {
-      try {
-        return [organization, await hasUnreadNotifications(organization)];
-      } catch (error) {
-        console.warn('[GitHub Tweaks]', error.message);
-        return [organization, false];
-      }
-    }));
+    const refresh = { generation };
+    activeRefresh = refresh;
+    try {
+      const results = await Promise.all(organizations.map(async (organization) => {
+        try {
+          return [organization, await hasUnreadNotifications(organization)];
+        } catch {
+          // A failed poll does not establish that an organization's inbox is empty.
+          // Retry on the next refresh without adding routine network errors to
+          // the browser's extension error list.
+          return [organization, unreadOrganizations.has(organization.toLowerCase())];
+        }
+      }));
 
-    if (generation !== refreshGeneration) return;
+      if (generation !== refreshGeneration) return;
 
-    unreadOrganizations = new Set(
-      results
-        .filter(([, hasUnread]) => hasUnread)
-        .map(([organization]) => organization.toLowerCase()),
-    );
-    renderOrganizationControls();
+      unreadOrganizations = new Set(
+        results
+          .filter(([, hasUnread]) => hasUnread)
+          .map(([organization]) => organization.toLowerCase()),
+      );
+      renderOrganizationControls();
+    } finally {
+      if (activeRefresh === refresh) activeRefresh = null;
+    }
   }
 
   async function loadSettings() {
@@ -182,6 +198,8 @@
       notificationOrganizations: [],
     });
 
+    // Invalidate requests made with the previous settings.
+    ++refreshGeneration;
     enabled = Boolean(settings.organizationNotificationInboxesEnabled);
     organizations = normalizeOrganizations(settings.notificationOrganizations);
     void refreshOrganizationNotifications();
