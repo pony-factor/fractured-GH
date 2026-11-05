@@ -98,16 +98,17 @@
 
   function descriptor(field) {
     const labels = field.labels ? [...field.labels].map(label => label.textContent || "") : [];
-    return [field.id, field.name, field.getAttribute("aria-label"), ...labels]
+    return [field.id, field.name, field.getAttribute("aria-label"), field.getAttribute("placeholder"), ...labels]
       .filter(Boolean).join(" ").replace(/[_-]/g, " ").toLowerCase();
   }
 
   function mergeFields(scope) {
     const fields = [...scope.querySelectorAll(selectors)];
     const title = scope.querySelector("#merge_title_field") || fields.find(field =>
-      /(?:merge|commit).{0,20}(?:title|subject)/.test(descriptor(field)));
+      !/\b(?:description|body|extended|details)\b/.test(descriptor(field))
+      && /(?:merge|commit).{0,20}(?:title|subject|message)/.test(descriptor(field)));
     const body = scope.querySelector("#merge_message_field") || fields.find(field =>
-      field !== title && /(?:merge|commit).{0,20}(?:message|description|body)/.test(descriptor(field)));
+      field !== title && /\b(?:message|description|body|extended|details)\b/.test(descriptor(field)));
     return title && body ? { title, body } : null;
   }
 
@@ -139,19 +140,25 @@
     const title = pr && prTitle(pr.number);
     if (!pr || !fields || !title || !isSquash(scope)) return;
     const body = squashBody(fields.body.value, settings);
-    if (body === null) {
-      status.textContent = "The original commit list is unavailable; the merge message was not changed.";
-      return;
-    }
     const subject = squashTitle(title, pr.number);
     if (fields.title.value !== subject) update(fields.title, subject);
-    if (fields.body.value !== body) update(fields.body, body);
-    status.textContent = "SweetieBot formatting applied. Review before confirming the merge.";
+    if (body !== null && fields.body.value !== body) update(fields.body, body);
+    status.textContent = body === null
+      ? "PR title applied. Description preserved because it is not a commit list. Review before confirming the merge."
+      : "SweetieBot formatting applied. Review before confirming the merge.";
   }
 
   function scan() {
     if (!settings.webSquashFormattingEnabled || !prInfo()) return;
-    for (const scope of document.querySelectorAll("#merge_pull_request_form, form, [role=\"dialog\"]")) {
+    const scopes = new Set(document.querySelectorAll("#merge_pull_request_form, form, [role=\"dialog\"]"));
+    // React merge panels may have no form or dialog ancestor. Find the nearest
+    // shared container with both fields and the explicit squash action.
+    for (const field of document.querySelectorAll(selectors)) {
+      for (let parent = field.parentElement; parent && parent !== document.body; parent = parent.parentElement) {
+        if (mergeFields(parent) && isSquash(parent)) { scopes.add(parent); break; }
+      }
+    }
+    for (const scope of scopes) {
       const fields = mergeFields(scope);
       if (!fields || !isSquash(scope) || scope.querySelector("[" + MARK + "]")) continue;
       const button = document.createElement("button");

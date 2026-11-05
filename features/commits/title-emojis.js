@@ -72,14 +72,9 @@
   }
 
   function isManagedSquash(field) {
-    // PR merge messages contain commit lists and attribution, not disposable AI descriptions.
-    if (!/^\/[^/]+\/[^/]+\/pull\/\d+(?:\/|$)/.test(window.location.pathname)) return false;
-    if (field.id === "merge_title_field" || field.id === "merge_message_field"
-      || field.closest("#merge_pull_request_form")) return true;
-    const scope = commitScope(field);
-    return Boolean(scope) && Array.from(scope.querySelectorAll("button, input[type=\"submit\"], input[type=\"button\"]"))
-      .some(control => /\b(?:squash and merge|rebase and merge|merge pull request|confirm merge|confirm squash|confirm rebase)\b/i
-        .test(control.textContent || control.value || ""));
+    // Protect the entire PR route before React hydrates fields or merge controls.
+    // Nested commit panels can appear before their surrounding merge dialog.
+    return /^\/[^/]+\/[^/]+\/pull\/\d+(?:\/|$)/.test(window.location.pathname);
   }
 
   function isCommitTitleField(field) {
