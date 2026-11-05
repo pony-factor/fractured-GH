@@ -49,7 +49,7 @@ function mount(feature, pathname, action, mergeIds = false) {
   const source = fs.readFileSync(path.join(__dirname, "../../features/commits", feature), "utf8");
   const exports = feature === "message-simplifier.js"
     ? "isTitle, isBody, scan, prepare, beforeSubmit, activate: () => { enabled = true; }"
-    : "isCommitTitleField, prefixField, activate: () => { enabled = true; }";
+    : "isCommitTitleField, prefixField, bindField, scan, activate: () => { enabled = true; }";
   const context = vm.createContext({
     Element, HTMLFormElement: Form, HTMLInputElement: Input, HTMLTextAreaElement: Textarea,
     Document: class {}, DocumentFragment: class {}, Event: class { constructor(type) { this.type = type; } },
@@ -156,4 +156,91 @@ test("SweetieBot-formatted merge summaries and co-author dividers are not cleare
   page.activate();
   page.prepare(page.form);
   assert.equal(page.description.value, formatted);
+});
+
+
+test("emoji suggestions run once and leave later edits alone", () => {
+  const page = mount("title-emojis.js", "/owner/repo/edit/main/file.js", "Commit changes");
+  page.activate();
+  page.bindField(page.title);
+  assert.equal(page.title.value, "🔧 Update code");
+  for (const value of ["Update code", "", "🔧", "🎨 My title", "A replacement title"]) {
+    page.title.value = value;
+    for (const type of ["input", "change", "blur"]) page.title.dispatchEvent({ type });
+    page.scan(page.form);
+    page.prefixField(page.title);
+    assert.equal(page.title.value, value);
+  }
+});
+
+test("empty editors wait for the first input and preserve the caret", () => {
+  const page = mount("title-emojis.js", "/owner/repo/edit/main/file.js", "Commit changes");
+  page.activate();
+  page.title.value = "";
+  page.bindField(page.title);
+  assert.equal(page.title.value, "");
+  page.title.value = "A";
+  page.title.selectionStart = 1;
+  page.title.selectionEnd = 1;
+  page.title.selectionDirection = "none";
+  page.title.setSelectionRange = (start, end, direction) => {
+    assert.deepEqual([start, end, direction], [4, 4, "none"]);
+  };
+  page.title.dispatchEvent({ type: "input" });
+  assert.equal(page.title.value, "🔧 A");
+  page.scan(page.form);
+  assert.equal(page.title.value, "🔧 A");
+});
+
+test("existing emoji including bare emoji are never duplicated or restored", () => {
+  for (const value of ["🔧", "🕷️ Fix code", "👩‍💻 Code", "🇺🇸 Title", "1️⃣ Title"]) {
+    const page = mount("title-emojis.js", "/owner/repo/edit/main/file.js", "Commit changes");
+    page.activate();
+    page.title.value = value;
+    page.bindField(page.title);
+    assert.equal(page.title.value, value);
+    page.title.value = "";
+    page.scan(page.form);
+    page.title.value = "My title";
+    page.title.dispatchEvent({ type: "input" });
+    assert.equal(page.title.value, "My title");
+  }
+});
+
+test("late initial titles receive one suggestion without replacing their wording", () => {
+  const page = mount("title-emojis.js", "/owner/repo/edit/main/file.js", "Commit changes");
+  page.activate();
+  page.title.value = "";
+  page.bindField(page.title);
+  page.title.value = "Sync branch with main";
+  page.scan(page.form);
+  assert.equal(page.title.value, "🔄 Sync branch with main");
+  page.title.value = "Sync my branch";
+  page.scan(page.form);
+  assert.equal(page.title.value, "Sync my branch");
+});
+
+test("composition completes before the first emoji is suggested", () => {
+  const page = mount("title-emojis.js", "/owner/repo/edit/main/file.js", "Commit changes");
+  page.activate();
+  page.title.value = "";
+  page.bindField(page.title);
+  page.title.value = "入力";
+  page.title.dispatchEvent({ type: "input", isComposing: true });
+  page.scan(page.form);
+  assert.equal(page.title.value, "入力");
+  page.title.dispatchEvent({ type: "compositionend" });
+  assert.equal(page.title.value, "🔧 入力");
+});
+
+
+test("reentrant input events cannot insert a second prefix", () => {
+  const page = mount("title-emojis.js", "/owner/repo/edit/main/file.js", "Commit changes");
+  page.activate();
+  page.title.value = "";
+  page.bindField(page.title);
+  page.title.addEventListener("input", () => page.scan(page.form));
+  page.title.value = "Update code";
+  page.title.dispatchEvent({ type: "input" });
+  assert.equal(page.title.value, "🔧 Update code");
 });
