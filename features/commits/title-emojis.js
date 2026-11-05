@@ -3,7 +3,7 @@
 
   let enabled = false;
   const BOUND_ATTR = 'data-fractured-commit-emoji-bound';
-  const WRITING_ATTR = 'data-fractured-commit-emoji-writing';
+  const HANDLED_ATTR = 'data-fractured-commit-emoji-handled';
   const BUG_EMOJIS = ['🐛', '🐜', '🐝', '🐞', '🦗', '🕷️', '🦟'];
   const FINANCIAL_INCLUSION_EMOJIS = ['🌍', '🌎', '🌏'];
   const SECURITY_EMOJIS = [
@@ -11,7 +11,7 @@
     '🔨', '🪓', '⛏️', '⚒️', '🛠️', '🧲', '🛡️', '🦯', '🔗', '⛓️', '⚗️', '🧪', '🧬', '🔬',
     '🔭', '💊', '🩹',
   ];
-  const EMOJI_PREFIX_RE = /^\p{Extended_Pictographic}(?:\uFE0E|\uFE0F)?(?:\u200D\p{Extended_Pictographic}(?:\uFE0E|\uFE0F)?)*\s+/u;
+  const EMOJI_PREFIX_RE = /^(?:\p{Extended_Pictographic}|\p{Regional_Indicator}{2}|[0-9#*]\uFE0F?\u20E3)/u;
   const COMMIT_ACTION_RE = /\b(commit changes|propose changes|merge pull request|squash and merge|rebase and merge|confirm merge|confirm squash|confirm rebase)\b/i;
   const CODE_PATH_RE = /\.(?:[cm]?[jt]sx?|py|rb|rs|go|java|kt|kts|swift|php|cs|c|cc|cpp|h|hpp|scala|sh|zsh|fish|ps1|lua|ex|exs|erl|hrl|fs|fsx|vb|r|dart|sol|move|css|scss|sass|less|vue|svelte)$/i;
   const WRITING_PATH_RE = /\.(?:md|mdx|txt|rst|adoc|tex|org)$/i;
@@ -187,19 +187,24 @@
   }
 
   function prefixField(field) {
-    if (!enabled || !isCommitTitleField(field) || field.hasAttribute(WRITING_ATTR)) return;
+    if (!enabled || !isCommitTitleField(field) || field.hasAttribute(HANDLED_ATTR)) return;
 
     const title = field.value.trim();
-    if (!title || EMOJI_PREFIX_RE.test(title)) return;
+    if (!title) return;
+
+    // Claim this draft before dispatching events, which can trigger another scan.
+    // Existing emoji also count: deleting or replacing them is the user's choice.
+    field.setAttribute(HANDLED_ATTR, 'true');
+    if (EMOJI_PREFIX_RE.test(title)) return;
 
     const emoji = classifyEmoji(title, field);
-    const nextTitle = emoji === '🔄' ? '🔄 Sync brach to main' : `${emoji} ${title}`;
-
-    field.setAttribute(WRITING_ATTR, 'true');
-    try {
-      setNativeValue(field, nextTitle);
-    } finally {
-      field.removeAttribute(WRITING_ATTR);
+    const prefix = `${emoji} `;
+    const start = field.selectionStart;
+    const end = field.selectionEnd;
+    const direction = field.selectionDirection;
+    setNativeValue(field, prefix + field.value);
+    if (typeof start === 'number' && typeof end === 'number') {
+      field.setSelectionRange(start + prefix.length, end + prefix.length, direction);
     }
   }
 
@@ -211,9 +216,10 @@
     }
 
     field.setAttribute(BOUND_ATTR, 'true');
-    const ensurePrefix = () => window.requestAnimationFrame(() => prefixField(field));
-    field.addEventListener('change', ensurePrefix);
-    field.addEventListener('blur', ensurePrefix);
+    field.addEventListener('input', (event) => {
+      if (!event.isComposing) prefixField(field);
+    });
+    field.addEventListener('compositionend', () => prefixField(field));
     prefixField(field);
   }
 
@@ -223,21 +229,6 @@
     if (!(root instanceof Document || root instanceof DocumentFragment || root instanceof Element)) return;
 
     root.querySelectorAll('input:not([type]), input[type="text"], textarea').forEach(bindField);
-  }
-
-  function beforeSubmit(event) {
-    const form = event.target;
-    if (!(form instanceof HTMLFormElement)) return;
-    form.querySelectorAll('input:not([type]), input[type="text"], textarea').forEach(prefixField);
-  }
-
-  function beforeClick(event) {
-    const control = event.target instanceof Element
-      ? event.target.closest('button, input[type="submit"], input[type="button"]')
-      : null;
-    if (!control || !COMMIT_ACTION_RE.test(control.textContent || control.value || '')) return;
-    const scope = control.closest('form, [role="dialog"]') || document;
-    scope.querySelectorAll('input:not([type]), input[type="text"], textarea').forEach(prefixField);
   }
 
   let scanQueued = false;
@@ -256,17 +247,13 @@
     if (enabled === nextEnabled) return;
     enabled = nextEnabled;
     observer.disconnect();
-    document.removeEventListener('submit', beforeSubmit, true);
-    document.removeEventListener('click', beforeClick, true);
     document.removeEventListener('turbo:load', scanPage);
     document.removeEventListener('pjax:end', scanPage);
     window.removeEventListener('popstate', scanPage);
     if (!enabled) return;
 
-    // React can replace a generated title on an already bound input.
+    // Discover new editors and late initial titles without rewriting handled drafts.
     observer.observe(document, { childList: true, subtree: true, attributes: true, attributeFilter: ['value'] });
-    document.addEventListener('submit', beforeSubmit, true);
-    document.addEventListener('click', beforeClick, true);
     document.addEventListener('turbo:load', scanPage);
     document.addEventListener('pjax:end', scanPage);
     window.addEventListener('popstate', scanPage);
