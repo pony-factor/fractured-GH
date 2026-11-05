@@ -51,6 +51,7 @@ const notificationOrganizationsList = document.getElementById('notification-orga
 const addNotificationOrganizationButton = document.getElementById('add-notification-organization');
 const notificationOrganizationTemplate = document.getElementById('notification-organization-template');
 const userNicknamesInput = document.getElementById('user-nicknames-enabled');
+const rainbowOwnMentionsInput = document.getElementById('rainbow-own-mentions-enabled');
 const preferDisplayNamesInput = document.getElementById('prefer-display-names-enabled');
 const conversationFirstNamesInput = document.getElementById('conversation-first-names-enabled');
 const userNicknamesList = document.getElementById('user-nicknames');
@@ -390,6 +391,7 @@ async function loadSettings() {
     excludeOrganizationNotificationsFromMainInbox: false,
     notificationOrganizations: [],
     userNicknamesEnabled: true,
+    rainbowOwnMentionsEnabled: false,
     userNicknames: [],
     conversationFirstNamesEnabled: false,
     preferDisplayNamesEnabled: false,
@@ -445,6 +447,7 @@ async function loadSettings() {
   organizationInboxesInput.checked = Boolean(settings.organizationNotificationInboxesEnabled);
   excludeOrganizationNotificationsInput.checked = Boolean(settings.excludeOrganizationNotificationsFromMainInbox);
   userNicknamesInput.checked = Boolean(settings.userNicknamesEnabled);
+  rainbowOwnMentionsInput.checked = settings.rainbowOwnMentionsEnabled === true;
   preferDisplayNamesInput.checked = Boolean(settings.preferDisplayNamesEnabled);
   conversationFirstNamesInput.checked = Boolean(settings.conversationFirstNamesEnabled);
   muteUsersInput.checked = Boolean(settings.muteUsersEnabled);
@@ -558,6 +561,7 @@ async function saveSettings() {
     excludeOrganizationNotificationsFromMainInbox: excludeOrganizationNotificationsInput.checked,
     notificationOrganizations,
     userNicknamesEnabled: userNicknamesInput.checked,
+    rainbowOwnMentionsEnabled: rainbowOwnMentionsInput.checked,
     preferDisplayNamesEnabled: preferDisplayNamesInput.checked,
     userNicknames,
     conversationFirstNamesEnabled: conversationFirstNamesInput.checked,
@@ -623,6 +627,7 @@ addNotificationOrganizationButton.addEventListener('click', () => {
   addNotificationOrganizationRow('', { focus: true });
 });
 userNicknamesInput.addEventListener('change', () => void saveSettings());
+rainbowOwnMentionsInput.addEventListener('change', () => void saveSettings());
 preferDisplayNamesInput.addEventListener('change', () => void saveSettings());
 conversationFirstNamesInput.addEventListener('change', () => void saveSettings());
 addUserNicknameButton.addEventListener('click', () => {

@@ -105,3 +105,26 @@ test('permalink styling outranks the blue review styling', () => {
   assert.match(css, /\[data-fractured-linked-comment\]\s*\{/);
   assert.match(css, /\.fractured-linked-comment-label/);
 });
+
+test('rainbow mentions identify only the signed-in user in comment bodies', () => {
+  const { isOwnMention } = require('../../features/people/comment-highlights.js');
+  const mention = (href, { inBody = true, userMention = true } = {}) => ({
+    getAttribute: () => href,
+    matches: () => userMention,
+    closest: () => inBody ? {} : null,
+  });
+  assert.equal(isOwnMention(mention('/Windsor'), 'windsor', 'https://github.com'), true);
+  assert.equal(isOwnMention(mention('/Windsor'), 'someone-else', 'https://github.com'), false);
+  assert.equal(isOwnMention(mention('/Windsor', { inBody: false }), 'windsor', 'https://github.com'), false);
+  assert.equal(isOwnMention(mention('/Windsor', { userMention: false }), 'windsor', 'https://github.com'), false);
+  assert.equal(isOwnMention(mention('https://example.com/Windsor'), 'windsor', 'https://github.com'), false);
+  assert.equal(isOwnMention(mention('/owner/repo'), 'windsor', 'https://github.com'), false);
+  assert.equal(isOwnMention(mention('/Windsor'), '', 'https://github.com'), false);
+});
+
+test('rainbow mention styling overrides the native accent without affecting other mentions', () => {
+  const css = fs.readFileSync(path.join(__dirname, '../../features/comment-highlights.css'), 'utf8');
+  assert.match(css, /a\.user-mention\[data-fractured-rainbow-mention\]\s*\{/);
+  assert.match(css, /background: linear-gradient\([\s\S]*?!important/);
+  assert.match(css, /color: #1b1f24 !important/);
+});

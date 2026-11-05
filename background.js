@@ -16,6 +16,7 @@ const DEFAULT_SETTINGS = {
   organizationNotificationInboxesEnabled: false,
   notificationOrganizations: [],
   userNicknamesEnabled: true,
+  rainbowOwnMentionsEnabled: false,
   userNicknames: [],
   conversationFirstNamesEnabled: false,
   preferDisplayNamesEnabled: false,

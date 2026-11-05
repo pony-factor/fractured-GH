@@ -3,6 +3,7 @@
 
   const OWN_REVIEW_ATTR = 'data-fractured-own-review';
   const LINKED_ATTR = 'data-fractured-linked-comment';
+  const RAINBOW_MENTION_ATTR = 'data-fractured-rainbow-mention';
   const LABEL_CLASS = 'fractured-linked-comment-label';
   const COMMENT_SELECTOR = [
     '.timeline-comment', '.review-comment', '.js-comment',
@@ -30,6 +31,11 @@
     '.TimelineItem-body a.author[href]',
     'a.author[href]',
   ].join(',');
+  const MENTION_BODY_SELECTOR = [
+    '.comment-body', '.markdown-body',
+    '[data-testid="issue-body"]', '[data-testid="pull-request-body"]',
+    '[data-testid="comment-body"]', '[data-testid="comment-content"]',
+  ].join(',');
   const HEADER_SELECTOR = [
     '.timeline-comment-header', '.review-comment-header',
     '[data-testid="comment-header"]',
@@ -37,6 +43,7 @@
 
   let linkedCard = null;
   let pendingRefresh = false;
+  let rainbowOwnMentionsEnabled = false;
 
   function isConversationRoute(pathname) {
     return /^\/[^/]+\/[^/]+\/(?:issues|pull)\/\d+(?:\/|$)/i.test(pathname);
@@ -58,6 +65,13 @@
     } catch {
       return '';
     }
+  }
+
+  function isOwnMention(link, login, origin) {
+    return Boolean(login
+      && link?.matches?.('a.user-mention[href]')
+      && link.closest?.(MENTION_BODY_SELECTOR)
+      && authorLogin(link, origin) === login.toLowerCase());
   }
 
   function reviewAuthoredBy(card, login, origin) {
@@ -105,10 +119,19 @@
     if (!isConversationRoute(location.pathname)) {
       clearLinkedCard();
       document.querySelectorAll('[' + OWN_REVIEW_ATTR + ']').forEach((card) => card.removeAttribute(OWN_REVIEW_ATTR));
+      document.querySelectorAll('[' + RAINBOW_MENTION_ATTR + ']').forEach((mention) => mention.removeAttribute(RAINBOW_MENTION_ATTR));
       return;
     }
 
     const login = (document.querySelector('meta[name="user-login"]')?.content || '').toLowerCase();
+    for (const mention of document.querySelectorAll('a.user-mention[href], [' + RAINBOW_MENTION_ATTR + ']')) {
+      const match = rainbowOwnMentionsEnabled && isOwnMention(mention, login, location.origin);
+      if (match && !mention.hasAttribute(RAINBOW_MENTION_ATTR)) {
+        mention.setAttribute(RAINBOW_MENTION_ATTR, 'true');
+      } else if (!match && mention.hasAttribute(RAINBOW_MENTION_ATTR)) {
+        mention.removeAttribute(RAINBOW_MENTION_ATTR);
+      }
+    }
     for (const card of document.querySelectorAll(REVIEW_SELECTOR)) {
       const own = reviewAuthoredBy(card, login, location.origin);
       if (own && !card.hasAttribute(OWN_REVIEW_ATTR)) card.setAttribute(OWN_REVIEW_ATTR, 'true');
@@ -130,10 +153,21 @@
   }
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { isConversationRoute, commentIdFromHash, authorLogin, reviewAuthoredBy, commentCardForTarget, markLinkedCard };
+    module.exports = { isConversationRoute, commentIdFromHash, authorLogin, isOwnMention, reviewAuthoredBy, commentCardForTarget, markLinkedCard };
   }
 
   if (typeof document === 'undefined' || typeof location === 'undefined') return;
+  if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+    void chrome.storage.local.get({ rainbowOwnMentionsEnabled: false }).then((settings) => {
+      rainbowOwnMentionsEnabled = settings.rainbowOwnMentionsEnabled === true;
+      scheduleRefresh();
+    }).catch(() => {});
+    chrome.storage.onChanged?.addListener((changes, area) => {
+      if (area !== 'local' || !changes.rainbowOwnMentionsEnabled) return;
+      rainbowOwnMentionsEnabled = changes.rainbowOwnMentionsEnabled.newValue === true;
+      scheduleRefresh();
+    });
+  }
   document.addEventListener('turbo:load', scheduleRefresh);
   document.addEventListener('pjax:end', scheduleRefresh);
   window.addEventListener('hashchange', scheduleRefresh);
