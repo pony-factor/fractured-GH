@@ -244,3 +244,33 @@ test("reentrant input events cannot insert a second prefix", () => {
   page.title.dispatchEvent({ type: "input" });
   assert.equal(page.title.value, "🔧 Update code");
 });
+
+
+test("PR descriptions survive before merge controls hydrate and on commit subpages", () => {
+  for (const route of ["/owner/repo/pull/640", "/owner/repo/pull/640/commits"]) {
+    for (const action of ["", "Commit changes", "Confirm merge"]) {
+      const page = mount("message-simplifier.js", route, action);
+      const original = page.description.value;
+      const title = page.title.value;
+      page.activate();
+      page.scan(page.form);
+      page.beforeSubmit({ target: page.form });
+      assert.equal(page.description.value, original);
+      assert.equal(page.title.value, title);
+      const emojis = mount("title-emojis.js", route, action);
+      emojis.activate();
+      emojis.scan(emojis.form);
+      assert.equal(emojis.title.value, title);
+    }
+  }
+});
+
+test("unknown commit editors retain descriptions while ordinary file editors still clear", () => {
+  for (const route of ["/owner/repo/compare/main...branch", "/owner/repo/commit/abc123"]) {
+    const page = mount("message-simplifier.js", route, "Commit changes");
+    const original = page.description.value;
+    page.activate();
+    page.scan(page.form);
+    assert.equal(page.description.value, original);
+  }
+});
