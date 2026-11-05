@@ -18,8 +18,8 @@ const context = vm.createContext({
     local: { get: async defaults => defaults },
   } },
 });
-vm.runInContext(source.replace(/\}\)\(\);\s*$/, "globalThis.helpers = { squashTitle, squashBody }; \n})();"), context);
-const { squashTitle, squashBody } = context.helpers;
+vm.runInContext(source.replace(/\}\)\(\);\s*$/, "globalThis.helpers = { squashTitle, squashBody, mergeFields, apply }; \n})();"), context);
+const { squashTitle, squashBody, mergeFields, apply } = context.helpers;
 
 test("preserves the exact PR title and appends its number once", () => {
   assert.equal(squashTitle("🖌️ Improve controls", 45), "🖌️ Improve controls (#45)");
@@ -91,4 +91,32 @@ test("merge-specific preferences are wired and disabled until opted in", () => {
   }
   assert.match(source, /button\.type = "button"/);
   assert.doesNotMatch(source, /click\(\)|requestSubmit\(\)/);
+});
+
+
+test("React merge fields use Commit message as title and Extended description as body", () => {
+  const field = (label, value) => ({ value, labels: [{ textContent: label }], getAttribute() { return null; } });
+  const title = field("Commit message", "Original commit (#640)");
+  const body = field("Extended description", "Description and attribution");
+  const scope = { querySelector() { return null; }, querySelectorAll() { return [title, body]; } };
+  const result = context.helpers.mergeFields(scope);
+  assert.equal(result.title, title);
+  assert.equal(result.body, body);
+});
+
+test("single-commit prose and credits survive applying the exact PR title", () => {
+  const description = "Show live merge progress.\n\nCo-authored-by: Codex <noreply@openai.com>";
+  const title = { value: "🖌️ Show live progress (#640)", getAttribute() { return null; } };
+  const body = { value: description, getAttribute() { return null; } };
+  context.location = { pathname: "/pony-factor/sweetiebot-SCM/pull/640" };
+  context.document.querySelector = () => ({ textContent: "🖌️ Show live progress" });
+  const scope = {
+    querySelector(selector) { return selector === "#merge_title_field" ? title : body; },
+    querySelectorAll(selector) { return selector.includes("button")
+      ? [{ textContent: "Confirm squash and merge" }] : [title, body]; },
+  };
+  const status = {};
+  context.helpers.apply(scope, status);
+  assert.equal(body.value, description);
+  assert.match(status.textContent, /Description preserved/);
 });
