@@ -807,6 +807,8 @@
       ? getComputedStyle(parent) : null;
     const nativeLayout = layout && /^(inline-)?(flex|grid)$/.test(layout.display);
     const nativeGap = nativeLayout ? parseFloat(layout.columnGap) : NaN;
+    const floatedSubmit = typeof getComputedStyle === 'function'
+      && /^(left|right)$/.test(getComputedStyle(control).float);
     control.before(actions);
     // A button-only footer can safely be laid out as one non-wrapping, right-
     // aligned row. In constrained columns it overflows toward the left, keeping
@@ -824,6 +826,12 @@
     } else if (nativeGap > 0) {
       // Respect existing flexible toolbars with other GitHub controls.
       actions.style.gap = `${nativeGap}px`;
+      actions.style.marginInlineEnd = '0';
+    } else if (floatedSubmit && !nativeLayout) {
+      // Compare forms use floated split submit buttons. Although
+      // inserted before it in the DOM, our actions render to its right, so
+      // the separating margin belongs on the actions' start edge.
+      actions.style.marginInlineStart = '8px';
       actions.style.marginInlineEnd = '0';
     } else {
       // A complex block footer is not safe to turn into a flex container.

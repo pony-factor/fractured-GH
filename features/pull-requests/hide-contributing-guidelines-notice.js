@@ -2,7 +2,7 @@
   'use strict';
 
   const SETTING = 'hideContributingGuidelinesNotice';
-  const NOTICE_SELECTOR = 'p, div, span, small';
+  const NOTICE_SELECTOR = 'p, div, span, small, section';
   const CONTROL_SELECTOR = 'button, input, textarea, select, form, [role="button"]';
   const hiddenNotices = new Set();
   let enabled = false;
@@ -16,7 +16,8 @@
     const text = normalizeText(element.textContent);
     const contributing = /^(?:Remember,\s*)?contributions to this repository should follow its contributing guidelines(?:,? (?:and )?security policy)?(?:,? and code of conduct)?\.?$/i.test(text);
     const community = /\bcontributions to this repository should follow our GitHub Community Guidelines\.?$/i.test(text);
-    if (!contributing && !community) return false;
+    const helpfulResources = /^Helpful resources\s*GitHub Community Guidelines$/i.test(text);
+    if (!contributing && !community && !helpfulResources) return false;
 
     return [...element.querySelectorAll('a')].some((link) => {
       const href = link.getAttribute('href') || '';
