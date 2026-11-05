@@ -227,7 +227,20 @@ test("composition completes before the first emoji is suggested", () => {
   page.bindField(page.title);
   page.title.value = "入力";
   page.title.dispatchEvent({ type: "input", isComposing: true });
+  page.scan(page.form);
   assert.equal(page.title.value, "入力");
   page.title.dispatchEvent({ type: "compositionend" });
   assert.equal(page.title.value, "🔧 入力");
+});
+
+
+test("reentrant input events cannot insert a second prefix", () => {
+  const page = mount("title-emojis.js", "/owner/repo/edit/main/file.js", "Commit changes");
+  page.activate();
+  page.title.value = "";
+  page.bindField(page.title);
+  page.title.addEventListener("input", () => page.scan(page.form));
+  page.title.value = "Update code";
+  page.title.dispatchEvent({ type: "input" });
+  assert.equal(page.title.value, "🔧 Update code");
 });

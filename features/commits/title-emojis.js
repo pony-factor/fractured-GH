@@ -4,6 +4,7 @@
   let enabled = false;
   const BOUND_ATTR = 'data-fractured-commit-emoji-bound';
   const HANDLED_ATTR = 'data-fractured-commit-emoji-handled';
+  const composingFields = new WeakSet();
   const BUG_EMOJIS = ['🐛', '🐜', '🐝', '🐞', '🦗', '🕷️', '🦟'];
   const FINANCIAL_INCLUSION_EMOJIS = ['🌍', '🌎', '🌏'];
   const SECURITY_EMOJIS = [
@@ -187,7 +188,7 @@
   }
 
   function prefixField(field) {
-    if (!enabled || !isCommitTitleField(field) || field.hasAttribute(HANDLED_ATTR)) return;
+    if (!enabled || !isCommitTitleField(field) || field.hasAttribute(HANDLED_ATTR) || composingFields.has(field)) return;
 
     const title = field.value.trim();
     if (!title) return;
@@ -216,10 +217,15 @@
     }
 
     field.setAttribute(BOUND_ATTR, 'true');
+    field.addEventListener('compositionstart', () => composingFields.add(field));
     field.addEventListener('input', (event) => {
-      if (!event.isComposing) prefixField(field);
+      if (event.isComposing) composingFields.add(field);
+      else prefixField(field);
     });
-    field.addEventListener('compositionend', () => prefixField(field));
+    field.addEventListener('compositionend', () => {
+      composingFields.delete(field);
+      prefixField(field);
+    });
     prefixField(field);
   }
 
