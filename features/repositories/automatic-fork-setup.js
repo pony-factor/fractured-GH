@@ -4,9 +4,13 @@
   const PENDING_KEY = 'fractured:new-fork-setup-pending';
   const RESULT_KEY = 'fractured:new-fork-setup-result';
   const EXPIRY_MS = 20 * 60 * 1000;
+  const NAME_SELECTOR = '#repository_name, #repository-name-input, '
+    + 'input[name="repository[name]"], input[name="repository_name"], '
+    + 'input[name="repositoryName"], input[aria-label="Repository name"]';
   const clearedFields = new WeakSet();
   let enabled = false;
   let busy = false;
+  let submittedHere = false;
 
   function forkSource(pathname) {
     const match = /^\/([^/]+)\/([^/]+)\/fork\/?$/.exec(pathname);
@@ -68,11 +72,26 @@
     return label === expected || label.startsWith(expected + ' ');
   }
 
+  function matchesPrivateCreation(repository, pending, page, now = Date.now()) {
+    const parts = repository.split('/');
+    const age = now - pending.createdAt;
+    return pending.kind === 'repository' && parts.length === 2
+      && typeof pending.name === 'string'
+      && parts[1].toLowerCase() === pending.name.toLowerCase()
+      && (!pending.owner || parts[0].toLowerCase() === pending.owner.toLowerCase())
+      && age >= 0 && age <= 120000
+      && page.repository?.toLowerCase() === repository.toLowerCase()
+      && page.isPrivate === 'true' && page.isFork === 'false'
+      && page.canEdit === true
+      && page.fromCreation === true;
+  }
+
   // Export the pure guards without starting browser automation in Node tests.
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
       forkSource, newRepositoryOwner, creationIntent, repositoryRoot,
-      matchesNewFork, matchesNewRepository, labelMatches,
+      matchesNewFork, matchesNewRepository, matchesPrivateCreation, labelMatches,
+      setCheckbox,
     };
     return;
   }
@@ -102,16 +121,16 @@
   }
 
   function creationName() {
-    return document.querySelector(
-      '#repository_name, input[name="repository[name]"], input[name="repository_name"]',
-    )?.value;
+    return document.querySelector(NAME_SELECTOR)?.value;
   }
 
   function recordCreationIntent() {
     if (!enabled) return;
     const intent = creationIntent(location.pathname, creationName());
     if (!intent) return;
-    savePending({ ...intent, createdAt: Date.now(), stage: 'landing', warnings: [] });
+    submittedHere = true;
+    savePending({ ...intent, creationPath: location.pathname,
+      createdAt: Date.now(), stage: 'landing', warnings: [] });
   }
 
   function clearTextField(field) {
@@ -138,9 +157,7 @@
   function handleCreationSubmit(event) {
     if (event.target?.tagName?.toLowerCase() !== 'form') return;
     if (forkSource(location.pathname)
-      || event.target.querySelector(
-        '#repository_name, input[name="repository[name]"], input[name="repository_name"]',
-      )) recordCreationIntent();
+      || event.target.querySelector(NAME_SELECTOR)) recordCreationIntent();
   }
 
   function handleCreationClick(event) {
@@ -177,6 +194,7 @@
   }
 
   function setCheckbox(field, checked) {
+    if (field && isChecked(field) === checked) return true;
     if (!field || field.disabled || field.getAttribute('aria-disabled') === 'true') return false;
     if (isChecked(field) !== checked) field.click();
     return true;
@@ -196,7 +214,7 @@
 
   function findAboutEditButton() {
     const explicit = [...document.querySelectorAll('button, a, [role="button"]')]
-      .find(element => /edit repository details/i.test(
+      .find(element => /edit repository (details|metadata)/i.test(
         (element.getAttribute('aria-label') || '') + ' '
         + (element.getAttribute('title') || ''),
       ));
@@ -281,31 +299,23 @@
 
   async function verifyGeneralSettings(repository, warnings) {
     try {
-      const response = await fetch(
-        'https://api.github.com/repos/' + repository.split('/').map(encodeURIComponent).join('/'),
-        {
-          credentials: 'omit', cache: 'no-store',
-          headers: { Accept: 'application/vnd.github+json' },
-        },
-      );
-      if (!response.ok) {
+      const response = await fetch('/' + repository + '/settings', {
+        credentials: 'same-origin', cache: 'no-store',
+      });
+      if (!response.ok || new URL(response.url).pathname !== '/' + repository + '/settings') {
         warnings.push('Could not verify saved repository settings');
         return;
       }
-      const settings = await response.json();
+      const saved = new DOMParser().parseFromString(await response.text(), 'text/html');
       const expected = [
-        ['Projects', 'has_projects', false],
-        ['Wikis', 'has_wiki', false],
-        ['Automatic branch deletion', 'delete_branch_on_merge', true],
+        ['Projects', ['repository[has_projects]', 'has_projects'], false],
+        ['Wikis', ['repository[has_wiki]', 'has_wiki'], false],
+        ['Automatically delete head branches',
+          ['repository[delete_branch_on_merge]', 'delete_branch_on_merge'], true],
       ];
-      for (const [label, field, value] of expected) {
-        if (settings[field] !== value) warnings.push(label + ' did not persist');
-      }
-      if (settings.description !== null && settings.description !== '') {
-        warnings.push('Description did not clear');
-      }
-      if (settings.homepage !== null && settings.homepage !== '') {
-        warnings.push('Website URL did not clear');
+      for (const [label, names, checked] of expected) {
+        const field = findCheckbox(saved, label, names);
+        if (!field || isChecked(field) !== checked) warnings.push(label + ' did not persist');
       }
     } catch {
       warnings.push('Could not verify saved repository settings');
@@ -343,19 +353,37 @@
     (document.body || document.documentElement).append(notice);
   }
 
+  function privateCreationPage(repository, pending) {
+    const meta = name => document.querySelector('meta[name="' + name + '"]')?.content;
+    let fromCreation = submittedHere;
+    try {
+      const referrer = new URL(document.referrer);
+      fromCreation ||= referrer.origin === location.origin
+        && referrer.pathname === pending.creationPath;
+    } catch { /* No creation referrer: fail closed. */ }
+    return matchesPrivateCreation(repository, pending, {
+      repository: meta('octolytics-dimension-repository_nwo'),
+      isPrivate: meta('octolytics-dimension-repository_private'),
+      isFork: meta('octolytics-dimension-repository_is_fork'),
+      canEdit: Boolean(findAboutEditButton()
+        || document.querySelector('a[href="/' + repository + '/settings"]')), fromCreation,
+    });
+  }
+
   async function validateCreation(repository, pending) {
     try {
       const response = await fetch(
         'https://api.github.com/repos/' + repository.split('/').map(encodeURIComponent).join('/'),
         { credentials: 'omit', headers: { Accept: 'application/vnd.github+json' } },
       );
+      if (response.status === 404) return privateCreationPage(repository, pending);
       if (!response.ok) return false;
       const metadata = await response.json();
       return pending.kind === 'repository'
         ? matchesNewRepository(metadata, pending)
         : matchesNewFork(metadata, pending.source);
     } catch {
-      return false;
+      return privateCreationPage(repository, pending);
     }
   }
 

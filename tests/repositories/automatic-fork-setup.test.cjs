@@ -81,3 +81,35 @@ test('only accepts a fresh non-fork repository with the expected name and owner'
   assert.equal(matchesNewRepository(valid, { name: 'repository', owner: null }, now), true);
   assert.equal(matchesNewRepository(valid, { name: '' }, now), false);
 });
+
+const { matchesPrivateCreation, setCheckbox } = require('../../features/repositories/automatic-fork-setup.js');
+
+test('private setup requires a recent creation redirect, matching identity, and edit access', () => {
+  const now = Date.parse('2026-11-05T18:00:00Z');
+  const pending = { kind: 'repository', name: 'FOSS', owner: 'AM-only', createdAt: now - 1000 };
+  const page = {
+    repository: 'AM-only/FOSS', isPrivate: 'true', isFork: 'false',
+    canEdit: true, fromCreation: true,
+  };
+  assert.equal(matchesPrivateCreation('AM-only/FOSS', pending, page, now), true);
+  assert.equal(matchesPrivateCreation('other/FOSS', pending, page, now), false);
+  assert.equal(matchesPrivateCreation('AM-only/other', pending, page, now), false);
+  for (const change of [
+    { repository: 'other/FOSS' }, { isPrivate: 'false' }, { isFork: 'true' },
+    { canEdit: false }, { fromCreation: false }, { isFork: undefined },
+  ]) assert.equal(matchesPrivateCreation('AM-only/FOSS', pending, { ...page, ...change }, now), false);
+  for (const change of [
+    { createdAt: now - 120001 }, { createdAt: now + 1000 },
+    { kind: 'fork' }, { name: 'other' }, { createdAt: NaN },
+  ]) assert.equal(matchesPrivateCreation('AM-only/FOSS', { ...pending, ...change }, page, now), false);
+});
+
+test('disabled wiki already off satisfies the preference without a warning or click', () => {
+  const field = {
+    type: 'checkbox', checked: false, disabled: true,
+    getAttribute() { return null; },
+    click() { throw Error('Unavailable controls must not be clicked'); },
+  };
+  assert.equal(setCheckbox(field, false), true);
+  assert.equal(setCheckbox(field, true), false);
+});

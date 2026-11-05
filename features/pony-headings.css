@@ -64,3 +64,10 @@
   font-family: "Celestia Medium Redux", "Mona Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
   font-weight: 400;
 }
+
+/* Keep promoted names and nickname labels in the display font. */
+.fractured-display-name-primary,
+[data-fractured-user-nickname],
+[data-fractured-conversation-first-name] {
+  font-family: "Celestia Medium Redux", "Mona Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
