@@ -55,6 +55,22 @@ test('linked comment resolves its nearest comment rather than the entire review 
   assert.equal(commentCardForTarget(target), comment);
 });
 
+test('React issue comment links resolve their comment box, not the whole timeline', () => {
+  const box = {};
+  const header = {
+    closest: (selector) => selector.includes('[data-testid^="comment-viewer-outer-box"]') ? box : null,
+  };
+  assert.equal(commentCardForTarget(header), box);
+});
+
+test('React issue comment links fall back to their comment wrapper', () => {
+  const wrapper = {};
+  const header = {
+    closest: (selector) => selector.includes('.react-issue-comment') ? wrapper : null,
+  };
+  assert.equal(commentCardForTarget(header), wrapper);
+});
+
 test('permalink on an outer timeline item resolves the nested comment', () => {
   const comment = {};
   const target = { closest: () => null, querySelector: () => comment };
@@ -97,6 +113,31 @@ test('switching permalinks removes the previous marker and blue does not take pr
   }
 });
 
+test('linked comment label sits in the author title row, not the outer React header', () => {
+  const { markLinkedCard } = require('../../features/people/comment-highlights.js');
+  let inserted = null;
+  const titleRow = { prepend: (label) => { inserted = label; } };
+  const header = {
+    querySelector: (selector) => selector.includes('TitleContainer') ? titleRow : null,
+  };
+  const card = {
+    setAttribute: () => {},
+    removeAttribute: () => {},
+    querySelector: (selector) => selector.includes('[data-testid="comment-header"]') ? header : null,
+  };
+  global.document = {
+    createElement: () => ({ className: '', textContent: '' }),
+    querySelectorAll: () => [],
+  };
+  try {
+    markLinkedCard(card);
+    assert.equal(inserted.textContent, '🔗 Linked comment');
+  } finally {
+    markLinkedCard(null);
+    delete global.document;
+  }
+});
+
 const fs = require('node:fs');
 const path = require('node:path');
 test('permalink styling outranks the blue review styling', () => {
@@ -104,4 +145,7 @@ test('permalink styling outranks the blue review styling', () => {
   assert.match(css, /own-review\]:not\(\[data-fractured-linked-comment\]\)/);
   assert.match(css, /\[data-fractured-linked-comment\]\s*\{/);
   assert.match(css, /\.fractured-linked-comment-label/);
+  assert.match(css, /align-self:\s*center;/);
+  assert.match(css, /vertical-align:\s*middle;/);
+  assert.match(css, /margin:\s*0 8px 0 0;/);
 });
