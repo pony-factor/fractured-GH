@@ -33,6 +33,36 @@
   border-radius: 0 !important;
 }
 
+/* Match the pony display font on PR/issue numbers beside their titles. */
+:is(
+  .gh-header-number,
+  [data-testid="issue-number"],
+  [data-testid="pull-request-number"],
+  [data-testid="pull-request-header"] [class*="issueNumber"]
+) {
+  font-family: "Celestia Medium Redux", "Mona Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  font-weight: 400 !important;
+}
+
+/* Match sidebar section labels, not assignees, labels, or other section values. */
+:is(
+  #partial-discussion-sidebar,
+  .discussion-sidebar,
+  [data-testid="pr-sidebar"],
+  [data-testid="issue-viewer-sidebar"]
+) :is(
+  .discussion-sidebar-heading,
+  .discussion-sidebar-heading :is(a, span, strong, button),
+  h2,
+  h3,
+  h4,
+  [role="heading"],
+  [data-testid$="-section"] > :first-child :is(span, strong, button)
+) {
+  font-family: "Celestia Medium Redux", "Mona Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  font-weight: 400 !important;
+}
+
 /* Include the PR reviewer heading and identities, including suggestions. */
 [aria-label="Select reviewers"],
 [aria-label="Select reviewers"] :is(a, span, strong, button) {
