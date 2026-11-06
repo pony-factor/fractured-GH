@@ -48,6 +48,24 @@
             </label>
 
             <label class="preference">
+              <input id="mute-inbox-accounts-enabled" type="checkbox" />
+              <span>
+                <strong>Mute accounts in the notification inbox only</strong>
+                <small>Hide notifications when their sender can be identified as a muted account.</small>
+              </span>
+            </label>
+            <p class="help setup-note">
+              PR comments and other GitHub content remain visible. This only hides matching inbox rows
+              in this browser; it does not clear GitHub's unread indicator, email, or mobile alerts.
+              Notifications with multiple possible senders remain visible.
+            </p>
+            <div id="muted-inbox-accounts" class="organization-list"
+                 aria-label="Accounts muted only in the notification inbox"></div>
+            <div class="row-actions">
+              <button id="add-muted-inbox-account" class="secondary" type="button">Add inbox-only muted account</button>
+            </div>
+
+            <label class="preference">
 
             <input id="organization-notification-inboxes-enabled" type="checkbox" />
 
@@ -876,6 +894,17 @@
         <p id="status" role="status" aria-live="polite">Changes save automatically.</p>
       </form>
     </main>
+
+    <template id="muted-inbox-account-template">
+      <div class="organization-row inbox-muted-account-row">
+        <span class="at-sign" aria-hidden="true">@</span>
+        <input class="organization-input inbox-muted-account-input" type="text"
+               autocomplete="off" autocapitalize="none" spellcheck="false"
+               aria-label="Muted inbox account" placeholder="vercel[bot]" />
+        <button class="secondary remove-notification-organization remove-inbox-muted-account"
+                type="button">Remove</button>
+      </div>
+    </template>
 
     <template id="notification-organization-template">
       <div class="organization-row">
