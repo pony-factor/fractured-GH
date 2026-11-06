@@ -6,6 +6,8 @@
   const LABEL_CLASS = 'fractured-linked-comment-label';
   const COMMENT_SELECTOR = [
     '.timeline-comment', '.review-comment', '.js-comment',
+    // New GitHub issues render comments in React rather than .timeline-comment.
+    '[data-testid^="comment-viewer-outer-box"]', '.react-issue-comment',
     '[data-testid="comment"]', '[data-testid="timeline-comment"]',
     '[data-testid="review-comment"]',
   ].join(',');
@@ -33,6 +35,10 @@
   const HEADER_SELECTOR = [
     '.timeline-comment-header', '.review-comment-header',
     '[data-testid="comment-header"]',
+  ].join(',');
+  const HEADER_CONTENT_SELECTOR = [
+    '.timeline-comment-header-text',
+    '[class*="ActivityHeader-module__TitleContainer"]',
   ].join(',');
 
   let linkedCard = null;
@@ -81,6 +87,13 @@
       || (target.matches(REVIEW_ITEM_SELECTOR) ? target : null);
   }
 
+  function linkedLabelContainer(card) {
+    const header = card.querySelector(HEADER_SELECTOR);
+    // The outer React header uses a grid. Put the label beside the author,
+    // rather than creating another grid item above or below the text.
+    return header?.querySelector(HEADER_CONTENT_SELECTOR) || header || card;
+  }
+
   function clearLinkedCard() {
     linkedCard?.removeAttribute(LINKED_ATTR);
     document.querySelectorAll('.' + LABEL_CLASS).forEach((label) => label.remove());
@@ -98,7 +111,7 @@
     label.className = LABEL_CLASS;
     label.textContent = '🔗 Linked comment';
     // Add a visible explanation: color alone must not indicate the permalink.
-    (card.querySelector(HEADER_SELECTOR) || card).prepend(label);
+    linkedLabelContainer(card).prepend(label);
   }
 
   function refresh() {
