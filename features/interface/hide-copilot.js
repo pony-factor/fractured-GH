@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const STYLE_ID = 'github-tweaks-hide-copilot-style';
+  const STYLE_ID = 'fractured-github-hide-copilot-style';
   const HIDDEN_ATTR = 'data-fractured-copilot-control';
   const CONTROL_SELECTOR = 'button, [role="button"], [role="menuitem"]';
   const CSS = `

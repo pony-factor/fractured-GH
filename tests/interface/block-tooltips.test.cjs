@@ -118,10 +118,10 @@ test('blocks only the organization repository ProTip when tooltip blocking is en
   await app.settle();
   // Content inserted after startup is handled by the mutation observer.
   app.insert(new FakeElement('div', tipText.replace('organization\'s', 'organization’s')));
-  assert.equal(listing.hasAttribute('data-github-tweaks-blocked-org-protip'), false);
-  assert.equal(tip.hasAttribute('data-github-tweaks-blocked-org-protip'), true);
-  assert.ok(app.styles.get('github-tweaks-block-tooltips-style').textContent.includes(
-    '[data-github-tweaks-blocked-org-protip]'));
+  assert.equal(listing.hasAttribute('data-fractured-github-blocked-org-protip'), false);
+  assert.equal(tip.hasAttribute('data-fractured-github-blocked-org-protip'), true);
+  assert.ok(app.styles.get('fractured-github-block-tooltips-style').textContent.includes(
+    '[data-fractured-github-blocked-org-protip]'));
 });
 
 test('restores the notice when disabled, and ignores other routes', async () => {
@@ -129,19 +129,19 @@ test('restores the notice when disabled, and ignores other routes', async () => 
   const tip = new FakeElement('div', tipText);
   app.body.append(tip);
   await app.settle();
-  assert.equal(tip.hasAttribute('data-github-tweaks-blocked-org-protip'), false);
+  assert.equal(tip.hasAttribute('data-fractured-github-blocked-org-protip'), false);
 
   app.changeSetting(true);
-  assert.equal(tip.hasAttribute('data-github-tweaks-blocked-org-protip'), true);
+  assert.equal(tip.hasAttribute('data-fractured-github-blocked-org-protip'), true);
   app.location.pathname = '/orgs/blocktransfer/people';
   app.listeners.get('turbo:load')();
-  assert.equal(tip.hasAttribute('data-github-tweaks-blocked-org-protip'), false);
+  assert.equal(tip.hasAttribute('data-fractured-github-blocked-org-protip'), false);
 
   app.location.pathname = '/orgs/blocktransfer/repositories';
   app.listeners.get('pjax:end')();
-  assert.equal(tip.hasAttribute('data-github-tweaks-blocked-org-protip'), true);
+  assert.equal(tip.hasAttribute('data-fractured-github-blocked-org-protip'), true);
   app.changeSetting(false);
-  assert.equal(tip.hasAttribute('data-github-tweaks-blocked-org-protip'), false);
+  assert.equal(tip.hasAttribute('data-fractured-github-blocked-org-protip'), false);
   assert.equal(app.styles.size, 0);
 });
 
@@ -152,6 +152,6 @@ test('leaves unrelated ProTips and content alone', async () => {
   const container = new FakeElement('div');
   container.append(other);
   app.insert(container);
-  assert.equal(container.hasAttribute('data-github-tweaks-blocked-org-protip'), false);
-  assert.equal(other.hasAttribute('data-github-tweaks-blocked-org-protip'), false);
+  assert.equal(container.hasAttribute('data-fractured-github-blocked-org-protip'), false);
+  assert.equal(other.hasAttribute('data-fractured-github-blocked-org-protip'), false);
 });

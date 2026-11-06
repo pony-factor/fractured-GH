@@ -1,11 +1,11 @@
 (() => {
   'use strict';
 
-  const STYLE_ID = 'github-tweaks-block-tooltips-style';
-  const BLOCKED_TITLE_ATTRIBUTE = 'data-github-tweaks-blocked-title';
-  const ADDED_ARIA_ATTRIBUTE = 'data-github-tweaks-added-aria-label';
-  const ALLOW_TOOLTIP_ATTRIBUTE = 'data-github-tweaks-allow-tooltip';
-  const ORG_PROTIP_ATTRIBUTE = 'data-github-tweaks-blocked-org-protip';
+  const STYLE_ID = 'fractured-github-block-tooltips-style';
+  const BLOCKED_TITLE_ATTRIBUTE = 'data-fractured-github-blocked-title';
+  const ADDED_ARIA_ATTRIBUTE = 'data-fractured-github-added-aria-label';
+  const ALLOW_TOOLTIP_ATTRIBUTE = 'data-fractured-github-allow-tooltip';
+  const ORG_PROTIP_ATTRIBUTE = 'data-fractured-github-blocked-org-protip';
   const ORG_PROTIP_PATTERN = /^ProTip!\s+When viewing an organization['’]s repositories, you can use the props\.\s*filter to filter by custom property\.?$/i;
   const REACTION_SUMMARY_SELECTOR = [
     '.reaction-summary-item:not(.add-reaction-btn)',
@@ -127,7 +127,7 @@
     if (isReactionSummary(element)) return;
 
     if (element.matches('relative-time, time-ago, local-time') && !element.hasAttribute('no-title')) {
-      element.setAttribute('data-github-tweaks-added-no-title', 'true');
+      element.setAttribute('data-fractured-github-added-no-title', 'true');
       element.setAttribute('no-title', '');
     }
 
@@ -155,9 +155,9 @@
       element.setAttribute('title', element.getAttribute(BLOCKED_TITLE_ATTRIBUTE) || '');
       element.removeAttribute(BLOCKED_TITLE_ATTRIBUTE);
 
-      if (element.hasAttribute('data-github-tweaks-added-no-title')) {
+      if (element.hasAttribute('data-fractured-github-added-no-title')) {
         element.removeAttribute('no-title');
-        element.removeAttribute('data-github-tweaks-added-no-title');
+        element.removeAttribute('data-fractured-github-added-no-title');
       }
 
       if (element.hasAttribute(ADDED_ARIA_ATTRIBUTE)) {

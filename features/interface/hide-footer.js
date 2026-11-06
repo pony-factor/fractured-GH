@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const STYLE_ID = 'github-tweaks-hide-footer-style';
+  const STYLE_ID = 'fractured-github-hide-footer-style';
 
   function footerStyle() {
     const style = document.createElement('style');

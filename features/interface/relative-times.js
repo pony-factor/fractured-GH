@@ -8,9 +8,9 @@
     'local-time[datetime]',
     'time[datetime]',
   ].join(',');
-  const PROCESSED_ATTR = 'data-gh-relative-time';
-  const ORIGINAL_TEXT_ATTR = 'data-gh-relative-time-original-text';
-  const ORIGINAL_TITLE_ATTR = 'data-gh-relative-time-original-title';
+  const PROCESSED_ATTR = 'data-fractured-github-relative-time';
+  const ORIGINAL_TEXT_ATTR = 'data-fractured-github-relative-time-original-text';
+  const ORIGINAL_TITLE_ATTR = 'data-fractured-github-relative-time-original-title';
   const NO_TITLE_VALUE = '__none__';
   const REFRESH_INTERVAL_MS = 60_000;
   const AGE_CELL_SELECTOR = [
@@ -142,15 +142,15 @@
     if (element.shadowRoot && element.shadowRoot.textContent !== label) {
       element.shadowRoot.textContent = label;
     }
-    if (document.getElementById('github-tweaks-block-tooltips-style')) {
+    if (document.getElementById('fractured-github-block-tooltips-style')) {
       // Suppress native title generation before removing the title. Otherwise
       // relative-time regenerates it on every update and removal queues another
       // update, starving GitHub's loading and navigation work.
       if (element.matches('relative-time, time-ago, local-time') && !element.hasAttribute('no-title')) {
-        element.setAttribute('data-github-tweaks-added-no-title', 'true');
+        element.setAttribute('data-fractured-github-added-no-title', 'true');
         element.setAttribute('no-title', '');
       }
-      element.setAttribute('data-github-tweaks-blocked-title', fullPhrase);
+      element.setAttribute('data-fractured-github-blocked-title', fullPhrase);
       if (element.hasAttribute('title')) element.removeAttribute('title');
     } else if (element.getAttribute('title') !== fullPhrase) {
       element.setAttribute('title', fullPhrase);
