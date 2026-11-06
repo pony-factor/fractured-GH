@@ -15,6 +15,8 @@ async function startFeature(fetch) {
   const timers = new Map();
   const warnings = [];
   let timerId = 0;
+  let now = 0;
+  const navigator = { onLine: true };
   let requests = 0;
   class Anchor {
     constructor() { this.style = {}; this.attributes = new Map(); }
@@ -24,6 +26,14 @@ async function startFeature(fetch) {
     replaceChildren() {}
     remove() { controls.splice(controls.indexOf(this), 1); }
   }
+  const documentFixture = {
+    hidden: false,
+    documentElement: {},
+    querySelectorAll: () => [...controls],
+    querySelector: () => defaultControl,
+    createElement: (tag) => tag === 'a' ? new Anchor() : { style: {} },
+    addEventListener: (name, callback) => { events[name] = callback; },
+  };
   const defaultControl = new Anchor();
   defaultControl.parentNode = { insertBefore: (control) => controls.push(control) };
   vm.runInNewContext(source, {
@@ -39,14 +49,9 @@ async function startFeature(fetch) {
       clearTimeout: (id) => timers.delete(id),
       setInterval: (callback) => { events.poll = callback; },
     },
-    document: {
-      documentElement: {},
-      querySelectorAll: () => [...controls],
-      querySelector: () => defaultControl,
-      createElement: (tag) => tag === 'a' ? new Anchor() : { style: {} },
-      addEventListener: (name, callback) => { events[name] = callback; },
-    },
-    URL, AbortController, HTMLAnchorElement: Anchor,
+    document: documentFixture,
+    URL, AbortController, HTMLAnchorElement: Anchor, navigator,
+    Date: { now: () => now },
     MutationObserver: class { observe() {} },
     DOMParser: class {
       parseFromString(markup) { return { querySelector: () => markup === 'unread' ? {} : null }; }
@@ -57,6 +62,9 @@ async function startFeature(fetch) {
   return {
     controls, events, timers, warnings,
     get requests() { return requests; },
+    navigator,
+    get document() { return documentFixture; },
+    advance(ms) { now += ms; },
     async poll() { events.poll(); await settle(); },
     async change(values) {
       settings = { ...settings, ...values };
@@ -76,12 +84,14 @@ test('failed polls preserve unread badges, stay quiet, and recover on the next p
   });
   assert.equal(feature.controls.length, 1);
   for (mode of ['network', 'http', 'body']) {
+    feature.advance(300_000);
     await feature.poll();
     assert.equal(feature.controls.length, 1);
     assert.equal(feature.timers.size, 0);
   }
   assert.deepEqual(feature.warnings, []);
   mode = 'empty';
+  feature.advance(300_000);
   await feature.poll();
   assert.equal(feature.controls.length, 0);
 });
@@ -112,6 +122,7 @@ test('focus and navigation share the pending poll; timeouts allow retry', async 
   assert.equal(signal.aborted, true);
   assert.deepEqual(feature.warnings, []);
   hang = false;
+  feature.advance(60_000);
   await feature.poll();
   assert.equal(feature.requests, 2);
   assert.equal(feature.controls.length, 1);
@@ -124,15 +135,54 @@ test('settings changes supersede pending polls and disabled badges stay removed'
   assert.equal(feature.requests, 2);
   pending[1](response(true));
   await settle();
-  assert.equal(feature.controls[0].getAttribute('data-github-tweaks-organization-notification'), 'Other');
+  assert.equal(feature.controls[0].getAttribute('data-fractured-github-organization-notification'), 'Other');
   pending[0](response(true));
   await settle();
   assert.equal(feature.controls.length, 1);
-  assert.equal(feature.controls[0].getAttribute('data-github-tweaks-organization-notification'), 'Other');
+  assert.equal(feature.controls[0].getAttribute('data-fractured-github-organization-notification'), 'Other');
   feature.events.poll();
   await feature.change({ organizationNotificationInboxesEnabled: false });
   assert.equal(feature.controls.length, 0);
   pending[2](response(true));
   await settle();
   assert.equal(feature.controls.length, 0);
+});
+
+test('failures back off without losing state and online resumes immediately', async () => {
+  let failing = true;
+  const feature = await startFeature(async () => {
+    if (failing) throw new TypeError('Failed to fetch');
+    return response(true);
+  });
+  assert.equal(feature.requests, 1);
+  await feature.poll();
+  assert.equal(feature.requests, 1);
+  feature.advance(60_000);
+  await feature.poll();
+  assert.equal(feature.requests, 2);
+  feature.advance(60_000);
+  await feature.poll();
+  assert.equal(feature.requests, 2);
+  failing = false;
+  feature.events.online();
+  await settle();
+  assert.equal(feature.requests, 3);
+  assert.equal(feature.controls.length, 1);
+  assert.deepEqual(feature.warnings, []);
+});
+
+test('offline and hidden tabs do not poll until connection or visibility resumes', async () => {
+  const feature = await startFeature(async () => response(true));
+  assert.equal(feature.requests, 1);
+  feature.navigator.onLine = false;
+  await feature.poll();
+  assert.equal(feature.requests, 1);
+  feature.navigator.onLine = true;
+  feature.document.hidden = true;
+  await feature.poll();
+  assert.equal(feature.requests, 1);
+  feature.document.hidden = false;
+  feature.events.visibilitychange();
+  await settle();
+  assert.equal(feature.requests, 2);
 });

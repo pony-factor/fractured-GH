@@ -68,7 +68,8 @@ test('network failures preserve Busy state, stay quiet, back off, and recover', 
     if (failing) throw new TypeError('Failed to fetch');
     return { ok: true, text: async () => 'available' };
   });
-  assert.equal(feature.attributes.get('data-github-viewer-busy'), 'true');
+  assert.equal(feature.attributes.get('data-fractured-github-busy'), 'true');
+  assert.equal(feature.cache.get('fractured-github-busy'), 'true', 'legacy cached status is migrated');
   feature.events.focus();
   await settle();
   assert.equal(feature.requests, 1);
@@ -82,8 +83,8 @@ test('network failures preserve Busy state, stay quiet, back off, and recover', 
   feature.events.online();
   await settle();
   assert.equal(feature.requests, 3);
-  assert.equal(feature.attributes.has('data-github-viewer-busy'), false);
-  assert.equal(feature.cache.get('github-viewer-busy'), 'false');
+  assert.equal(feature.attributes.has('data-fractured-github-busy'), false);
+  assert.equal(feature.cache.get('fractured-github-busy'), 'false');
   assert.equal(feature.timers.size, 0);
 });
 

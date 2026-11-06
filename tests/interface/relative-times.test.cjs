@@ -70,7 +70,7 @@ test('relative times and blocked tooltips settle after native timestamp updates'
   assert.ok(renders < 3);
   assert.equal(element.hasAttribute('title'), false);
   assert.equal(element.hasAttribute('no-title'), true);
-  assert.equal(element.getAttribute('data-github-tweaks-added-no-title'), 'true');
+  assert.equal(element.getAttribute('data-fractured-github-added-no-title'), 'true');
   assert.match(element.shadowRoot.textContent, /years?.*ago$/);
 });
 
