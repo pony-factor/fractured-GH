@@ -71,3 +71,30 @@
 [data-fractured-conversation-first-name] {
   font-family: "Celestia Medium Redux", "Mona Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
 }
+
+/* Give the issue opener's author, "opened" text, and timestamp the same
+   Celestia typography as PR conversation headers, on both GitHub layouts. */
+:is(
+  .gh-header-meta,
+  [class*="IssueBodyHeader-module__IssueBodyHeaderContainer"]
+),
+:is(
+  .gh-header-meta,
+  [class*="IssueBodyHeader-module__IssueBodyHeaderContainer"]
+) :is(a, span, relative-time, time-ago, local-time, time) {
+  font-family: "Celestia Medium Redux", "Mona Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+
+/* Style author-association pills (Member, Contributor, Owner, etc.) in
+   legacy PR discussions and modern issue/comment headers without changing
+   their native size, border, color, or padding. */
+:is(
+  .timeline-comment-label,
+  [data-testid="comment-author-association"],
+  [data-testid="issue-author-association"],
+  [data-testid="comment-subject-author"],
+  [class*="ActivityHeader-module__BadgesGroupContainer"] [data-component="Label"],
+  [class*="IssueBodyHeader-module__badgeGroup"] [data-component="Label"]
+) {
+  font-family: "Celestia Medium Redux", "Mona Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
