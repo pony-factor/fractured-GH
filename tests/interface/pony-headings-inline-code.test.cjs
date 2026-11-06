@@ -25,3 +25,30 @@ test('code styling covers main and sticky PR titles without changing body or bra
     '.js-issue-title :is(code, tt)',
   ]);
 });
+
+test('PR numbers receive the display font without changing their size', () => {
+  const rule = css.split('/* Match the pony display font on PR/issue numbers beside their titles. */')[1]?.split('}')[0];
+  assert.ok(rule, 'expected the PR number font rule');
+  for (const selector of ['.gh-header-number', '[data-testid="issue-number"]', '[data-testid="pull-request-number"]']) {
+    assert.ok(rule.includes(selector), `missing selector: ${selector}`);
+  }
+  assert.match(rule, /font-family:\s*"Celestia Medium Redux"[^;]*!important\s*;/);
+  assert.doesNotMatch(rule, /font-size\s*:/);
+});
+
+test('PR sidebar section labels use the display font without styling all sidebar content', () => {
+  const rule = css.split('/* Match sidebar section labels, not assignees, labels, or other section values. */')[1]?.split('}')[0];
+  assert.ok(rule, 'expected the sidebar label font rule');
+  for (const selector of [
+    '#partial-discussion-sidebar',
+    '.discussion-sidebar',
+    '[data-testid="pr-sidebar"]',
+    '[data-testid="issue-viewer-sidebar"]',
+    '.discussion-sidebar-heading',
+    '[data-testid$="-section"] > :first-child :is(span, strong, button)',
+  ]) {
+    assert.ok(rule.includes(selector), `missing selector: ${selector}`);
+  }
+  assert.match(rule, /font-family:\s*"Celestia Medium Redux"[^;]*!important\s*;/);
+  assert.doesNotMatch(rule, /font-size\s*:/);
+});
