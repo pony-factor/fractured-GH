@@ -110,7 +110,8 @@
       #${SIDEBAR_ID} {
         background: var(--bgColor-default, #fff);
         border: 1px solid var(--borderColor-default, #d0d7de);
-        border-radius: 10px;
+        border-radius: 14px;
+        box-sizing: border-box;
         box-shadow: 0 8px 28px rgba(27,31,36,.18);
         color: var(--fgColor-default, #1f2328);
         max-height: calc(100vh - 112px);
@@ -118,7 +119,7 @@
         position: fixed;
         right: 16px;
         top: 80px;
-        width: min(430px, calc(100vw - 32px));
+        width: min(clamp(460px, 55vw, 860px), calc(100vw - 32px));
         z-index: 100000;
       }
       #${SIDEBAR_ID} .fractured-spellcheck-header {
@@ -127,9 +128,9 @@
         display: flex;
         gap: 8px;
         justify-content: space-between;
-        padding: 10px 12px;
+        padding: 12px 16px;
       }
-      #${SIDEBAR_ID} .fractured-spellcheck-header strong { font-size: 13px; }
+      #${SIDEBAR_ID} .fractured-spellcheck-header strong { font-size: 16px; }
       #${SIDEBAR_ID} .fractured-spellcheck-close {
         background: transparent;
         border: 0;
@@ -142,33 +143,39 @@
       #${SIDEBAR_ID} .fractured-spellcheck-content {
         max-height: calc(100vh - 170px);
         overflow: auto;
-        padding: 10px 12px 12px;
+        padding: 14px 16px 16px;
       }
       #${SIDEBAR_ID} .fractured-spellcheck-status-row {
         align-items: center;
         display: flex;
-        gap: 8px;
+        flex-wrap: wrap;
+        gap: 10px;
         justify-content: space-between;
-        margin-bottom: 9px;
+        margin-bottom: 12px;
       }
       #${SIDEBAR_ID} .fractured-spellcheck-status {
         color: var(--fgColor-muted, #59636e);
-        flex: 1;
-        font-size: 12px;
+        flex: 1 1 240px;
+        font-size: clamp(14px, 1.05vw, 16px);
+        line-height: 1.5;
         margin: 0;
         min-width: 0;
       }
       #${SIDEBAR_ID} .fractured-spellcheck-undo {
+        border-radius: 999px;
         flex-shrink: 0;
-        font-size: 12px;
-        padding: 2px 8px;
+        font-size: 14px;
+        line-height: 1.3;
+        margin-inline-start: auto;
+        min-height: 30px;
+        padding: 5px 14px;
       }
       #${SIDEBAR_ID} .fractured-spellcheck-error { color: var(--fgColor-danger, #cf222e); }
       #${SIDEBAR_ID} .fractured-spellcheck-diff {
         background: var(--bgColor-muted, #f6f8fa);
         border: 1px solid var(--borderColor-muted, #d8dee4);
         border-radius: 6px;
-        font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font: clamp(13px, .94vw, 15px)/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
         margin: 0;
         overflow: auto;
         padding: 8px;
@@ -176,12 +183,29 @@
         overflow-wrap: anywhere;
       }
       #${SIDEBAR_ID}[data-wrap="false"] .fractured-spellcheck-diff { white-space: pre; overflow-wrap: normal; }
-      #${SIDEBAR_ID} .fractured-spellcheck-wrap { align-items: center; display: flex; gap: 5px; font-size: 12px; }
+      #${SIDEBAR_ID} .fractured-spellcheck-wrap { align-items: center; display: flex; gap: 5px; font-size: 14px; }
+      #${SIDEBAR_ID} .fractured-diff-pair {
+        border: 1px solid var(--borderColor-muted, #d8dee4);
+        border-left: 3px solid var(--fgColor-accent, #0969da);
+        border-radius: 8px;
+        display: block;
+        margin: 8px 0;
+        overflow-x: auto;
+      }
+      #${SIDEBAR_ID} .fractured-diff-pair > span {
+        display: block;
+        overflow-wrap: inherit;
+        padding: 7px 10px;
+        white-space: inherit;
+      }
+      #${SIDEBAR_ID} .fractured-diff-pair > .fractured-diff-del {
+        border-bottom: 1px dashed var(--borderColor-muted, #d8dee4);
+      }
       #${SIDEBAR_ID} .fractured-diff-add { background: rgba(46,160,67,.15); display: block; }
       #${SIDEBAR_ID} .fractured-diff-del { background: rgba(248,81,73,.15); display: block; }
       #${SIDEBAR_ID} .fractured-diff-add .fractured-diff-character { background: rgba(46,160,67,.4); border-radius: 2px; }
       #${SIDEBAR_ID} .fractured-diff-del .fractured-diff-character { background: rgba(248,81,73,.4); border-radius: 2px; }
-      #${SIDEBAR_ID} .fractured-diff-meta { color: var(--fgColor-accent, #0969da); display: block; }
+      #${SIDEBAR_ID} .fractured-diff-meta { color: var(--fgColor-accent, #0969da); display: block; font-weight: 600; margin: 12px 0 6px; }
       #${SIDEBAR_ID} .fractured-spellcheck-apply {
         margin-bottom: 10px;
       }
@@ -189,12 +213,12 @@
         #${SIDEBAR_ID} {
           bottom: 12px;
           left: 12px;
-          max-height: 58vh;
+          max-height: 70vh;
           right: 12px;
           top: auto;
           width: auto;
         }
-        #${SIDEBAR_ID} .fractured-spellcheck-content { max-height: calc(58vh - 48px); }
+        #${SIDEBAR_ID} .fractured-spellcheck-content { max-height: calc(70vh - 60px); }
       }
     `;
     document.documentElement.append(style);
@@ -370,49 +394,129 @@
     return '';
   }
 
+  // Break a changed paragraph into local word-level hunks without rewriting the draft.
+  // Shared nearby words give context while distant edits get independent before/after pairs.
+  function changedTextSnippets(before, after) {
+    const original = String(before).match(/\s+|\S+/gu) || [];
+    const corrected = String(after).match(/\s+|\S+/gu) || [];
+    if (!original.length || !corrected.length || original.length * corrected.length > 200000) {
+      return [{ before, after }];
+    }
+    const table = Array.from(
+      { length: original.length + 1 },
+      () => new Uint16Array(corrected.length + 1),
+    );
+    for (let i = original.length - 1; i >= 0; i -= 1) {
+      for (let j = corrected.length - 1; j >= 0; j -= 1) {
+        table[i][j] = original[i] === corrected[j]
+          ? table[i + 1][j + 1] + 1
+          : Math.max(table[i + 1][j], table[i][j + 1]);
+      }
+    }
+    const operations = [];
+    let i = 0;
+    let j = 0;
+    while (i < original.length || j < corrected.length) {
+      if (i < original.length && j < corrected.length && original[i] === corrected[j]) {
+        operations.push([' ', original[i]]);
+        i += 1;
+        j += 1;
+      } else if (j < corrected.length
+        && (i >= original.length || table[i][j + 1] >= table[i + 1][j])) {
+        operations.push(['+', corrected[j++]]);
+      } else {
+        operations.push(['-', original[i++]]);
+      }
+    }
+    const changes = operations.flatMap(([type], index) => type === ' ' ? [] : [index]);
+    if (!changes.length) return [{ before, after }];
+    const groups = [];
+    let first = changes[0];
+    let last = first;
+    for (const index of changes.slice(1)) {
+      if (index - last <= 8) {
+        last = index;
+      } else {
+        groups.push([first, last]);
+        first = last = index;
+      }
+    }
+    groups.push([first, last]);
+    return groups.map(([from, to]) => {
+      const start = Math.max(0, from - 4);
+      const end = Math.min(operations.length, to + 5);
+      const clippedStart = start > 0 ? '… ' : '';
+      const clippedEnd = end < operations.length ? ' …' : '';
+      const snippet = (excluded) => clippedStart
+        + operations.slice(start, end).filter(([type]) => type !== excluded)
+          .map(([, value]) => value).join('').trim()
+        + clippedEnd;
+      return { before: snippet('+'), after: snippet('-') };
+    });
+  }
+
   function renderDiff(pre, text) {
     pre.replaceChildren();
     const lines = text.split('\n');
-    const highlights = new Map();
-    for (let i = 0; i < lines.length;) {
-      if (!/^fractured-diff-(add|del)$/.test(lineClass(lines[i]))) { i += 1; continue; }
+    const addLine = (pair, prefix, value, highlights) => {
+      const span = document.createElement('span');
+      span.className = prefix === '-' ? 'fractured-diff-del' : 'fractured-diff-add';
+      span.append(document.createTextNode(prefix));
+      let segment = '';
+      let marked = false;
+      const flush = () => {
+        if (!segment) return;
+        const part = document.createElement('span');
+        if (marked) part.className = 'fractured-diff-character';
+        part.textContent = segment;
+        span.append(part);
+        segment = '';
+      };
+      Array.from(value).forEach((character, offset) => {
+        if (highlights.has(offset) !== marked) {
+          flush();
+          marked = highlights.has(offset);
+        }
+        segment += character;
+      });
+      flush();
+      pair.append(span);
+    };
+    for (let index = 0; index < lines.length;) {
+      const kind = lineClass(lines[index]);
+      if (kind === 'fractured-diff-meta') {
+        const label = document.createElement('span');
+        label.className = kind;
+        label.textContent = lines[index++];
+        pre.append(label);
+        continue;
+      }
+      if (kind !== 'fractured-diff-add' && kind !== 'fractured-diff-del') {
+        // Unchanged lines are omitted from the compact review; changed snippets
+        // include a few shared words and ellipses to retain local context.
+        index += 1;
+        continue;
+      }
       const additions = [];
       const deletions = [];
-      while (i < lines.length && /^fractured-diff-(add|del)$/.test(lineClass(lines[i]))) {
-        (lines[i][0] === '+' ? additions : deletions).push(i++);
+      while (index < lines.length && /^fractured-diff-(add|del)$/.test(lineClass(lines[index]))) {
+        (lines[index][0] === '+' ? additions : deletions).push(lines[index++].slice(1));
       }
-      for (let pair = 0; pair < Math.max(additions.length, deletions.length); pair += 1) {
-        const del = deletions[pair];
-        const add = additions[pair];
-        const { removed, added } = changedCharacters(del === undefined ? '' : lines[del].slice(1), add === undefined ? '' : lines[add].slice(1));
-        if (del !== undefined) highlights.set(del, removed);
-        if (add !== undefined) highlights.set(add, added);
+      for (let position = 0; position < Math.max(additions.length, deletions.length); position += 1) {
+        const before = deletions[position];
+        const after = additions[position];
+        const snippets = before !== undefined && after !== undefined
+          ? changedTextSnippets(before, after)
+          : [{ before, after }];
+        for (const snippet of snippets) {
+          const pair = document.createElement('span');
+          pair.className = 'fractured-diff-pair';
+          const changes = changedCharacters(snippet.before ?? '', snippet.after ?? '');
+          if (snippet.before !== undefined) addLine(pair, '-', snippet.before, changes.removed);
+          if (snippet.after !== undefined) addLine(pair, '+', snippet.after, changes.added);
+          pre.append(pair);
+        }
       }
-    }
-    for (const [index, line] of lines.entries()) {
-      const span = document.createElement('span');
-      span.className = lineClass(line);
-      const changed = highlights.get(index);
-      if (changed?.size) {
-        span.append(document.createTextNode(line[0]));
-        let segment = '';
-        let marked = false;
-        const flush = () => {
-          if (!segment) return;
-          const part = document.createElement('span');
-          if (marked) part.className = 'fractured-diff-character';
-          part.textContent = segment;
-          span.append(part);
-          segment = '';
-        };
-        Array.from(line.slice(1)).forEach((character, offset) => {
-          if (changed.has(offset) !== marked) { flush(); marked = changed.has(offset); }
-          segment += character;
-        });
-        flush();
-        span.append(document.createTextNode('\n'));
-      } else span.textContent = `${line}\n`;
-      pre.append(span);
     }
   }
 
