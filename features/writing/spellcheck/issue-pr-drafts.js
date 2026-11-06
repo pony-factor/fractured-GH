@@ -110,7 +110,8 @@
       #${SIDEBAR_ID} {
         background: var(--bgColor-default, #fff);
         border: 1px solid var(--borderColor-default, #d0d7de);
-        border-radius: 10px;
+        border-radius: 14px;
+        box-sizing: border-box;
         box-shadow: 0 8px 28px rgba(27,31,36,.18);
         color: var(--fgColor-default, #1f2328);
         max-height: calc(100vh - 112px);
@@ -118,7 +119,7 @@
         position: fixed;
         right: 16px;
         top: 80px;
-        width: min(430px, calc(100vw - 32px));
+        width: min(clamp(460px, 55vw, 860px), calc(100vw - 32px));
         z-index: 100000;
       }
       #${SIDEBAR_ID} .fractured-spellcheck-header {
@@ -127,9 +128,9 @@
         display: flex;
         gap: 8px;
         justify-content: space-between;
-        padding: 10px 12px;
+        padding: 12px 16px;
       }
-      #${SIDEBAR_ID} .fractured-spellcheck-header strong { font-size: 13px; }
+      #${SIDEBAR_ID} .fractured-spellcheck-header strong { font-size: 16px; }
       #${SIDEBAR_ID} .fractured-spellcheck-close {
         background: transparent;
         border: 0;
@@ -142,33 +143,39 @@
       #${SIDEBAR_ID} .fractured-spellcheck-content {
         max-height: calc(100vh - 170px);
         overflow: auto;
-        padding: 10px 12px 12px;
+        padding: 14px 16px 16px;
       }
       #${SIDEBAR_ID} .fractured-spellcheck-status-row {
         align-items: center;
         display: flex;
-        gap: 8px;
+        flex-wrap: wrap;
+        gap: 10px;
         justify-content: space-between;
-        margin-bottom: 9px;
+        margin-bottom: 12px;
       }
       #${SIDEBAR_ID} .fractured-spellcheck-status {
         color: var(--fgColor-muted, #59636e);
-        flex: 1;
-        font-size: 12px;
+        flex: 1 1 240px;
+        font-size: clamp(14px, 1.05vw, 16px);
+        line-height: 1.5;
         margin: 0;
         min-width: 0;
       }
       #${SIDEBAR_ID} .fractured-spellcheck-undo {
+        border-radius: 999px;
         flex-shrink: 0;
-        font-size: 12px;
-        padding: 2px 8px;
+        font-size: 14px;
+        line-height: 1.3;
+        margin-inline-start: auto;
+        min-height: 30px;
+        padding: 5px 14px;
       }
       #${SIDEBAR_ID} .fractured-spellcheck-error { color: var(--fgColor-danger, #cf222e); }
       #${SIDEBAR_ID} .fractured-spellcheck-diff {
         background: var(--bgColor-muted, #f6f8fa);
         border: 1px solid var(--borderColor-muted, #d8dee4);
         border-radius: 6px;
-        font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font: clamp(13px, .94vw, 15px)/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
         margin: 0;
         overflow: auto;
         padding: 8px;
@@ -176,7 +183,7 @@
         overflow-wrap: anywhere;
       }
       #${SIDEBAR_ID}[data-wrap="false"] .fractured-spellcheck-diff { white-space: pre; overflow-wrap: normal; }
-      #${SIDEBAR_ID} .fractured-spellcheck-wrap { align-items: center; display: flex; gap: 5px; font-size: 12px; }
+      #${SIDEBAR_ID} .fractured-spellcheck-wrap { align-items: center; display: flex; gap: 5px; font-size: 14px; }
       #${SIDEBAR_ID} .fractured-diff-add { background: rgba(46,160,67,.15); display: block; }
       #${SIDEBAR_ID} .fractured-diff-del { background: rgba(248,81,73,.15); display: block; }
       #${SIDEBAR_ID} .fractured-diff-add .fractured-diff-character { background: rgba(46,160,67,.4); border-radius: 2px; }
@@ -189,12 +196,12 @@
         #${SIDEBAR_ID} {
           bottom: 12px;
           left: 12px;
-          max-height: 58vh;
+          max-height: 70vh;
           right: 12px;
           top: auto;
           width: auto;
         }
-        #${SIDEBAR_ID} .fractured-spellcheck-content { max-height: calc(58vh - 48px); }
+        #${SIDEBAR_ID} .fractured-spellcheck-content { max-height: calc(70vh - 60px); }
       }
     `;
     document.documentElement.append(style);
