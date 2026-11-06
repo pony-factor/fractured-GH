@@ -95,7 +95,7 @@ test('uses native Done only for exclusively muted bot notifications, without mut
     row(['/apps/vercel']),
     row(['/alice', '/apps/vercel']),
     row(['/alice']),
-    row(['/kefania-pony%5Bbot%5D']),
+    row(['/kefania-pony%5Bbot%5D'], { id: '124' }),
   ];
   let settings = { muteInboxAccountsEnabled: true, mutedInboxAccounts: ['vercel[bot]', 'kefania-pony[bot]'] };
   const handlers = {};
