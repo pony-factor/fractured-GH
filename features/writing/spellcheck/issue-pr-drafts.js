@@ -184,11 +184,28 @@
       }
       #${SIDEBAR_ID}[data-wrap="false"] .fractured-spellcheck-diff { white-space: pre; overflow-wrap: normal; }
       #${SIDEBAR_ID} .fractured-spellcheck-wrap { align-items: center; display: flex; gap: 5px; font-size: 14px; }
+      #${SIDEBAR_ID} .fractured-diff-pair {
+        border: 1px solid var(--borderColor-muted, #d8dee4);
+        border-left: 3px solid var(--fgColor-accent, #0969da);
+        border-radius: 8px;
+        display: block;
+        margin: 8px 0;
+        overflow-x: auto;
+      }
+      #${SIDEBAR_ID} .fractured-diff-pair > span {
+        display: block;
+        overflow-wrap: inherit;
+        padding: 7px 10px;
+        white-space: inherit;
+      }
+      #${SIDEBAR_ID} .fractured-diff-pair > .fractured-diff-del {
+        border-bottom: 1px dashed var(--borderColor-muted, #d8dee4);
+      }
       #${SIDEBAR_ID} .fractured-diff-add { background: rgba(46,160,67,.15); display: block; }
       #${SIDEBAR_ID} .fractured-diff-del { background: rgba(248,81,73,.15); display: block; }
       #${SIDEBAR_ID} .fractured-diff-add .fractured-diff-character { background: rgba(46,160,67,.4); border-radius: 2px; }
       #${SIDEBAR_ID} .fractured-diff-del .fractured-diff-character { background: rgba(248,81,73,.4); border-radius: 2px; }
-      #${SIDEBAR_ID} .fractured-diff-meta { color: var(--fgColor-accent, #0969da); display: block; }
+      #${SIDEBAR_ID} .fractured-diff-meta { color: var(--fgColor-accent, #0969da); display: block; font-weight: 600; margin: 12px 0 6px; }
       #${SIDEBAR_ID} .fractured-spellcheck-apply {
         margin-bottom: 10px;
       }
@@ -377,49 +394,129 @@
     return '';
   }
 
+  // Break a changed paragraph into local word-level hunks without rewriting the draft.
+  // Shared nearby words give context while distant edits get independent before/after pairs.
+  function changedTextSnippets(before, after) {
+    const original = String(before).match(/\s+|\S+/gu) || [];
+    const corrected = String(after).match(/\s+|\S+/gu) || [];
+    if (!original.length || !corrected.length || original.length * corrected.length > 200000) {
+      return [{ before, after }];
+    }
+    const table = Array.from(
+      { length: original.length + 1 },
+      () => new Uint16Array(corrected.length + 1),
+    );
+    for (let i = original.length - 1; i >= 0; i -= 1) {
+      for (let j = corrected.length - 1; j >= 0; j -= 1) {
+        table[i][j] = original[i] === corrected[j]
+          ? table[i + 1][j + 1] + 1
+          : Math.max(table[i + 1][j], table[i][j + 1]);
+      }
+    }
+    const operations = [];
+    let i = 0;
+    let j = 0;
+    while (i < original.length || j < corrected.length) {
+      if (i < original.length && j < corrected.length && original[i] === corrected[j]) {
+        operations.push([' ', original[i]]);
+        i += 1;
+        j += 1;
+      } else if (j < corrected.length
+        && (i >= original.length || table[i][j + 1] >= table[i + 1][j])) {
+        operations.push(['+', corrected[j++]]);
+      } else {
+        operations.push(['-', original[i++]]);
+      }
+    }
+    const changes = operations.flatMap(([type], index) => type === ' ' ? [] : [index]);
+    if (!changes.length) return [{ before, after }];
+    const groups = [];
+    let first = changes[0];
+    let last = first;
+    for (const index of changes.slice(1)) {
+      if (index - last <= 8) {
+        last = index;
+      } else {
+        groups.push([first, last]);
+        first = last = index;
+      }
+    }
+    groups.push([first, last]);
+    return groups.map(([from, to]) => {
+      const start = Math.max(0, from - 4);
+      const end = Math.min(operations.length, to + 5);
+      const clippedStart = start > 0 ? '… ' : '';
+      const clippedEnd = end < operations.length ? ' …' : '';
+      const snippet = (excluded) => clippedStart
+        + operations.slice(start, end).filter(([type]) => type !== excluded)
+          .map(([, value]) => value).join('').trim()
+        + clippedEnd;
+      return { before: snippet('+'), after: snippet('-') };
+    });
+  }
+
   function renderDiff(pre, text) {
     pre.replaceChildren();
     const lines = text.split('\n');
-    const highlights = new Map();
-    for (let i = 0; i < lines.length;) {
-      if (!/^fractured-diff-(add|del)$/.test(lineClass(lines[i]))) { i += 1; continue; }
+    const addLine = (pair, prefix, value, highlights) => {
+      const span = document.createElement('span');
+      span.className = prefix === '-' ? 'fractured-diff-del' : 'fractured-diff-add';
+      span.append(document.createTextNode(prefix));
+      let segment = '';
+      let marked = false;
+      const flush = () => {
+        if (!segment) return;
+        const part = document.createElement('span');
+        if (marked) part.className = 'fractured-diff-character';
+        part.textContent = segment;
+        span.append(part);
+        segment = '';
+      };
+      Array.from(value).forEach((character, offset) => {
+        if (highlights.has(offset) !== marked) {
+          flush();
+          marked = highlights.has(offset);
+        }
+        segment += character;
+      });
+      flush();
+      pair.append(span);
+    };
+    for (let index = 0; index < lines.length;) {
+      const kind = lineClass(lines[index]);
+      if (kind === 'fractured-diff-meta') {
+        const label = document.createElement('span');
+        label.className = kind;
+        label.textContent = lines[index++];
+        pre.append(label);
+        continue;
+      }
+      if (kind !== 'fractured-diff-add' && kind !== 'fractured-diff-del') {
+        // Unchanged lines are omitted from the compact review; changed snippets
+        // include a few shared words and ellipses to retain local context.
+        index += 1;
+        continue;
+      }
       const additions = [];
       const deletions = [];
-      while (i < lines.length && /^fractured-diff-(add|del)$/.test(lineClass(lines[i]))) {
-        (lines[i][0] === '+' ? additions : deletions).push(i++);
+      while (index < lines.length && /^fractured-diff-(add|del)$/.test(lineClass(lines[index]))) {
+        (lines[index][0] === '+' ? additions : deletions).push(lines[index++].slice(1));
       }
-      for (let pair = 0; pair < Math.max(additions.length, deletions.length); pair += 1) {
-        const del = deletions[pair];
-        const add = additions[pair];
-        const { removed, added } = changedCharacters(del === undefined ? '' : lines[del].slice(1), add === undefined ? '' : lines[add].slice(1));
-        if (del !== undefined) highlights.set(del, removed);
-        if (add !== undefined) highlights.set(add, added);
+      for (let position = 0; position < Math.max(additions.length, deletions.length); position += 1) {
+        const before = deletions[position];
+        const after = additions[position];
+        const snippets = before !== undefined && after !== undefined
+          ? changedTextSnippets(before, after)
+          : [{ before, after }];
+        for (const snippet of snippets) {
+          const pair = document.createElement('span');
+          pair.className = 'fractured-diff-pair';
+          const changes = changedCharacters(snippet.before ?? '', snippet.after ?? '');
+          if (snippet.before !== undefined) addLine(pair, '-', snippet.before, changes.removed);
+          if (snippet.after !== undefined) addLine(pair, '+', snippet.after, changes.added);
+          pre.append(pair);
+        }
       }
-    }
-    for (const [index, line] of lines.entries()) {
-      const span = document.createElement('span');
-      span.className = lineClass(line);
-      const changed = highlights.get(index);
-      if (changed?.size) {
-        span.append(document.createTextNode(line[0]));
-        let segment = '';
-        let marked = false;
-        const flush = () => {
-          if (!segment) return;
-          const part = document.createElement('span');
-          if (marked) part.className = 'fractured-diff-character';
-          part.textContent = segment;
-          span.append(part);
-          segment = '';
-        };
-        Array.from(line.slice(1)).forEach((character, offset) => {
-          if (changed.has(offset) !== marked) { flush(); marked = changed.has(offset); }
-          segment += character;
-        });
-        flush();
-        span.append(document.createTextNode('\n'));
-      } else span.textContent = `${line}\n`;
-      pre.append(span);
     }
   }
 
