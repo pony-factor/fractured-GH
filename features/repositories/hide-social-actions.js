@@ -182,6 +182,27 @@
       }
     }
 
+    // Organization rows render bullet separators as siblings of the metrics.
+    // Remove the separator before a hidden item, and any leading separator
+    // when the row starts with hidden metrics (for example, no language/license).
+    for (const labels of document.querySelectorAll('[class*="LabelsContainer"]')) {
+      let hasVisibleItem = false;
+      const children = [...labels.children];
+      for (let index = 0; index < children.length; index++) {
+        const item = children[index];
+        if (item.hasAttribute(ATTRIBUTE)) continue;
+        const isSeparator = item.tagName === 'SPAN' && /^[•·]$/.test(item.textContent.trim())
+          && item.children.length === 0;
+        if (isSeparator) {
+          if (!hasVisibleItem || children[index + 1]?.hasAttribute(ATTRIBUTE)) {
+            item.setAttribute(ATTRIBUTE, 'metric-separator');
+          }
+        } else {
+          hasVisibleItem = true;
+        }
+      }
+    }
+
     const repository = document.querySelector('meta[name="octolytics-dimension-repository_nwo"]')
       ?.getAttribute('content');
     if (!repository) return;

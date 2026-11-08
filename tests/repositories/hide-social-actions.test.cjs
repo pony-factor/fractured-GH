@@ -18,6 +18,9 @@ function disabledControl(text, ariaLabel = '') {
     removeAttribute(name) {
       if (name === attribute) this.action = undefined;
     },
+    hasAttribute(name) {
+      return name === attribute && this.action !== undefined;
+    },
   };
   return {
     wrapper,
@@ -44,9 +47,11 @@ async function render(hideRepositoryFork, controls, options = {}) {
           ...(options.cardStars || []).map(card => card.metric),
           ...(options.orgStars || []).map(item => item.metric),
           ...(options.orgForks || []).map(item => item.metric),
+          ...(options.labels || []).flatMap(labels => labels.children),
         ].filter(item => item.action);
       }
       if (selector.includes('#repository-container-header button,')) return controls;
+      if (selector === '[class*="LabelsContainer"]') return options.labels || [];
       if (selector.startsWith('a[href*=')) return (options.links || []).filter(link =>
         link.href.includes(selector.includes('stargazers') ? '/stargazers' : '/forks'));
       if (selector.startsWith('svg.octicon-star')) {
@@ -259,4 +264,30 @@ test('never hides unrelated icons or mixed metric footers', async () => {
   assert.equal(mixed.metric.action, undefined);
   assert.equal(invalid.metric.action, undefined);
   assert.equal(otherPage.metric.action, undefined);
+});
+
+test('removes star/fork separators while preserving separators between visible metadata and restores them', async () => {
+  const element = (text, tagName = 'SPAN') => ({
+    ...disabledControl('').wrapper, textContent: text, tagName, children: [],
+  });
+  const fork = statistic('https://github.com/PDF-magic/viewer/forks');
+  const star = statistic('https://github.com/PDF-magic/viewer/stargazers');
+  const dots = Array.from({ length: 4 }, () => element('•'));
+  const labels = { children: [element('Python', 'DIV'), dots[0], fork, dots[1], star,
+    dots[2], element('6 issues', 'A'), dots[3], element('Updated yesterday', 'DIV')] };
+  const options = { organization: true, labels: [labels], links: [fork, star] };
+  await render(true, [], { ...options, settings: { hideRepositoryStar: true } });
+  assert.deepEqual(dots.map(dot => dot.action), ['metric-separator', 'metric-separator', undefined, undefined]);
+  await render(false, [], { ...options, settings: { hideRepositoryStar: false } });
+  assert.ok(dots.every(dot => dot.action === undefined));
+
+  // Repositories without language/license start directly with the hidden metrics.
+  labels.children = [fork, dots[0], star, dots[1], element('0 issues', 'A')];
+  await render(true, [], { ...options, settings: { hideRepositoryStar: true } });
+  assert.equal(dots[0].action, 'metric-separator');
+  assert.equal(dots[1].action, 'metric-separator');
+
+  await render(false, [], { ...options, settings: { hideRepositoryStar: true } });
+  assert.equal(dots[0].action, 'metric-separator');
+  assert.equal(dots[1].action, undefined);
 });
