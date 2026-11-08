@@ -162,13 +162,33 @@
         min-width: 0;
       }
       #${SIDEBAR_ID} .fractured-spellcheck-undo {
+        appearance: none;
+        align-items: center;
+        background: var(--button-default-bgColor-rest, #f6f8fa);
+        border: 1px solid var(--button-default-borderColor-rest, var(--borderColor-default, #d0d7de));
         border-radius: 999px;
+        box-shadow: 0 1px 0 var(--button-default-shadow, rgba(27,31,36,.04));
+        color: var(--fgColor-default, #1f2328);
+        cursor: pointer;
+        display: inline-flex;
         flex-shrink: 0;
+        font-family: inherit;
         font-size: 14px;
+        font-weight: 500;
+        justify-content: center;
         line-height: 1.3;
         margin-inline-start: auto;
         min-height: 30px;
         padding: 5px 14px;
+        transition: background-color .15s ease, border-color .15s ease;
+      }
+      #${SIDEBAR_ID} .fractured-spellcheck-undo:hover {
+        background: var(--button-default-bgColor-hover, #f3f4f6);
+        border-color: var(--button-default-borderColor-hover, var(--borderColor-default, #d0d7de));
+      }
+      #${SIDEBAR_ID} .fractured-spellcheck-undo:focus-visible {
+        outline: 2px solid var(--focus-outlineColor, #0969da);
+        outline-offset: 2px;
       }
       #${SIDEBAR_ID} .fractured-spellcheck-error { color: var(--fgColor-danger, #cf222e); }
       #${SIDEBAR_ID} .fractured-spellcheck-diff {
