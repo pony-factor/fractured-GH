@@ -125,15 +125,27 @@
   }
 
   function newAttachment(body, before) {
-    // GitHub adds a Markdown attachment as soon as its native uploader finishes.
-    const regex = /!?\[[^\]\r\n]*\]\((https:\/\/[^\s)]+)\)/g;
+    // GitHub can return Markdown or an HTML image with native dimensions.
+    const regex = /!?\[[^\]\r\n]*\]\((https:\/\/[^\s)]+)\)|<img\b(?:[^"'<>]|"[^"]*"|'[^']*')*>/gi;
     for (const match of body.matchAll(regex)) {
-      const url = match[1];
+      let url = match[1];
+      if (!url) {
+        const attributes = match[0].slice(4, -1).matchAll(
+          /([^\s=<>/'"]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g,
+        );
+        for (const attribute of attributes) {
+          if (attribute[1].toLowerCase() === 'src') {
+            url = attribute[2] ?? attribute[3] ?? attribute[4];
+            break;
+          }
+        }
+      }
+      if (!url) continue;
       if (!before.includes(url) && (
         /^https:\/\/github\.com\/user-attachments\/assets\//.test(url)
         || /^https:\/\/user-images\.githubusercontent\.com\//.test(url)
         || /^https:\/\/github\.com\/[^/]+\/[^/]+\/(?:assets|files)\//.test(url)
-      )) return { markdown: match[0], url };
+      )) return { markup: match[0], url };
     }
     return null;
   }
@@ -168,14 +180,14 @@
         editor.focus();
         editor.setSelectionRange?.(before.length, before.length);
         beginNativeUpload(editor, item.file);
-        const { markdown, url } = await waitForUpload(editor, before, item.token);
+        const { markup, url } = await waitForUpload(editor, before, item.token);
         const current = editor.value;
-        if (!current.includes(markdown) || !current.includes(item.token)) {
+        if (!current.includes(markup) || !current.includes(item.token)) {
           throw new Error('The draft changed unexpectedly during image upload.');
         }
         // Remove GitHub's appended link and replace our *original* placeholder,
         // leaving one inline Markdown image at the author's chosen position.
-        const finalText = current.replace(markdown, '').replace(
+        const finalText = current.replace(markup, '').replace(
           item.token, `![${item.alt}](${url})`,
         );
         setValue(editor, finalText);
