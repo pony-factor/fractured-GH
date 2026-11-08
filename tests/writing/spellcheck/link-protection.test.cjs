@@ -247,3 +247,11 @@ test('leaves unmatched, repeated, escaped and code carets alone', () => {
     assert.equal(api.restore(masked, masked.masked).body, body);
   }
 });
+
+
+test('does not strip an authored backslash restored next to another syntax token', () => {
+  const api = links();
+  const body = String.raw`A \\_literal underscore and $& [source](https://example.com/$&)`;
+  const masked = api.protect({ body });
+  assert.equal(api.restore(masked, masked.masked).body, body);
+});

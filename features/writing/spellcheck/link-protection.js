@@ -181,6 +181,8 @@
       // introduced immediately before them before restoring the authored bytes.
       for (const entry of expected) {
         result[field] = result[field].replace(new RegExp('\\\\+(?=' + entry.token + ')', 'g'), '');
+      }
+      for (const entry of expected) {
         result[field] = result[field].replace(entry.token, () => entry.literal);
       }
       const escapes = value => value.match(/\\[!"#$%&'()*+,\-./:;<=>?@[\]\\^_`{|}~]/g) || [];
