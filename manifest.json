@@ -30,6 +30,7 @@
         "features/comment-highlights.css"
       ],
       "js": [
+        "features/interface/commit-reference-typography.js",
         "features/notifications/hide-inbox-while-busy.js",
         "features/interface/hide-copilot.js",
         "features/interface/hide-my-navigation-links.js",

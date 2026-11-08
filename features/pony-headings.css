@@ -34,8 +34,9 @@
    Style the outer code chip only, so nested hash links do not double-pad. */
 :is(h1, h2, h3) :is(code, tt),
 .js-issue-title :is(code, tt),
+[data-fractured-commit-reference]:not(:has(code)):not(code *),
 :is(.sha, .commit-id, [data-testid="commit-sha"]):not(:has(code)):not(code *),
-code:has(> a:is([href*="/commit/"], [href*="/commits/"]).Link--secondary),
+code:has(> [data-fractured-commit-reference]),
 a.text-mono:is([href*="/commit/"], [href*="/commits/"]):not(:has(code)):not(code *),
 a:is([href*="/commit/"], [href*="/commits/"]) code,
 :is(.sha, .commit-id, [data-testid="commit-sha"]) code {
@@ -51,8 +52,8 @@ a:is([href*="/commit/"], [href*="/commits/"]) code,
   .sha,
   .commit-id,
   [data-testid="commit-sha"],
-  code:has(> a:is([href*="/commit/"], [href*="/commits/"]).Link--secondary),
-  code > a:is([href*="/commit/"], [href*="/commits/"]).Link--secondary,
+  code:has(> [data-fractured-commit-reference]),
+  [data-fractured-commit-reference],
   a.text-mono:is([href*="/commit/"], [href*="/commits/"]),
   a:is([href*="/commit/"], [href*="/commits/"]) code
 ),
