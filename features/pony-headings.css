@@ -20,17 +20,47 @@
 }
 
 /* GitHub's inline monospace code chip looks oversized in Celestia headings.
-   Keep the markup semantic, but let heading text and inline code align. */
+   Include h3 issue/PR list titles as well as main and sticky titles. */
 .markdown-body :is(h1, h2, h3) :is(code, tt),
-:is(h1, h2) .markdown-title :is(code, tt),
+:is(h1, h2, h3) :is(code, tt),
 .js-issue-title :is(code, tt) {
   font-family: inherit !important;
   font-size: inherit !important;
   font-weight: inherit !important;
   line-height: inherit !important;
-  background: transparent !important;
-  padding: 0 !important;
-  border-radius: 0 !important;
+}
+
+/* Keep title code and commit hashes visibly distinct from ordinary text.
+   Style the outer code chip only, so nested hash links do not double-pad. */
+:is(h1, h2, h3) :is(code, tt),
+.js-issue-title :is(code, tt),
+[data-fractured-commit-reference]:not(:has(code)):not(code *),
+:is(.sha, .commit-id, [data-testid="commit-sha"]):not(:has(code)):not(code *),
+code:has(> [data-fractured-commit-reference]),
+a.text-mono:is([href*="/commit/"], [href*="/commits/"]):not(:has(code)):not(code *),
+a:is([href*="/commit/"], [href*="/commits/"]) code,
+:is(.sha, .commit-id, [data-testid="commit-sha"]) code {
+  background: var(--bgColor-neutral-muted, rgba(110, 118, 129, 0.2)) !important;
+  padding: 0.1em 0.3em !important;
+  border-radius: 6px !important;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* Give commit hashes the display font while keeping their code treatment. */
+:is(
+  .sha,
+  .commit-id,
+  [data-testid="commit-sha"],
+  code:has(> [data-fractured-commit-reference]),
+  [data-fractured-commit-reference],
+  a.text-mono:is([href*="/commit/"], [href*="/commits/"]),
+  a:is([href*="/commit/"], [href*="/commits/"]) code
+),
+:is(.sha, .commit-id, [data-testid="commit-sha"]) code {
+  font-family: "Celestia Medium Redux", "Mona Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  font-weight: inherit !important;
+  line-height: inherit !important;
 }
 
 /* Match the pony display font on PR/issue numbers beside their titles. */
@@ -93,6 +123,12 @@
 ) {
   font-family: "Celestia Medium Redux", "Mona Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
   font-weight: 400;
+}
+
+/* Match merge-event wording and timestamps to the display font. */
+.TimelineItem:has(.octicon-git-merge) > .TimelineItem-body,
+.TimelineItem:has(.octicon-git-merge) > .TimelineItem-body :is(a, span, relative-time, time-ago, local-time, time) {
+  font-family: "Celestia Medium Redux", "Mona Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
 }
 
 /* Keep promoted names and nickname labels in the display font. */
