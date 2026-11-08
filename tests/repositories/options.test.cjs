@@ -65,3 +65,13 @@ test('help text is concise and avoids repeating on/off defaults', () => {
   }
   assert.match(options, /Hide ProTip reminders below PR comments/);
 });
+
+test('personal rainbow mention toggle is persisted with disabled defaults', () => {
+  assert.match(options, /id="rainbow-own-mentions-enabled" type="checkbox"/);
+  assert.match(options.match(/<section id="settings-panel-people"[\s\S]*?<\/section>/)?.[0] || '',
+    /id="rainbow-own-mentions-enabled"/);
+  assert.match(controller, /rainbowOwnMentionsEnabled: false/);
+  assert.match(controller, /rainbowOwnMentionsEnabled: rainbowOwnMentionsInput\.checked/);
+  assert.match(controller, /rainbowOwnMentionsInput\.addEventListener\('change'/);
+  assert.match(background, /rainbowOwnMentionsEnabled: false/);
+});
