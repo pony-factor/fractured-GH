@@ -71,6 +71,7 @@
         "features/writing/spellcheck/image-attachments.js",
         "features/writing/spellcheck/image-dialog.js",
         "features/writing/spellcheck/link-protection.js",
+        "features/writing/spellcheck/submit-confirmation.js",
         "features/writing/spellcheck/issue-pr-drafts.js"
       ],
       "run_at": "document_start"
