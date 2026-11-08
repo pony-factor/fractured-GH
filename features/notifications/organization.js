@@ -4,7 +4,8 @@
   const REFRESH_INTERVAL_MS = 60_000;
   const DOM_REFRESH_DELAY_MS = 100;
   const REQUEST_TIMEOUT_MS = 15_000;
-  const CONTROL_ATTRIBUTE = 'data-github-tweaks-organization-notification';
+  const MAX_RETRY_MS = 5 * REFRESH_INTERVAL_MS;
+  const CONTROL_ATTRIBUTE = 'data-fractured-github-organization-notification';
   const DEFAULT_CONTROL_SELECTORS = [
     '#AppHeader-notifications-button',
     '.AppHeader a[href="/notifications"]',
@@ -19,6 +20,8 @@
   let refreshGeneration = 0;
   let domRefreshTimer = null;
   let activeRefresh = null;
+  let retryDelay = REFRESH_INTERVAL_MS;
+  let nextCheckAt = 0;
 
   function normalizeOrganization(value) {
     return String(value || '')
@@ -165,21 +168,33 @@
       return;
     }
 
+    // Repeated focus/navigation events must not trigger requests while offline,
+    // hidden, or within the backoff window after a failed request.
+    if (document.hidden === true ||
+        (typeof navigator !== 'undefined' && navigator.onLine === false) ||
+        Date.now() < nextCheckAt) return;
+
     const refresh = { generation };
     activeRefresh = refresh;
     try {
       const results = await Promise.all(organizations.map(async (organization) => {
         try {
-          return [organization, await hasUnreadNotifications(organization)];
+          return [organization, await hasUnreadNotifications(organization), false];
         } catch {
-          // A failed poll does not establish that an organization's inbox is empty.
-          // Retry on the next refresh without adding routine network errors to
-          // the browser's extension error list.
-          return [organization, unreadOrganizations.has(organization.toLowerCase())];
+          // Network and transient HTTP failures do not mean that the inbox is empty.
+          return [organization, unreadOrganizations.has(organization.toLowerCase()), true];
         }
       }));
 
       if (generation !== refreshGeneration) return;
+
+      if (results.some(([, , failed]) => failed)) {
+        nextCheckAt = Date.now() + retryDelay;
+        retryDelay = Math.min(retryDelay * 2, MAX_RETRY_MS);
+      } else {
+        nextCheckAt = 0;
+        retryDelay = REFRESH_INTERVAL_MS;
+      }
 
       unreadOrganizations = new Set(
         results
@@ -200,6 +215,8 @@
 
     // Invalidate requests made with the previous settings.
     ++refreshGeneration;
+    nextCheckAt = 0;
+    retryDelay = REFRESH_INTERVAL_MS;
     enabled = Boolean(settings.organizationNotificationInboxesEnabled);
     organizations = normalizeOrganizations(settings.notificationOrganizations);
     void refreshOrganizationNotifications();
@@ -228,6 +245,13 @@
     void refreshOrganizationNotifications();
   });
   window.addEventListener('focus', () => void refreshOrganizationNotifications());
+  window.addEventListener('online', () => {
+    nextCheckAt = 0;
+    void refreshOrganizationNotifications();
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) void refreshOrganizationNotifications();
+  });
 
   const observer = new MutationObserver(() => {
     if (!enabled || unreadOrganizations.size === 0) return;

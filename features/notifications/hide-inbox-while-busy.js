@@ -6,9 +6,10 @@
   });
   if (!hideInboxWhileBusy) return;
 
-  const STYLE_ID = 'github-extension-hide-inbox-style';
-  const BUSY_ATTR = 'data-github-viewer-busy';
-  const BUSY_CACHE_KEY = 'github-viewer-busy';
+  const STYLE_ID = 'fractured-github-hide-inbox-style';
+  const BUSY_ATTR = 'data-fractured-github-busy';
+  const BUSY_CACHE_KEY = 'fractured-github-busy';
+  const LEGACY_BUSY_CACHE_KEY = 'github-viewer-busy';
   let currentBusy = null;
   const CHECK_INTERVAL_MS = 60_000;
   const MAX_RETRY_MS = 5 * CHECK_INTERVAL_MS;
@@ -69,11 +70,12 @@
 
   function readCachedBusyStatus() {
     try {
-      const value = window.localStorage.getItem(BUSY_CACHE_KEY);
+      const value = window.localStorage.getItem(BUSY_CACHE_KEY)
+        ?? window.localStorage.getItem(LEGACY_BUSY_CACHE_KEY);
       if (value === 'true') return true;
       if (value === 'false') return false;
     } catch (error) {
-      console.warn('[GitHub Extension]', error.message);
+      console.warn('[Fractured GitHub]', error.message);
     }
 
     return null;
@@ -83,7 +85,7 @@
     try {
       window.localStorage.setItem(BUSY_CACHE_KEY, String(isBusy));
     } catch (error) {
-      console.warn('[GitHub Extension]', error.message);
+      console.warn('[Fractured GitHub]', error.message);
     }
   }
 
@@ -97,6 +99,7 @@
     const cachedBusy = readCachedBusyStatus();
     if (cachedBusy === null) return;
     currentBusy = cachedBusy;
+    cacheBusyStatus(cachedBusy);
 
     if (document.documentElement) {
       setBusy(cachedBusy);
@@ -172,7 +175,7 @@
       retryDelay = Math.min(retryDelay * 2, MAX_RETRY_MS);
       if (error.name !== 'TypeError' && error.name !== 'AbortError' &&
           error.message !== lastWarning) {
-        console.warn('[GitHub Extension]', error.message);
+        console.warn('[Fractured GitHub]', error.message);
         lastWarning = error.message;
       }
     } finally {
