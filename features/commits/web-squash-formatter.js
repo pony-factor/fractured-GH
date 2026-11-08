@@ -170,13 +170,20 @@
       button.textContent = "🪄";
       button.title = "Apply SweetieBot formatting";
       button.setAttribute("aria-label", "Apply SweetieBot formatting");
-      button.style.marginRight = "0.5rem";
+      const actions = document.createElement("span");
+      actions.setAttribute("data-fractured-squash-format-actions", "");
+      actions.style.display = "inline-flex";
+      actions.style.alignItems = "center";
+      actions.style.gap = "8px";
+      actions.style.verticalAlign = "middle";
       const status = document.createElement("span");
       status.setAttribute("role", "status");
       status.className = "sr-only";
       button.addEventListener("click", () => apply(scope, status));
-      confirm.insertAdjacentElement("beforebegin", button);
-      button.insertAdjacentElement("afterend", status);
+      // GitHub's Button class can be block-level. Keep the wand and native
+      // confirmation together even when their surrounding layout uses blocks.
+      confirm.insertAdjacentElement("beforebegin", actions);
+      actions.append(button, status, confirm);
     }
   }
 
@@ -192,8 +199,12 @@
     observer.disconnect();
     if (!settings.webSquashFormattingEnabled) {
       document.querySelectorAll("[" + MARK + "]").forEach(button => {
+        const actions = button.parentElement;
         if (button.nextElementSibling?.getAttribute("role") === "status") button.nextElementSibling.remove();
         button.remove();
+        if (actions?.hasAttribute("data-fractured-squash-format-actions")) {
+          actions.replaceWith(...actions.childNodes);
+        }
       });
       return;
     }
