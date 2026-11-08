@@ -53,7 +53,7 @@
     if (imageEnd > at) return imageEnd;
     const rest = text.slice(at);
     if (at === 0 || text[at - 1] === '\n') {
-      const definition = /^[ \t]{0,3}\[[^\]\r\n]+\]:[^\r\n]+/.exec(rest);
+      const definition = /^[ \t]{0,3}\[(?!\^)[^\]\r\n]+\]:[^\r\n]+/.exec(rest);
       if (definition) return at + definition[0].length;
     }
     if (text[at] === '[' || text[at] === '!' || text[at] === '\\') {
@@ -86,6 +86,54 @@
     const closing = /^(?:\\?\]|>|`+|\*+|_+)/.exec(after)?.[0] || '';
     return opening + '\0' + closing;
   }
+  function codeEnd(text, at) {
+    if (text[at] !== '`' && text.slice(at, at + 3) !== '~~~') return -1;
+    const run = /^(?:`+|~{3,})/.exec(text.slice(at))[0];
+    const end = text.indexOf(run, at + run.length);
+    return end < 0 ? text.length : end + run.length;
+  }
+
+  // Pair only unambiguous, single-caret placeholders. Leave unmatched markers
+  // alone rather than inventing footnote content or guessing at repeated carets.
+  function footnotes(text) {
+    const references = [];
+    const definitions = [];
+    for (let i = 0; i < text.length;) {
+      const end = Math.max(codeEnd(text, i), protectedEnd(text, i));
+      if (end > i) { i = end; continue; }
+      if (text[i] === '\\') { i += 2; continue; }
+      if (text[i] === '^' && text[i - 1] !== '^' && text[i + 1] !== '^') {
+        const line = text.slice(text.lastIndexOf('\n', i - 1) + 1, i);
+        if (/^[ \t]{0,3}$/.test(line) && /\S/.test(text[i + 1] || '')) {
+          definitions.push(i);
+        } else if (/^[ \t]{0,3}$/.test(line) && /^[ \t]+\S/.test(text.slice(i + 1))) {
+          definitions.push(i);
+        } else if (/\S/.test(line) && (!text[i + 1] || /[\s.,;:!?)]/.test(text[i + 1]))) {
+          references.push(i);
+        }
+      }
+      i += 1;
+    }
+    if (!references.length || references.length !== definitions.length
+      || references.some((at, index) => at > definitions[index])) return text;
+    const used = new Set(Array.from(text.matchAll(/\[\^([^\]\n]+)\]/g), match => match[1]));
+    const replacements = new Map();
+    let number = 1;
+    references.forEach((at, index) => {
+      while (used.has(String(number))) number += 1;
+      const label = String(number++);
+      replacements.set(at, `[^${label}]`);
+      replacements.set(definitions[index], `[^${label}]:` + (/\s/.test(text[definitions[index] + 1]) ? '' : ' '));
+    });
+    return text.split('').map((character, i) => replacements.get(i) || character).join('');
+  }
+
+  function syntaxEnd(text, at) {
+    const code = codeEnd(text, at);
+    if (code > at) return code;
+    const match = /^(?:\\[!"#$%&'()*+,\-./:;<=>?@[\]\\^_`{|}~]|\[\^[^\]\r\n]+\](?::)?|[_*]+)/.exec(text.slice(at));
+    return match ? at + match[0].length : -1;
+  }
   function protect(original) {
     const source = { title: String(original?.title ?? ''), body: String(original?.body ?? '') };
     let marker = 'FRACTUREDLINKTOKEN';
@@ -93,16 +141,17 @@
     const entries = [];
     const masked = {};
     for (const field of ['title', 'body']) {
-      const value = source[field];
+      const value = field === 'body' ? footnotes(source[field]) : source[field];
       let output = '';
       for (let i = 0; i < value.length;) {
-        const end = protectedEnd(value, i);
+        const linkEnd = protectedEnd(value, i);
+        const end = linkEnd > i ? linkEnd : syntaxEnd(value, i);
         if (end <= i) { output += value[i]; i += 1; continue; }
         const token = `${marker}${entries.length}END`;
         const literal = value.slice(i, end);
         const presentation = /^(?:https?:\/\/|www\.|github\.com(?:\/|$))/i.test(literal)
           ? rawLinkPresentation(value, i, end) : null;
-        entries.push({ token, literal, field, presentation });
+        entries.push({ token, literal, field, presentation, kind: linkEnd > i ? 'link' : 'syntax' });
         output += token;
         i = end;
       }
@@ -114,8 +163,8 @@
   function sameLinks(before, after) {
     const signature = ({ field, literal, presentation }) =>
       JSON.stringify([field, literal, presentation]);
-    const first = protect(before).entries.map(signature);
-    const second = protect(after).entries.map(signature);
+    const first = protect(before).entries.filter(entry => entry.kind === 'link').map(signature);
+    const second = protect(after).entries.filter(entry => entry.kind === 'link').map(signature);
     return first.length === second.length && first.every((value, i) => value === second[i]);
   }
   function restore(protectedDraft, response) {
@@ -128,7 +177,19 @@
       if (actual.length !== expected.length || actual.some((token, i) => token !== expected[i].token)) {
         throw new Error('Spellcheck altered, omitted, duplicated, or reordered a protected Markdown link, URL, or HTML image. Nothing was applied.');
       }
-      for (const entry of expected) result[field] = result[field].replace(entry.token, entry.literal);
+      // Opaque markers have no Markdown meaning. Discard escapes the model
+      // introduced immediately before them before restoring the authored bytes.
+      for (const entry of expected) {
+        result[field] = result[field].replace(new RegExp('\\\\+(?=' + entry.token + ')', 'g'), '');
+        result[field] = result[field].replace(entry.token, () => entry.literal);
+      }
+      const escapes = value => value.match(/\\[!"#$%&'()*+,\-./:;<=>?@[\]\\^_`{|}~]/g) || [];
+      const originalEscapes = escapes(source[field]);
+      const returnedEscapes = escapes(result[field]);
+      if (returnedEscapes.length !== originalEscapes.length
+        || returnedEscapes.some((escape, i) => escape !== originalEscapes[i])) {
+        throw new Error('Spellcheck changed Markdown escaping. Nothing was applied.');
+      }
     }
     if (!sameLinks(source, result)) {
       throw new Error('Spellcheck introduced or changed a Markdown link, URL, or HTML image. Nothing was applied.');
