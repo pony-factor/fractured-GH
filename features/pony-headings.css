@@ -128,6 +128,12 @@
   font-family: "Celestia Medium Redux", "Mona Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
 }
 
+/* Match branch chips in PR headers, sticky headers, and timeline notices. */
+:is(.commit-ref, .head-ref, .base-ref),
+:is(.commit-ref, .head-ref, .base-ref) :is(a, span) {
+  font-family: "Celestia Medium Redux", "Mona Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+
 /* Style author-association pills (Member, Contributor, Owner, etc.) in
    legacy PR discussions and modern issue/comment headers. Explicitly style
    nested badge text too; GitHub sometimes sets its font independently.
