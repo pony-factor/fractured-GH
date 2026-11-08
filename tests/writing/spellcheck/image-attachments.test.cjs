@@ -8,7 +8,7 @@ const source = fs.readFileSync(
   path.join(__dirname, '../../../features/writing/spellcheck/image-attachments.js'), 'utf8',
 );
 
-function setup() {
+function setup({ uploadMarkup = '![native](https://github.com/user-attachments/assets/uploaded-once)' } = {}) {
   const drawing = [];
   const alerts = [];
   let uploadCount = 0;
@@ -57,7 +57,7 @@ function setup() {
     closest: () => true,
     dispatchEvent() {
       uploadCount += 1;
-      editor.value += '\n![native](https://github.com/user-attachments/assets/uploaded-once)';
+      editor.value += '\n' + uploadMarkup;
     },
   };
   const form = { querySelectorAll: () => [nativeInput] };
@@ -129,6 +129,26 @@ test('uploads only after spellcheck and leaves exactly one final inline URL', as
   assert.equal(app.nativeInput.files[0].type, 'image/png');
   assert.match(app.nativeInput.files[0].name, /-rounded\.png$/);
 });
+
+for (const uploadMarkup of [
+  '<img width="1862" height="1033" alt="Screenshot-rounded" src="https://github.com/user-attachments/assets/uploaded-once" />',
+  "<IMG alt='Screenshot > rounded' SRC='https://github.com/user-attachments/assets/uploaded-once'>",
+  '<img src=https://github.com/user-attachments/assets/uploaded-once width=1862>',
+]) {
+  test(`finalizes native HTML upload: ${uploadMarkup}`, async () => {
+    const app = setup({ uploadMarkup });
+    const existing = '<img src="https://github.com/user-attachments/assets/existing" width="20" />\n';
+    app.editor.value = existing + 'Before. After.';
+    app.editor.setSelectionRange(existing.length + 7, existing.length + 7);
+    await app.api.add(app.editor, { name: 'Screenshot.jpg', type: 'image/jpeg' });
+
+    assert.equal(await app.api.finalize(app.editor), 1);
+    assert.equal(app.editor.value, existing + 'Before.![Screenshot](https://github.com/user-attachments/assets/uploaded-once) After.\n');
+    assert.equal(app.api.hasUnresolved(app.editor), false);
+    assert.equal(await app.api.finalize(app.editor), 0);
+    assert.equal(app.uploadCount, 1);
+  });
+}
 
 test('prevents submitting a draft with pending image placeholders', async () => {
   const app = setup();
