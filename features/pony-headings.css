@@ -33,6 +33,25 @@
   border-radius: 0 !important;
 }
 
+/* Give commit hashes the display font and remove their inline-code chip. */
+:is(
+  .sha,
+  .commit-id,
+  [data-testid="commit-sha"],
+  code:has(> a:is([href*="/commit/"], [href*="/commits/"])),
+  code > a:is([href*="/commit/"], [href*="/commits/"]),
+  a.text-mono:is([href*="/commit/"], [href*="/commits/"]),
+  a:is([href*="/commit/"], [href*="/commits/"]) code
+),
+:is(.sha, .commit-id, [data-testid="commit-sha"]) code {
+  font-family: "Celestia Medium Redux", "Mona Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  font-weight: inherit !important;
+  line-height: inherit !important;
+  background: transparent !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+}
+
 /* Match the pony display font on PR/issue numbers beside their titles. */
 :is(
   .gh-header-number,
