@@ -50,6 +50,10 @@ const excludeOrganizationNotificationsInput = document.getElementById('exclude-o
 const notificationOrganizationsList = document.getElementById('notification-organizations');
 const addNotificationOrganizationButton = document.getElementById('add-notification-organization');
 const notificationOrganizationTemplate = document.getElementById('notification-organization-template');
+const muteInboxAccountsInput = document.getElementById('mute-inbox-accounts-enabled');
+const mutedInboxAccountsList = document.getElementById('muted-inbox-accounts');
+const addMutedInboxAccountButton = document.getElementById('add-muted-inbox-account');
+const mutedInboxAccountTemplate = document.getElementById('muted-inbox-account-template');
 const userNicknamesInput = document.getElementById('user-nicknames-enabled');
 const rainbowOwnMentionsInput = document.getElementById('rainbow-own-mentions-enabled');
 const preferDisplayNamesInput = document.getElementById('prefer-display-names-enabled');
@@ -106,6 +110,10 @@ function valuesFromRows(list, inputSelector, normalize) {
 
 function mutedUsersFromRows() {
   return valuesFromRows(mutedUsersList, '.muted-user-input', normalizeUsername);
+}
+
+function mutedInboxAccountsFromRows() {
+  return valuesFromRows(mutedInboxAccountsList, '.inbox-muted-account-input', normalizeUsername);
 }
 
 function notificationOrganizationsFromRows() {
@@ -201,6 +209,10 @@ function updateMutedUsersEmptyState() {
   updateEmptyState(mutedUsersList, '.muted-user-row', 'Nobody is muted.');
 }
 
+function updateMutedInboxAccountsEmptyState() {
+  updateEmptyState(mutedInboxAccountsList, '.inbox-muted-account-row', 'No inbox-only muted accounts.');
+}
+
 function updateOrganizationsEmptyState() {
   updateEmptyState(
     notificationOrganizationsList,
@@ -228,6 +240,34 @@ function showSaved() {
     status.textContent = 'Changes save automatically.';
     delete status.dataset.state;
   }, 2500);
+}
+
+function addMutedInboxAccountRow(username = '', { focus = false } = {}) {
+  mutedInboxAccountsList.querySelector('.empty-state')?.remove();
+
+  const row = mutedInboxAccountTemplate.content.firstElementChild.cloneNode(true);
+  const input = row.querySelector('.inbox-muted-account-input');
+  const removeButton = row.querySelector('.remove-inbox-muted-account');
+  input.value = username;
+  addListEntryKeyboardBehavior({
+    input,
+    list: mutedInboxAccountsList,
+    inputSelector: '.inbox-muted-account-input',
+    normalize: normalizeUsername,
+    addRow: addMutedInboxAccountRow,
+  });
+  input.addEventListener('input', queueSave);
+  input.addEventListener('blur', () => {
+    input.value = normalizeUsername(input.value);
+    queueSave();
+  });
+  removeButton.addEventListener('click', () => {
+    row.remove();
+    updateMutedInboxAccountsEmptyState();
+    void saveSettings();
+  });
+  mutedInboxAccountsList.append(row);
+  if (focus) input.focus();
 }
 
 function addNotificationOrganizationRow(organization = '', { focus = false } = {}) {
@@ -390,6 +430,8 @@ async function loadSettings() {
     organizationNotificationInboxesEnabled: false,
     excludeOrganizationNotificationsFromMainInbox: false,
     notificationOrganizations: [],
+    muteInboxAccountsEnabled: false,
+    mutedInboxAccounts: [],
     userNicknamesEnabled: true,
     rainbowOwnMentionsEnabled: false,
     userNicknames: [],
@@ -446,6 +488,7 @@ async function loadSettings() {
   ownerAvatarHeaderInput.checked = Boolean(settings.ownerAvatarHeaderEnabled);
   organizationInboxesInput.checked = Boolean(settings.organizationNotificationInboxesEnabled);
   excludeOrganizationNotificationsInput.checked = Boolean(settings.excludeOrganizationNotificationsFromMainInbox);
+  muteInboxAccountsInput.checked = settings.muteInboxAccountsEnabled === true;
   userNicknamesInput.checked = Boolean(settings.userNicknamesEnabled);
   rainbowOwnMentionsInput.checked = settings.rainbowOwnMentionsEnabled === true;
   preferDisplayNamesInput.checked = Boolean(settings.preferDisplayNamesEnabled);
@@ -455,6 +498,13 @@ async function loadSettings() {
   const organizations = Array.isArray(settings.notificationOrganizations)
     ? settings.notificationOrganizations.map(normalizeOrganization).filter(Boolean)
     : [];
+
+  const mutedInboxAccounts = Array.isArray(settings.mutedInboxAccounts)
+    ? settings.mutedInboxAccounts.map(normalizeUsername).filter(Boolean)
+    : [];
+  mutedInboxAccountsList.replaceChildren();
+  for (const account of mutedInboxAccounts) addMutedInboxAccountRow(account);
+  updateMutedInboxAccountsEmptyState();
 
   notificationOrganizationsList.replaceChildren();
   for (const organization of organizations) addNotificationOrganizationRow(organization);
@@ -509,6 +559,7 @@ async function saveSettings() {
   }
   spellcheckProjectUrlInput.setCustomValidity('');
   const notificationOrganizations = notificationOrganizationsFromRows();
+  const mutedInboxAccounts = mutedInboxAccountsFromRows();
   const userNicknames = userNicknamesFromRows();
   const mutedUsers = mutedUsersFromRows();
 
@@ -560,6 +611,8 @@ async function saveSettings() {
     organizationNotificationInboxesEnabled: organizationInboxesInput.checked,
     excludeOrganizationNotificationsFromMainInbox: excludeOrganizationNotificationsInput.checked,
     notificationOrganizations,
+    muteInboxAccountsEnabled: muteInboxAccountsInput.checked,
+    mutedInboxAccounts,
     userNicknamesEnabled: userNicknamesInput.checked,
     rainbowOwnMentionsEnabled: rainbowOwnMentionsInput.checked,
     preferDisplayNamesEnabled: preferDisplayNamesInput.checked,
@@ -623,6 +676,10 @@ relativeTimesInput.addEventListener('change', () => void saveSettings());
 ownerAvatarHeaderInput.addEventListener('change', () => void saveSettings());
 organizationInboxesInput.addEventListener('change', () => void saveSettings());
 excludeOrganizationNotificationsInput.addEventListener('change', () => void saveSettings());
+muteInboxAccountsInput.addEventListener('change', () => void saveSettings());
+addMutedInboxAccountButton.addEventListener('click', () => {
+  addMutedInboxAccountRow('', { focus: true });
+});
 addNotificationOrganizationButton.addEventListener('click', () => {
   addNotificationOrganizationRow('', { focus: true });
 });
