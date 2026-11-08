@@ -146,6 +146,25 @@
     }, true);
   }
 
+  // Intercept at document capture before GitHub's React capture/delegated
+  // handlers. The bound-control listener remains as a fallback.
+  document.addEventListener('click', (event) => {
+    const control = event.target?.closest?.('[data-fractured-spellcheck-bound]');
+    const binding = control && boundControls.get(control);
+    if (binding) intercept(event, binding.fields, control, binding.spellcheckControl);
+  }, true);
+
+  document.addEventListener('submit', (event) => {
+    let control = event.submitter;
+    let binding = control && boundControls.get(control);
+    if (!binding) {
+      control = [...document.querySelectorAll('[data-fractured-spellcheck-bound]')]
+        .find((button) => button.isConnected && event.target?.contains?.(button));
+      binding = control && boundControls.get(control);
+    }
+    if (binding) intercept(event, binding.fields, control, binding.spellcheckControl);
+  }, true);
+
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter' || !(event.metaKey || event.ctrlKey)
       || event.altKey || event.shiftKey || event.isComposing || event.repeat) return;
