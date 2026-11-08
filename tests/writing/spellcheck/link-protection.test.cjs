@@ -198,3 +198,60 @@ test('keeps original link enclosure unchanged when already authored that way', (
   assert.equal(api.sameLinks(original, original), true);
   assert.equal(api.sameLinks(original, { title: '', body: original.body.replace('[github.com/pony-factor/fractured-GH]', 'github.com/pony-factor/fractured-GH') }), false);
 });
+
+
+test('restores active Markdown when the model escapes protected delimiters and links', () => {
+  const api = links();
+  const original = { title: '', body: '_teh note_ [source](https://example.com/a_(b))' };
+  const masked = api.protect(original);
+  const response = masked.masked.body.replaceAll('teh', 'the')
+    .replace(/FRACTUREDLINKTOKEN\d+END/g, token => '\\' + token);
+  assert.equal(api.restore(masked, { title: '', body: response }).body,
+    '_the note_ [source](https://example.com/a_(b))');
+});
+
+test('preserves intentional escapes and code while correcting surrounding prose', () => {
+  const api = links();
+  const original = { title: '', body: '\\_literal\\_ `a_b ^`\n```js\nconst teh = "^";\n```\nteh note' };
+  const masked = api.protect(original);
+  assert.equal(api.restore(masked, { title: '', body: masked.masked.body.replaceAll('teh', 'the') }).body,
+    original.body.replace(/teh note$/, 'the note'));
+  assert.throws(() => api.restore(api.protect({ body: 'a sentence.' }),
+    { title: '', body: 'a sentence\\.' }), /Markdown escaping/);
+});
+
+test('converts single-caret reference and note pairs to numbered Markdown footnotes', () => {
+  const api = links();
+  const original = { title: '', body: '😀 A claim ^ and another ^.\n\n^teh first note\n^ teh second note' };
+  const masked = api.protect(original);
+  const result = api.restore(masked, { title: '', body: masked.masked.body.replaceAll('teh', 'the') });
+  assert.equal(result.body, '😀 A claim [^1] and another [^2].\n\n[^1]: the first note\n[^2]: the second note');
+  assert.equal(api.sameLinks(original, result), true);
+});
+
+test('keeps existing footnotes and their editable text while avoiding label collisions', () => {
+  const api = links();
+  const original = { title: '', body: 'Existing [^1]. New ^\n\n[^1]: teh existing note\n^teh new [source](https://example.com)' };
+  const masked = api.protect(original);
+  const result = api.restore(masked, { title: '', body: masked.masked.body.replaceAll('teh', 'the') });
+  assert.equal(result.body, 'Existing [^1]. New [^2]\n\n[^1]: the existing note\n[^2]: the new [source](https://example.com)');
+  assert.equal(api.sameLinks(original, result), true);
+});
+
+test('leaves unmatched, repeated, escaped and code carets alone', () => {
+  const api = links();
+  for (const body of ['A claim ^', 'A claim ^^\n\n^^note', 'x^2\n^note',
+    '`claim ^`\n\n^note', 'A claim \\^\n\n^note', 'A ^ and B ^\n\n^only one note',
+    '[label ^](https://example.com/^)\n\n^note']) {
+    const masked = api.protect({ body });
+    assert.equal(api.restore(masked, masked.masked).body, body);
+  }
+});
+
+
+test('does not strip an authored backslash restored next to another syntax token', () => {
+  const api = links();
+  const body = String.raw`A \\_literal underscore and $& [source](https://example.com/$&)`;
+  const masked = api.protect({ body });
+  assert.equal(api.restore(masked, masked.masked).body, body);
+});

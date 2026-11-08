@@ -275,7 +275,8 @@
             ? 'The existing title has six words or fewer. As the highest-priority exception to spelling-only edits, the corrected title MUST start with exactly one professional emoji appropriate to its content, even when the body is long. Preserve an existing leading emoji rather than duplicating it; do not end the title with punctuation. Do not add an emoji to the body.'
             : 'Preserve any existing title emoji. Do not add a new emoji to titles longer than six words.',
       'Preserve every fractured-pending-image: placeholder exactly as written; these represent images to upload after spellcheck.',
-      'The FRACTUREDLINKTOKEN markers represent protected Markdown links, raw URLs, and entire HTML image tags. Preserve every marker exactly once, in its original order and field; never add or change a marker. Never wrap a marker in Markdown, backticks, brackets, or HTML; a raw link must remain raw.',
+      'The FRACTUREDLINKTOKEN markers represent protected Markdown links, raw URLs, entire HTML image tags, Markdown delimiters, code, and footnote syntax. Preserve every marker exactly once, in its original order and field; never add or change a marker. Never wrap a marker in Markdown, backticks, brackets, or HTML; a raw link must remain raw.',
+      'Do not add backslashes to escape Markdown punctuation, links, underscores, or protected markers. Preserve emphasis and footnotes as active Markdown. Single-caret footnote placeholders with matching notes have already been converted to Markdown footnotes; proofread the note text without inventing notes or changing their references.',
       'Return only one valid JSON object with exactly the string keys "title" and "body". Do not use Markdown fences or add commentary.',
       `Input JSON: ${input}`,
     ].join('\n');
