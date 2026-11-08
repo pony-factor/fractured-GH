@@ -6,14 +6,15 @@ const path = require('node:path');
 const css = fs.readFileSync(path.join(__dirname, '../../features/pony-headings.css'), 'utf8');
 const inlineCode = css.match(/(\.markdown-body\s+:is\(h1,\s*h2,\s*h3\)\s+:is\(code,\s*tt\)[^{]*)\{([^}]+)\}/);
 
-test('Markdown heading code inherits heading typography instead of the GitHub chip', () => {
+test('Markdown heading code inherits heading typography while retaining a distinct code chip', () => {
   assert.ok(inlineCode, 'heading inline code needs a scoped style rule');
   const declarations = inlineCode[2];
   for (const property of ['font-family', 'font-size', 'font-weight', 'line-height']) {
     assert.match(declarations, new RegExp(`${property}:\\s*inherit\\s*!important\\s*;`));
   }
-  assert.match(declarations, /background:\s*transparent\s*!important\s*;/);
-  assert.match(declarations, /padding:\s*0\s*!important\s*;/);
+  assert.doesNotMatch(declarations, /background:\s*transparent|padding:\s*0/);
+  assert.match(css, /background:\s*var\(--bgColor-neutral-muted,/);
+  assert.match(css, /padding:\s*0\.1em 0\.3em/);
 });
 
 test('code styling covers main, sticky, and list PR titles without changing body or branch code', () => {
