@@ -114,8 +114,10 @@ a:is([href*="/commit/"], [href*="/commits/"]) code,
   line-height: 1.35 !important;
 }
 
-/* Carry the pony display font through repository navigation tabs. */
+/* Carry the pony display font through repository and organization navigation tabs. */
 :is(
+  nav[aria-label="Organization"],
+  nav[aria-label="Organization navigation"],
   nav[aria-label="Repository"],
   nav[aria-label="Repository navigation"],
   [data-testid="repository-navigation"],
