@@ -105,14 +105,16 @@ function setup({ imagesPending = false } = {}) {
     assert.ok(action, 'expected choice: ' + label);
     action.click();
   };
-  const shortcut = (extra = {}) => {
-    const evt = event('keydown', fields.body, {
+  const keyboard = (target, extra = {}) => {
+    const evt = event('keydown', target, {
       key: 'Enter', metaKey: true, ctrlKey: false, ...extra,
     });
     listeners.keydown(evt);
     return evt;
   };
-  return { state, fields, submit, spellcheck, form, sandbox, event, choose, shortcut };
+  const shortcut = (extra = {}) => keyboard(fields.body, extra);
+  const documentEvent = (evt) => { listeners[evt.type](evt); return evt; };
+  return { state, fields, submit, spellcheck, form, sandbox, event, choose, shortcut, keyboard, documentEvent };
 }
 
 test('Cmd+Enter shows a warning and Cancel does not submit', () => {
@@ -170,9 +172,7 @@ test('unresolved images remain blocked even when the user previously spellchecke
 
 test('only editor shortcuts are intercepted, and Ctrl+Enter works too', () => {
   const app = setup();
-  const unrelated = app.event('keydown', { tag: 'textarea' }, {
-    key: 'Enter', metaKey: true,
-  });
+  const unrelated = app.keyboard({ tag: 'textarea' });
   app.shortcut({ metaKey: false, ctrlKey: true });
   assert.ok(app.state.dialog);
   app.choose('Cancel');
@@ -190,4 +190,27 @@ test('form submit events also require review and respect the chosen action', () 
   assert.equal(evt.defaultPrevented, true);
   app.choose('Submit without spellcheck');
   assert.equal(app.submit.submissions, 1);
+});
+
+test('document capture blocks delegated GitHub click handlers before publishing', () => {
+  const app = setup();
+  const click = app.event('click', {
+    closest: () => app.submit,
+  });
+  app.documentEvent(click);
+  assert.equal(click.defaultPrevented, true);
+  assert.equal(app.submit.submissions, 0);
+  app.choose('Cancel');
+});
+
+test('document capture blocks form submissions without an explicit submitter', () => {
+  const app = setup();
+  const submit = app.event('submit', {
+    contains: (control) => control === app.submit,
+  });
+  app.documentEvent(submit);
+  assert.equal(submit.defaultPrevented, true);
+  app.choose('Run Spellcheck Only');
+  assert.equal(app.spellcheck.clicks, 1);
+  assert.equal(app.submit.submissions, 0);
 });
