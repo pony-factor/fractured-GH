@@ -188,6 +188,7 @@
     for (const labels of document.querySelectorAll('[class*="LabelsContainer"]')) {
       let hasVisibleItem = false;
       const children = [...labels.children];
+      if (!children.some(item => item.hasAttribute(ATTRIBUTE))) continue;
       for (let index = 0; index < children.length; index++) {
         const item = children[index];
         if (item.hasAttribute(ATTRIBUTE)) continue;
