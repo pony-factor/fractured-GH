@@ -172,7 +172,8 @@
       button.setAttribute("aria-label", "Apply SweetieBot formatting");
       const actions = document.createElement("span");
       actions.setAttribute("data-fractured-squash-format-actions", "");
-      actions.style.display = "inline-flex";
+      actions.style.display = "inline-grid";
+      actions.style.gridTemplateColumns = "max-content max-content";
       actions.style.alignItems = "center";
       actions.style.gap = "8px";
       actions.style.verticalAlign = "middle";
@@ -180,8 +181,8 @@
       status.setAttribute("role", "status");
       status.className = "sr-only";
       button.addEventListener("click", () => apply(scope, status));
-      // GitHub's Button class can be block-level. Keep the wand and native
-      // confirmation together even when their surrounding layout uses blocks.
+      // Keep block-level buttons together. Intrinsic grid columns also contain
+      // GitHub's full-width confirmation button without overflowing into Cancel.
       confirm.insertAdjacentElement("beforebegin", actions);
       actions.append(button, status, confirm);
     }
