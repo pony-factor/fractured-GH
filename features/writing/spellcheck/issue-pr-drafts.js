@@ -674,6 +674,7 @@
 
     if (fields.title) setControlValue(fields.title, original.title);
     setControlValue(fields.body, original.body);
+    globalThis.fracturedSpellcheckSubmitConfirmation?.markUnchecked(fields);
     // Finalized images no longer have active staging entries. Restore their
     // rounded files so original pending-image placeholders remain usable.
     globalThis.fracturedSpellcheckImages?.restorePending?.(fields.body, pendingImages);
@@ -848,6 +849,7 @@
     checkSidebarContext();
     if (activeJob?.id !== job.id) return;
     const applied = { title: fields.title?.value ?? '', body: fields.body.value };
+    if (!error) globalThis.fracturedSpellcheckSubmitConfirmation?.markChecked(fields);
     const hasChanges = applied.title !== original.title || applied.body !== original.body;
     showSidebar({
       status, error, diff,
@@ -949,6 +951,7 @@
     control.addEventListener('click', (event) => {
       globalThis.fracturedSpellcheckImages?.preventUnresolvedSubmission(event, fields.body);
     }, true);
+    globalThis.fracturedSpellcheckSubmitConfirmation?.bind(control, fields, button, scope);
   }
 
   function scan() {
