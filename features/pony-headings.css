@@ -10,6 +10,8 @@
   h1,
   h2,
   h3,
+  /* Organization homepage sidebar section headings use h4. */
+  [itemtype="http://schema.org/Organization"] h4.f4.text-normal,
   .vcard-fullname,
   [itemprop="name"],
   .AppHeader-context-item-label,
