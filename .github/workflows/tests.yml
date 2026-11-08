@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   node-tests:
+    name: Node tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,3 +20,56 @@ jobs:
           node-version: "22"
       - name: Run all test suites
         run: node --test
+
+  lint:
+    name: Lint and syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check JavaScript syntax
+        run: |
+          find . -type f \( -name '*.js' -o -name '*.cjs' -o -name '*.mjs' \) \
+            -not -path './node_modules/*' -print0 | xargs -0 -r -n1 node --check
+      - name: Lint JavaScript
+        run: npx --yes --package eslint@9.39.1 eslint --config eslint.config.mjs .
+
+  package:
+    name: Validate and package extension
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Validate extension manifest and assets
+        run: node scripts/validate-extension.mjs
+      - name: Build extension archive
+        run: |
+          zip -q -r "$RUNNER_TEMP/fractured-github.zip" \
+            manifest.json background.js options.html options.js options-page.js \
+            options.css features fonts icons
+          unzip -t "$RUNNER_TEMP/fractured-github.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fractured-github-extension
+          path: ${{ runner.temp }}/fractured-github.zip
+          if-no-files-found: error
+
+  chromium-smoke:
+    name: Chromium smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Playwright
+        run: npm install --no-save --no-package-lock playwright@1.56.1
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Test extension in Chromium
+        run: node scripts/smoke-extension.mjs
