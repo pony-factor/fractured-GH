@@ -17,7 +17,7 @@
   }
 
   function scan(root) {
-    if (root.nodeType === Node.TEXT_NODE) root = root.parentElement;
+    if (root?.nodeType === Node.TEXT_NODE) root = root.parentElement;
     if (!root) return;
     const parentLink = root.closest?.('a[href]');
     if (parentLink) update(parentLink);
