@@ -170,13 +170,21 @@
       button.textContent = "🪄";
       button.title = "Apply SweetieBot formatting";
       button.setAttribute("aria-label", "Apply SweetieBot formatting");
-      button.style.marginRight = "0.5rem";
+      const actions = document.createElement("span");
+      actions.setAttribute("data-fractured-squash-format-actions", "");
+      actions.style.display = "inline-grid";
+      actions.style.gridTemplateColumns = "max-content max-content";
+      actions.style.alignItems = "center";
+      actions.style.gap = "8px";
+      actions.style.verticalAlign = "middle";
       const status = document.createElement("span");
       status.setAttribute("role", "status");
       status.className = "sr-only";
       button.addEventListener("click", () => apply(scope, status));
-      confirm.insertAdjacentElement("beforebegin", button);
-      button.insertAdjacentElement("afterend", status);
+      // Keep block-level buttons together. Intrinsic grid columns also contain
+      // GitHub's full-width confirmation button without overflowing into Cancel.
+      confirm.insertAdjacentElement("beforebegin", actions);
+      actions.append(button, status, confirm);
     }
   }
 
@@ -192,8 +200,12 @@
     observer.disconnect();
     if (!settings.webSquashFormattingEnabled) {
       document.querySelectorAll("[" + MARK + "]").forEach(button => {
+        const actions = button.parentElement;
         if (button.nextElementSibling?.getAttribute("role") === "status") button.nextElementSibling.remove();
         button.remove();
+        if (actions?.hasAttribute("data-fractured-squash-format-actions")) {
+          actions.replaceWith(...actions.childNodes);
+        }
       });
       return;
     }
