@@ -126,7 +126,11 @@
 
     function isRepositoryListingMetric(icon) {
       if (icon.closest(cardSelector)) return true;
-      if (!organizationRepositories) return false;
+      // The organization overview's sidebar uses plain article elements,
+      // with an unlinked icon/count span instead of repository cards.
+      const overviewArticle = /^\/[^/]+\/?$/.test(location.pathname)
+        && icon.closest('article');
+      if (!organizationRepositories && !overviewArticle) return false;
 
       // GitHub may use plain divs instead of list items for these rows.
       // Search only nearby ancestors, and stop before the shared container
@@ -144,6 +148,7 @@
         });
         if (repositoryLinks.length === 1) return true;
         if (repositoryLinks.length > 1) return false;
+        if (row === overviewArticle) return false;
       }
       return false;
     }

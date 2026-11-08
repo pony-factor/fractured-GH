@@ -182,7 +182,7 @@ test('card star counts respect the individual and legacy preferences and restore
 
 
 function organizationMetric({
-  text = '0', iconCount = 1, repositoryLink = 'https://github.com/PDF-magic/opener',
+  text = '0', iconCount = 1, repositoryLink = 'https://github.com/PDF-magic/opener', overview = false,
 } = {}) {
   const metric = disabledControl('').wrapper;
   metric.textContent = text;
@@ -199,6 +199,7 @@ function organizationMetric({
   const icon = {
     parentElement: metric,
     closest(selector) {
+      if (selector === 'article') return overview ? row : null;
       if (selector.includes('.pinned-item-list-item')) return null;
       if (selector.includes('.Box-row')) return row;
       return null;
@@ -221,6 +222,26 @@ test('hides icon-only star and fork counts on organization repository rows', asy
   assert.equal(issues.metric.action, undefined);
   assert.equal(star.row.action, undefined);
   assert.equal(fork.row.action, undefined);
+});
+
+test('overview sidebar article metrics honor independent settings and restore without hiding metadata', async () => {
+  const star = organizationMetric({ overview: true });
+  const fork = organizationMetric({ overview: true });
+  const unrelated = organizationMetric();
+  const options = {
+    organization: true, locationPath: '/PDF-magic',
+    orgStars: [star, unrelated], orgForks: [fork],
+  };
+  await render(true, [], { ...options, settings: { hideRepositoryStar: true } });
+  assert.equal(star.metric.action, 'star');
+  assert.equal(fork.metric.action, 'fork');
+  assert.equal(star.row.action, undefined);
+  assert.equal(unrelated.metric.action, undefined);
+  await render(false, [], { ...options, settings: { hideRepositoryStar: true } });
+  assert.equal(star.metric.action, 'star');
+  assert.equal(fork.metric.action, undefined);
+  await render(false, [], { ...options, settings: { hideRepositoryStar: false } });
+  assert.equal(star.metric.action, undefined);
 });
 
 test('organization repository counts follow independent settings and restore when disabled', async () => {
