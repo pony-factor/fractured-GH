@@ -36,6 +36,7 @@
         "features/interface/hide-my-navigation-links.js",
         "features/interface/hide-hamburger-menu.js",
         "features/people/owner-avatar-header.js",
+        "features/people/bot-hovercards.js",
         "features/interface/rotating-404-fan-art.js",
         "features/people/profile-name-cache.js",
         "features/people/user-nicknames.js",
