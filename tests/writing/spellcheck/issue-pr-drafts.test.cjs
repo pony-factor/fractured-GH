@@ -237,3 +237,18 @@ test('adds vertical spacing without reflowing complex GitHub footers', () => {
   assert.match(app.actions.className, /fractured-spellcheck-actions--stacked/);
   assert.match(source, /\.fractured-spellcheck-actions--stacked \{[^}]*margin-block-end: 8px;/s);
 });
+
+test('spellcheck results grow with available space but fit narrow viewports', () => {
+  assert.ok(source.includes('width: min(clamp(460px, 55vw, 860px), calc(100vw - 32px));'));
+  assert.match(source, /@media \(max-width: 720px\) \{[\s\S]*?width: auto;/);
+  assert.ok(source.includes('font-size: clamp(14px, 1.05vw, 16px);'));
+  assert.ok(source.includes('font: clamp(13px, .94vw, 15px)/1.5'));
+});
+
+test('spellcheck Undo action is a legible rounded pill', () => {
+  const undoStyle = source.split('.fractured-spellcheck-undo {')[1]?.split('}')[0];
+  assert.ok(undoStyle, 'Undo styling must exist');
+  assert.ok(undoStyle.includes('border-radius: 999px;'));
+  assert.ok(undoStyle.includes('font-size: 14px;'));
+  assert.ok(undoStyle.includes('padding: 5px 14px;'));
+});

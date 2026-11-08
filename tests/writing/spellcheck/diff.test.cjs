@@ -33,7 +33,7 @@ test('renders stronger character spans while treating markup as text', () => {
   const app = setup();
   const pre = app.node();
   app.renderDiff(pre, '-<b>cat</b>\n+<b>cats</b>');
-  const highlighted = pre.children.flatMap(line => line.children)
+  const highlighted = pre.children.flatMap(pair => pair.children.flatMap(line => line.children))
     .filter(child => child.className === 'fractured-diff-character');
   assert.deepEqual(highlighted.map(child => child.textContent), ['s']);
 });
@@ -65,8 +65,11 @@ test('shows removed lines before added lines in title and body previews', () => 
   const preview = app.node();
   app.renderDiff(preview, diff);
   assert.deepEqual(preview.children.map(line => line.className), [
-    'fractured-diff-meta', 'fractured-diff-del', 'fractured-diff-add',
-    'fractured-diff-meta', 'fractured-diff-del', 'fractured-diff-add',
+    'fractured-diff-meta', 'fractured-diff-pair',
+    'fractured-diff-meta', 'fractured-diff-pair',
+  ]);
+  assert.deepEqual(preview.children[1].children.map(line => line.className), [
+    'fractured-diff-del', 'fractured-diff-add',
   ]);
 });
 
@@ -86,4 +89,50 @@ test('keeps standalone insertions and deletions in position', () => {
   const app = setup();
   assert.equal(app.draftDiff({ body: 'a\nb' }, { body: 'a\nb\nc' }, 'comment'), ' a\n b\n+c');
   assert.equal(app.draftDiff({ body: 'a\nb\nc' }, { body: 'a\nc' }, 'comment'), ' a\n-b\n c');
+});
+
+
+test('splits distant corrections in a single paragraph into connected red/green pairs', () => {
+  const app = setup();
+  const oldText = 'The beginning of this fairly long paragraph contains teh first error and'
+    + ' many ordinary words in the middle that remain the same all along before'
+    + ' finally reaching an incorrect speling at the end of the passage.';
+  const newText = oldText.replace('teh', 'the').replace('speling', 'spelling');
+  const preview = app.node();
+  app.renderDiff(preview, app.draftDiff({ body: oldText }, { body: newText }, 'comment'));
+  const pairs = preview.children.filter(node => node.className === 'fractured-diff-pair');
+  assert.equal(pairs.length, 2);
+  assert.ok(pairs.every(pair => pair.children.map(row => row.className).join(',') ===
+    'fractured-diff-del,fractured-diff-add'));
+  const rowText = row => row.children.map(child => child.textContent).join('');
+  assert.match(rowText(pairs[0].children[0]), /teh/);
+  assert.match(rowText(pairs[0].children[1]), /the/);
+  assert.match(rowText(pairs[1].children[0]), /speling/);
+  assert.match(rowText(pairs[1].children[1]), /spelling/);
+  assert.ok(pairs.every(pair => rowText(pair.children[0]).length < oldText.length));
+});
+
+test('keeps standalone insertions and deletions as one-sided comparison blocks', () => {
+  const app = setup();
+  const added = app.node();
+  app.renderDiff(added, app.draftDiff({ body: 'keep' }, { body: 'keep\nextra' }, 'comment'));
+  assert.deepEqual(added.children.map(node => node.className), ['fractured-diff-pair']);
+  assert.deepEqual(added.children[0].children.map(node => node.className), ['fractured-diff-add']);
+  const removed = app.node();
+  app.renderDiff(removed, app.draftDiff({ body: 'keep\nextra' }, { body: 'keep' }, 'comment'));
+  assert.deepEqual(removed.children[0].children.map(node => node.className), ['fractured-diff-del']);
+});
+
+test('pairs multiline replacements directly instead of stacking all deletions first', () => {
+  const app = setup();
+  const preview = app.node();
+  app.renderDiff(preview, app.draftDiff(
+    { body: 'original one\noriginal two' },
+    { body: 'corrected one\ncorrected two' },
+    'comment',
+  ));
+  assert.equal(preview.children.length, 2);
+  assert.ok(preview.children.every(pair => pair.className === 'fractured-diff-pair'
+    && pair.children[0].className === 'fractured-diff-del'
+    && pair.children[1].className === 'fractured-diff-add'));
 });
