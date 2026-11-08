@@ -52,21 +52,17 @@
   function squashBody(original, prefs = {}) {
     const entries = [];
     const credits = [];
-    let trailers = false;
     for (const line of String(original || "").replace(/\r\n?/g, "\n").split("\n")) {
       const credit = line.match(TRAILER);
       if (credit) {
         credits.push({ name: credit[1], email: credit[2] });
-        trailers = true;
-      } else if (trailers) {
-        if (line.trim() && !/^(?:__________|---------)$/.test(line.trim())) return null;
       } else if (/^(?:__________|---------)$/.test(line.trim())) {
         continue;
       } else if (/^[-*]\s+\S/.test(line)) {
         entries.push({ subject: line.replace(/^[-*]\s+/, "").trim(), body: [] });
       } else if (!line.trim()) {
         if (entries.length) entries[entries.length - 1].body.push("");
-      } else if (entries.length && /^\s/.test(line)) {
+      } else if (entries.length) {
         entries[entries.length - 1].body.push(line);
       } else {
         return null;
@@ -112,16 +108,21 @@
     return title && body ? { title, body } : null;
   }
 
-  function isSquash(scope) {
-    return [...scope.querySelectorAll("button, input[type=\"submit\"]")].some(button =>
+  function squashAction(scope) {
+    return [...scope.querySelectorAll("button, input[type=\"submit\"]")].find(button =>
       /^(?:confirm\s+)?squash and merge$/i.test(
         (button.textContent || button.value || "").trim().replace(/\s+/g, " ")));
   }
 
+  function isSquash(scope) {
+    return Boolean(squashAction(scope));
+  }
+
   function prTitle(number) {
-    const element = document.querySelector(".js-issue-title, [data-testid=\"issue-title\"], h1 bdi");
+    const element = document.querySelector(".js-issue-title, [data-testid=\"issue-title\"], h1 bdi")
+      || document.querySelector("h1");
     return element ? (element.textContent || "").trim().replace(
-      new RegExp("\\s*#" + number + "\\s*$"), "") : "";
+      new RegExp("\\s*(?:-\\s*)?#\\s*" + number + "\\s*$"), "").trim() : "";
   }
 
   function update(field, value) {
@@ -160,17 +161,21 @@
     }
     for (const scope of scopes) {
       const fields = mergeFields(scope);
-      if (!fields || !isSquash(scope) || scope.querySelector("[" + MARK + "]")) continue;
+      const confirm = squashAction(scope);
+      if (!fields || !confirm || scope.querySelector("[" + MARK + "]")) continue;
       const button = document.createElement("button");
       button.type = "button";
       button.className = "Button Button--secondary Button--small";
       button.setAttribute(MARK, "");
-      button.textContent = "Apply SweetieBot formatting";
+      button.textContent = "🪄";
+      button.title = "Apply SweetieBot formatting";
+      button.setAttribute("aria-label", "Apply SweetieBot formatting");
+      button.style.marginRight = "0.5rem";
       const status = document.createElement("span");
       status.setAttribute("role", "status");
-      status.style.marginLeft = "0.5rem";
+      status.className = "sr-only";
       button.addEventListener("click", () => apply(scope, status));
-      fields.body.insertAdjacentElement("afterend", button);
+      confirm.insertAdjacentElement("beforebegin", button);
       button.insertAdjacentElement("afterend", status);
     }
   }

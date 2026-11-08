@@ -18,7 +18,7 @@ const context = vm.createContext({
     local: { get: async defaults => defaults },
   } },
 });
-vm.runInContext(source.replace(/\}\)\(\);\s*$/, "globalThis.helpers = { squashTitle, squashBody, mergeFields, apply }; \n})();"), context);
+vm.runInContext(source.replace(/\}\)\(\);\s*$/, "globalThis.helpers = { squashTitle, squashBody, mergeFields, prTitle, apply }; \n})();"), context);
 const { squashTitle, squashBody, mergeFields, apply } = context.helpers;
 
 test("preserves the exact PR title and appends its number once", () => {
@@ -67,6 +67,29 @@ test("does not reinterpret manually authored messages as commit lists", () => {
   assert.equal(squashBody("A PR description with no commit list."), null);
   assert.equal(squashBody("## Summary\n- Add a feature"), null);
   assert.equal(squashBody(""), null);
+});
+
+test("formats GitHub's interleaved trailers and unindented commit descriptions", () => {
+  const result = squashBody([
+    "* 🔩 Share signing identity", "", "Co-authored-by: ChatGPT 6 <noreply@openai.com>", "",
+    "* 🧪 Cover signing", "", "Keep author and committer separate.", "",
+    "Co-authored-by: ChatGPT 6 <noreply@openai.com>", "",
+    "* 🔄 Sync brach to main", "", "Resolve conflicts.", "",
+    "Co-authored-by: Alice <alice@example.com>",
+  ].join("\n"));
+  assert.equal(result, [
+    "- 🔩 Share signing identity", "- 🧪 Cover signing",
+    "    Keep author and committer separate.", "", "__________", "",
+    "Co-authored-by: ChatGPT 6 <noreply@openai.com>",
+    "Co-authored-by: Alice <alice@example.com>",
+    "Co-authored-by: Codex (Web) <noreply@openai.com>",
+  ].join("\n"));
+});
+
+test("reads the React PR heading when legacy title selectors are absent", () => {
+  context.document.querySelector = selector => selector === "h1"
+    ? { textContent: "🔩 Share signing identity - # 681" } : null;
+  assert.equal(context.helpers.prTitle(681), "🔩 Share signing identity");
 });
 
 test("merge-specific preferences are wired and disabled until opted in", () => {
