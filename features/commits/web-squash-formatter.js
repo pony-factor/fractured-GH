@@ -52,21 +52,17 @@
   function squashBody(original, prefs = {}) {
     const entries = [];
     const credits = [];
-    let trailers = false;
     for (const line of String(original || "").replace(/\r\n?/g, "\n").split("\n")) {
       const credit = line.match(TRAILER);
       if (credit) {
         credits.push({ name: credit[1], email: credit[2] });
-        trailers = true;
-      } else if (trailers) {
-        if (line.trim() && !/^(?:__________|---------)$/.test(line.trim())) return null;
       } else if (/^(?:__________|---------)$/.test(line.trim())) {
         continue;
       } else if (/^[-*]\s+\S/.test(line)) {
         entries.push({ subject: line.replace(/^[-*]\s+/, "").trim(), body: [] });
       } else if (!line.trim()) {
         if (entries.length) entries[entries.length - 1].body.push("");
-      } else if (entries.length && /^\s/.test(line)) {
+      } else if (entries.length) {
         entries[entries.length - 1].body.push(line);
       } else {
         return null;
@@ -119,9 +115,10 @@
   }
 
   function prTitle(number) {
-    const element = document.querySelector(".js-issue-title, [data-testid=\"issue-title\"], h1 bdi");
+    const element = document.querySelector(".js-issue-title, [data-testid=\"issue-title\"], h1 bdi")
+      || document.querySelector("h1");
     return element ? (element.textContent || "").trim().replace(
-      new RegExp("\\s*#" + number + "\\s*$"), "") : "";
+      new RegExp("\\s*(?:-\\s*)?#\\s*" + number + "\\s*$"), "").trim() : "";
   }
 
   function update(field, value) {
