@@ -11,6 +11,8 @@ const DEFAULT_SETTINGS = {
   hideCopilot: true,
   rotate404FanArtEnabled: true,
   hideInboxWhileBusy: true,
+  hideNotificationsButton: false,
+  compactTopRightActions: false,
   relativeTimesOnly: false,
   ownerAvatarHeaderEnabled: true,
   organizationNotificationInboxesEnabled: false,

@@ -37,6 +37,8 @@ const autoSetupNewForksInput = document.getElementById('auto-setup-new-forks');
 const hideRepositoryOverviewNameInput = document.getElementById('hide-repository-overview-name');
 const hideMyNavigationLinksInput = document.getElementById('hide-my-navigation-links');
 const hideHamburgerMenuInput = document.getElementById('hide-hamburger-menu');
+const compactTopRightActionsInput = document.getElementById('compact-top-right-actions');
+const hideNotificationsButtonInput = document.getElementById('hide-notifications-button');
 const hideSuggestedWorkflowsInput = document.getElementById('hide-suggested-workflows');
 const hideRepositoryLanguagesInput = document.getElementById('hide-repository-languages');
 const hideRepositoryInsightsInput = document.getElementById('hide-repository-insights');
@@ -419,6 +421,8 @@ async function loadSettings() {
     hideRepositoryOverviewName: false,
     hideMyNavigationLinks: false,
     hideHamburgerMenu: false,
+    compactTopRightActions: false,
+    hideNotificationsButton: false,
     hideSuggestedWorkflows: false,
     hideRepositoryLanguages: false,
     hideRepositoryInsights: false,
@@ -478,6 +482,8 @@ async function loadSettings() {
   hideRepositoryOverviewNameInput.checked = Boolean(settings.hideRepositoryOverviewName);
   hideMyNavigationLinksInput.checked = Boolean(settings.hideMyNavigationLinks);
   hideHamburgerMenuInput.checked = Boolean(settings.hideHamburgerMenu);
+  compactTopRightActionsInput.checked = settings.compactTopRightActions === true;
+  hideNotificationsButtonInput.checked = settings.hideNotificationsButton === true;
   hideSuggestedWorkflowsInput.checked = Boolean(settings.hideSuggestedWorkflows);
   hideRepositoryLanguagesInput.checked = Boolean(settings.hideRepositoryLanguages);
   hideRepositoryInsightsInput.checked = Boolean(settings.hideRepositoryInsights);
@@ -600,6 +606,8 @@ async function saveSettings() {
     hideRepositoryOverviewName: hideRepositoryOverviewNameInput.checked,
     hideMyNavigationLinks: hideMyNavigationLinksInput.checked,
     hideHamburgerMenu: hideHamburgerMenuInput.checked,
+    compactTopRightActions: compactTopRightActionsInput.checked,
+    hideNotificationsButton: hideNotificationsButtonInput.checked,
     hideSuggestedWorkflows: hideSuggestedWorkflowsInput.checked,
     hideRepositoryLanguages: hideRepositoryLanguagesInput.checked,
     hideRepositoryInsights: hideRepositoryInsightsInput.checked,
@@ -666,6 +674,8 @@ autoSetupNewForksInput.addEventListener('change', () => void saveSettings());
 hideRepositoryOverviewNameInput.addEventListener('change', () => void saveSettings());
 hideMyNavigationLinksInput.addEventListener('change', () => void saveSettings());
 hideHamburgerMenuInput.addEventListener('change', () => void saveSettings());
+compactTopRightActionsInput.addEventListener('change', () => void saveSettings());
+hideNotificationsButtonInput.addEventListener('change', () => void saveSettings());
 hideSuggestedWorkflowsInput.addEventListener('change', () => void saveSettings());
 hideRepositoryLanguagesInput.addEventListener('change', () => void saveSettings());
 hideRepositoryInsightsInput.addEventListener('change', () => void saveSettings());
