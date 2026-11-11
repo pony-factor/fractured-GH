@@ -4,7 +4,6 @@
   const TRAILER = /^Co-authored-by:\s*(.+?)\s*<([^<>\s]+@[^<>\s]+)>\s*$/i;
   const SYNC = /^(?:🔄\s*)?Sync (?:brach|branch) to main(?:\s*\(#\d+\))?$/i;
   const EMOJI = /^(?:\p{Extended_Pictographic}|\p{Regional_Indicator}{2})/u;
-  const CODEX = "Co-authored-by: Codex (Web) <noreply@openai.com>";
   const selectors = "input:not([type]), input[type=\"text\"], textarea";
   let settings = { webSquashFormattingEnabled: false, webSquashOmitEmojiBullets: false,
     webSquashFilterSync: true, webSquashSeparator: "underscores" };
@@ -80,16 +79,15 @@
 
     const seen = new Set();
     const authors = [];
-    for (const item of [...credits, { name: "Codex (Web)", email: "noreply@openai.com" }]) {
-      const codex = /codex/i.test(item.name) && item.email.toLowerCase() === "noreply@openai.com";
-      const key = codex ? "codex" : (item.name + "<" + item.email + ">").toLowerCase();
+    for (const item of credits) {
+      const key = (item.name + "<" + item.email + ">").toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
-      authors.push(codex ? CODEX : "Co-authored-by: " + item.name + " <" + item.email + ">");
+      authors.push("Co-authored-by: " + item.name + " <" + item.email + ">");
     }
     const separator = { underscores: "__________", hyphens: "---------", none: "" }[
       prefs.webSquashSeparator] ?? "__________";
-    return [summary, separator, authors.join("\n")].filter(Boolean).join("\n\n");
+    return [summary, authors.length ? separator : "", authors.join("\n")].filter(Boolean).join("\n\n");
   }
 
   function descriptor(field) {
