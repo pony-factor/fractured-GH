@@ -79,13 +79,15 @@ a:is([href*="/commit/"], [href*="/commits/"]) code,
   #partial-discussion-sidebar,
   .discussion-sidebar,
   [data-testid="pr-sidebar"],
-  [data-testid="issue-viewer-sidebar"]
+  [data-testid="issue-viewer-sidebar"],
+  [class*="prc-PageLayout-Pane-"]:has(> #overview-status-and-details)
 ) :is(
   .discussion-sidebar-heading,
   .discussion-sidebar-heading :is(a, span, strong, button),
   h2,
   h3,
   h4,
+  :is(h2, h3, h4, [role="heading"]) :is(a, span, strong, button),
   [role="heading"],
   [data-testid$="-section"] > :first-child :is(span, strong, button)
 ) {
