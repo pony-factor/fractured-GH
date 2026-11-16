@@ -1,6 +1,7 @@
 (() => {
   "use strict";
   const MARK = "data-fractured-squash-format-button";
+  const ACTIONS = "data-fractured-squash-format-actions";
   const TRAILER = /^Co-authored-by:\s*(.+?)\s*<([^<>\s]+@[^<>\s]+)>\s*$/i;
   const SYNC = /^(?:🔄\s*)?Sync (?:brach|branch) to main(?:\s*\(#\d+\))?$/i;
   const EMOJI = /^(?:\p{Extended_Pictographic}|\p{Regional_Indicator}{2})/u;
@@ -170,13 +171,18 @@
       button.textContent = "🪄";
       button.title = "Apply SweetieBot formatting";
       button.setAttribute("aria-label", "Apply SweetieBot formatting");
-      button.style.marginRight = "0.5rem";
+      button.style.cssText = "display:inline-flex;align-items:center;justify-content:center;align-self:stretch;flex:none;min-width:32px;padding:0 8px;";
       const status = document.createElement("span");
       status.setAttribute("role", "status");
       status.className = "sr-only";
       button.addEventListener("click", () => apply(scope, status));
-      confirm.insertAdjacentElement("beforebegin", button);
-      button.insertAdjacentElement("afterend", status);
+      // Keep one child in GitHub's footer grid. Inserting the wand as a
+      // separate grid item pushes Confirm onto the next row beside Cancel.
+      const actions = document.createElement("div");
+      actions.setAttribute(ACTIONS, "");
+      actions.style.cssText = "display:inline-flex;align-items:center;gap:8px;justify-self:start;";
+      confirm.insertAdjacentElement("beforebegin", actions);
+      actions.append(button, status, confirm);
     }
   }
 
@@ -192,6 +198,12 @@
     observer.disconnect();
     if (!settings.webSquashFormattingEnabled) {
       document.querySelectorAll("[" + MARK + "]").forEach(button => {
+        const actions = button.closest("[" + ACTIONS + "]");
+        if (actions) {
+          const confirm = actions.lastElementChild;
+          actions.replaceWith(confirm);
+          return;
+        }
         if (button.nextElementSibling?.getAttribute("role") === "status") button.nextElementSibling.remove();
         button.remove();
       });
