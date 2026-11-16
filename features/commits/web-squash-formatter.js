@@ -120,8 +120,11 @@
   }
 
   function prTitle(number) {
-    const element = document.querySelector(".js-issue-title, [data-testid=\"issue-title\"], h1 bdi")
-      || document.querySelector("h1");
+    // Primer portals the confirmation dialog ahead of the page heading. Its
+    // own h1 ("Confirm merge") must never become the commit subject.
+    const outsideDialog = element => !element.closest('dialog, [role="dialog"], [aria-modal="true"]');
+    const element = [...document.querySelectorAll(".js-issue-title, [data-testid=\"issue-title\"], h1 bdi")]
+      .find(outsideDialog) || [...document.querySelectorAll("h1")].find(outsideDialog);
     return element ? (element.textContent || "").trim().replace(
       new RegExp("\\s*(?:-\\s*)?#\\s*" + number + "\\s*$"), "").trim() : "";
   }

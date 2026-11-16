@@ -87,9 +87,18 @@ test("formats GitHub's interleaved trailers and unindented commit descriptions",
 });
 
 test("reads the React PR heading when legacy title selectors are absent", () => {
-  context.document.querySelector = selector => selector === "h1"
-    ? { textContent: "🔩 Share signing identity - # 681" } : null;
+  context.document.querySelectorAll = selector => selector === "h1"
+    ? [{ textContent: "🔩 Share signing identity - # 681", closest() { return null; } }] : [];
   assert.equal(context.helpers.prTitle(681), "🔩 Share signing identity");
+});
+
+test("ignores the confirmation dialog heading even when it precedes the PR heading", () => {
+  const modal = { textContent: "Confirm merge", closest() { return {}; } };
+  const heading = { textContent: "🐝 Support local-only commits (#724)", closest() { return null; } };
+  context.document.querySelectorAll = selector => selector === "h1" ? [modal, heading] : [modal];
+  assert.equal(context.helpers.prTitle(724), "🐝 Support local-only commits (#724)");
+  context.document.querySelectorAll = () => [modal];
+  assert.equal(context.helpers.prTitle(724), "");
 });
 
 test("merge-specific preferences are wired and disabled until opted in", () => {
@@ -133,6 +142,7 @@ test("single-commit prose and credits survive applying the exact PR title", () =
   const body = { value: description, getAttribute() { return null; } };
   context.location = { pathname: "/pony-factor/sweetiebot-SCM/pull/640" };
   context.document.querySelector = () => ({ textContent: "🖌️ Show live progress" });
+  context.document.querySelectorAll = () => [{ textContent: "🖌️ Show live progress", closest() { return null; } }];
   const scope = {
     querySelector(selector) { return selector === "#merge_title_field" ? title : body; },
     querySelectorAll(selector) { return selector.includes("button")
