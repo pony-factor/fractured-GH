@@ -17,7 +17,8 @@
   }
 
   function scan(root) {
-    if (root?.nodeType === Node.TEXT_NODE) root = root.parentElement;
+    if (!root) return;
+    if (root.nodeType === Node.TEXT_NODE) root = root.parentElement;
     if (!root) return;
     const parentLink = root.closest?.('a[href]');
     if (parentLink) update(parentLink);
@@ -28,7 +29,7 @@
   new MutationObserver(records => {
     for (const record of records) {
       if (record.type === 'childList') {
-        scan(record.target.closest?.('a[href]'));
+        scan(record.target?.closest?.('a[href]'));
         record.addedNodes.forEach(scan);
       } else scan(record.target);
     }
