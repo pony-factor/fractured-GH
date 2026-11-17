@@ -34,6 +34,8 @@
     const organizationRoute = (root === "orgs" && parts.length >= 2)
       || (root === "organizations" && parts.length >= 3
         && parts[1].toLowerCase() !== "new");
+    const userProjectsRoute = root === "users" && parts.length >= 3
+      && parts[2].toLowerCase() === "projects";
     const reservedRoots = new Set([
       "about", "account", "apps", "codespaces", "collections", "dashboard",
       "enterprise", "events", "explore", "features", "issues", "login",
@@ -41,12 +43,12 @@
       "pricing", "pulls", "search", "security", "sessions", "settings",
       "signup", "site", "sponsors", "stars", "topics", "trending", "users",
     ]);
-    if (!organizationRoute && reservedRoots.has(root)) return null;
+    if (!organizationRoute && !userProjectsRoute && reservedRoots.has(root)) return null;
 
     try {
-      const owner = decodeURIComponent(organizationRoute ? parts[1] : parts[0]);
+      const owner = decodeURIComponent(organizationRoute || userProjectsRoute ? parts[1] : parts[0]);
       if (!/^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$/i.test(owner)) return null;
-      if (organizationRoute || parts.length === 1) {
+      if (organizationRoute || userProjectsRoute || parts.length === 1) {
         return { owner, repository: false };
       }
 

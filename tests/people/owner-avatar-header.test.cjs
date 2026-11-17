@@ -243,6 +243,35 @@ test("keeps account avatars on profile and organization pages, including in-app 
   assert.equal(feature.logo.hasAttribute("data-fractured-brand-logo"), true);
 });
 
+test('uses the personal project owner avatar through project views and navigation', async () => {
+  const feature = harness(true);
+  await feature.settle();
+
+  for (const [pathname, eventName, owner] of [
+    ['/users/JFWooten4/projects/1', 'turbo:load', 'JFWooten4'],
+    ['/users/JFWooten4/projects/1/views/2', 'pjax:end', 'JFWooten4'],
+    ['/users/another-owner/projects/2/settings', 'popstate', 'another-owner'],
+    ['/users/JFWooten4/projects', 'turbo:load', 'JFWooten4'],
+  ]) {
+    feature.navigate(pathname, eventName, 'pony-factor/fractured-GH');
+    await feature.settle();
+    assert.equal(feature.logo.getAttribute('data-fractured-owner-logo'), owner);
+    assert.equal(feature.logo.hasAttribute('data-fractured-brand-logo'), false);
+    assert.equal(feature.logo.getAttribute('href'), '/' + owner);
+    assert.equal(feature.logo.getAttribute('aria-label'), owner);
+    assert.equal(feature.logo.querySelector('[data-fractured-owner-avatar]')?.src,
+      'https://github.com/' + owner + '.png?size=64');
+    assert.equal(feature.logo.children.length, 1);
+  }
+
+  for (const pathname of ['/users', '/users/JFWooten4', '/users/JFWooten4/settings', '/users/invalid_owner/projects/1']) {
+    feature.navigate(pathname);
+    await feature.settle();
+    assert.equal(feature.logo.hasAttribute('data-fractured-owner-logo'), false);
+    assert.equal(feature.logo.hasAttribute('data-fractured-brand-logo'), true);
+  }
+});
+
 test('does not brand a different repository while GitHub metadata is stale', async () => {
   const feature = harness(true);
   await feature.settle();
