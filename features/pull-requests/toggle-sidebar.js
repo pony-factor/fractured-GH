@@ -10,8 +10,8 @@
   const WIDTH_ATTR = 'data-fractured-pr-sidebar-width';
   const STYLE_ID = 'fractured-pr-sidebar-toggle-style';
   const HOLDER_ID = 'fractured-pr-sidebar-toggle-holder';
-  const SIDEBARS = '#partial-discussion-sidebar, [data-testid="pr-sidebar"], .discussion-sidebar, [data-testid="issue-viewer-sidebar"]';
-  const CONTENT = '.Layout-main, [data-testid="issue-viewer-main"], #discussion_bucket, .discussion-timeline';
+  const SIDEBARS = '#partial-discussion-sidebar, [data-testid="pr-sidebar"], .discussion-sidebar, [data-testid="issue-viewer-sidebar"], #overview-status-and-details';
+  const CONTENT = '.Layout-main, [data-testid="issue-viewer-main"], #discussion_bucket, .discussion-timeline, [data-component="SplitPageLayout.Content"]';
 
   let enabled = true;
   let collapsed = false;
@@ -37,6 +37,7 @@
       'html[data-fractured-pr-sidebar-collapsed="true"] [data-fractured-pr-sidebar-layout] { grid-template-columns:minmax(0,1fr) !important; --Layout-sidebar-width:0px; }',
       'html[data-fractured-pr-sidebar-collapsed="true"] [data-fractured-pr-sidebar-main] { grid-column:1 / -1 !important; flex:1 1 100% !important; width:100% !important; min-width:0 !important; max-width:none !important; }',
       'html[data-fractured-pr-sidebar-collapsed="true"] [data-fractured-pr-sidebar-width], html[data-fractured-pr-sidebar-collapsed="true"] [data-fractured-pr-sidebar-main] :is(#discussion_bucket,.discussion-timeline) { max-width:none !important; width:100% !important; }',
+      'html[data-fractured-pr-sidebar-collapsed="true"] [data-fractured-pr-sidebar-main] > [class*="prc-PageLayout-Content-"] { max-width:none !important; width:100% !important; }',
     ].join('\n');
     (document.head || document.documentElement).append(style);
   }

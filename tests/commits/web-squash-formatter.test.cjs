@@ -116,7 +116,7 @@ test("wand applies a PR title and commit list without adding an AI co-author", (
   const title = { value: "Old commit title", dispatchEvent() {} };
   const body = { value: "* 🌱 Add quote file\n* ✒️ Add prompts", dispatchEvent() {} };
   context.location = { pathname: "/JFWooten4/stellar-tokenization-policy-drafting/pull/3" };
-  context.document.querySelector = () => ({ textContent: "✒️ Add constituency quotations and reply-intent prompts" });
+  context.document.querySelectorAll = () => [{ textContent: "✒️ Add constituency quotations and reply-intent prompts", closest() { return null; } }];
   const scope = {
     querySelector(selector) { return selector === "#merge_title_field" ? title : body; },
     querySelectorAll(selector) { return selector.includes("button")
@@ -131,9 +131,18 @@ test("wand applies a PR title and commit list without adding an AI co-author", (
 });
 
 test("reads the React PR heading when legacy title selectors are absent", () => {
-  context.document.querySelector = selector => selector === "h1"
-    ? { textContent: "🔩 Share signing identity - # 681" } : null;
+  context.document.querySelectorAll = selector => selector === "h1"
+    ? [{ textContent: "🔩 Share signing identity - # 681", closest() { return null; } }] : [];
   assert.equal(context.helpers.prTitle(681), "🔩 Share signing identity");
+});
+
+test("ignores the confirmation dialog heading even when it precedes the PR heading", () => {
+  const modal = { textContent: "Confirm merge", closest() { return {}; } };
+  const heading = { textContent: "🐝 Support local-only commits (#724)", closest() { return null; } };
+  context.document.querySelectorAll = selector => selector === "h1" ? [modal, heading] : [modal];
+  assert.equal(context.helpers.prTitle(724), "🐝 Support local-only commits (#724)");
+  context.document.querySelectorAll = () => [modal];
+  assert.equal(context.helpers.prTitle(724), "");
 });
 
 test("merge-specific preferences are wired and disabled until opted in", () => {
@@ -176,7 +185,7 @@ test("single-commit prose and credits survive applying the exact PR title", () =
   const title = { value: "🖌️ Show live progress (#640)", getAttribute() { return null; } };
   const body = { value: description, getAttribute() { return null; } };
   context.location = { pathname: "/pony-factor/sweetiebot-SCM/pull/640" };
-  context.document.querySelector = () => ({ textContent: "🖌️ Show live progress" });
+  context.document.querySelectorAll = () => [{ textContent: "🖌️ Show live progress", closest() { return null; } }];
   const scope = {
     querySelector(selector) { return selector === "#merge_title_field" ? title : body; },
     querySelectorAll(selector) { return selector.includes("button")

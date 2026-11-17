@@ -8,7 +8,7 @@ const source = fs.readFileSync(
   path.join(__dirname, '../../features/pull-requests/toggle-sidebar.js'), 'utf8',
 );
 
-function setup() {
+function setup({ modern = false } = {}) {
   const settings = { pullRequestSidebarToggleEnabled: true, pullRequestSidebarCollapsed: false };
   const location = { pathname: '/owner/repo/pull/68' };
   const listeners = new Map();
@@ -58,8 +58,17 @@ function setup() {
   layout.append(main);
   layout.append(column);
   column.append(sidebar);
-  sidebar.closest = selector => selector === '.Layout-sidebar' ? column : null;
-  layout.querySelector = selector => selector.includes('.Layout-main') ? main : null;
+  if (modern) {
+    const pane = new Element();
+    column.children = [];
+    column.append(pane);
+    pane.append(sidebar);
+    pane.querySelector = () => null;
+    column.querySelector = () => null;
+  }
+  sidebar.closest = selector => !modern && selector === '.Layout-sidebar' ? column : null;
+  layout.querySelector = selector => selector.includes(modern
+    ? '[data-component="SplitPageLayout.Content"]' : '.Layout-main') ? main : null;
   layout.closest = () => null;
   let onChanged;
   let mutationCallback;
@@ -71,7 +80,10 @@ function setup() {
     createElement() { return new Element(); },
     createElementNS() { return new Element(); },
     getElementById(id) { return styles.get(id) || null; },
-    querySelectorAll() { return [sidebar]; },
+    querySelectorAll(selector) {
+      return selector.includes(modern ? '#overview-status-and-details'
+        : '#partial-discussion-sidebar') ? [sidebar] : [];
+    },
     addEventListener(name, cb) { listeners.set(name, cb); },
   };
   const chrome = {
@@ -155,5 +167,21 @@ test('mutation redraws do not duplicate controls and stored state updates', asyn
   await app.storage({ pullRequestSidebarCollapsed: true });
   assert.equal(app.root.getAttribute('data-fractured-pr-sidebar-collapsed'), 'true');
   await app.storage({ pullRequestSidebarCollapsed: false });
+  assert.equal(app.root.getAttribute('data-fractured-pr-sidebar-collapsed'), undefined);
+});
+
+test('the overview status heading locates the full Primer pane and its content sibling', async () => {
+  const app = setup({ modern: true });
+  await app.settle();
+  assert.ok(app.button(), 'the overview layout gets a visible sidebar toggle');
+  assert.ok(app.column.attrs.has('data-fractured-pr-sidebar-column'),
+    'mark the entire pane wrapper rather than just its heading');
+  assert.ok(app.main.attrs.has('data-fractured-pr-sidebar-main'));
+  await app.click();
+  assert.equal(app.root.getAttribute('data-fractured-pr-sidebar-collapsed'), 'true');
+  assert.equal(app.button().getAttribute('aria-label'), 'Show pull request sidebar');
+  await app.rerender();
+  assert.equal(app.main.children.length, 1);
+  await app.click();
   assert.equal(app.root.getAttribute('data-fractured-pr-sidebar-collapsed'), undefined);
 });
