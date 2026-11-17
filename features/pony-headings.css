@@ -10,10 +10,14 @@
   h1,
   h2,
   h3,
+  /* Organization homepage sidebar section headings use h4. */
+  [itemtype="http://schema.org/Organization"] h4.f4.text-normal,
   .vcard-fullname,
   [itemprop="name"],
   .AppHeader-context-item-label,
-  .GlobalNav [data-component="Breadcrumbs.Item"]
+  .GlobalNav [data-component="Breadcrumbs.Item"],
+  /* Organization repository links set their own font instead of inheriting h3. */
+  react-app[app-name="org-repos-list"] [data-listview-repos-list] [data-listview-item-title-container] a
 ) {
   font-family: "Celestia Medium Redux", "Mona Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
   font-weight: 400;
@@ -110,8 +114,10 @@ a:is([href*="/commit/"], [href*="/commits/"]) code,
   line-height: 1.35 !important;
 }
 
-/* Carry the pony display font through repository navigation tabs. */
+/* Carry the pony display font through repository and organization navigation tabs. */
 :is(
+  nav[aria-label="Organization"],
+  nav[aria-label="Organization navigation"],
   nav[aria-label="Repository"],
   nav[aria-label="Repository navigation"],
   [data-testid="repository-navigation"],
