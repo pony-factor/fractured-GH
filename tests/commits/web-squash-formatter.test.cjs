@@ -11,6 +11,9 @@ const context = vm.createContext({
     observe() {}
     disconnect() {}
   },
+  HTMLInputElement: class {},
+  HTMLTextAreaElement: class {},
+  Event: class { constructor(type) { this.type = type; } },
   document: { addEventListener() {}, querySelectorAll() { return []; } },
   window: { addEventListener() {} },
   chrome: { storage: {
@@ -44,14 +47,14 @@ test("formats chronological subjects, descriptions, sync filtering and unique co
     "__________",
     "",
     "Co-authored-by: Alice <alice@example.com>",
-    "Co-authored-by: Codex (Web) <noreply@openai.com>",
+    "Co-authored-by: Codex <noreply@openai.com>",
   ].join("\n"));
 });
 
 test("can omit bullets only if all retained subjects start with emoji", () => {
   const prefs = { webSquashFilterSync: true, webSquashOmitEmojiBullets: true, webSquashSeparator: "hyphens" };
   const result = squashBody("- 🐛 Fix toolbar\n- 🧪 Cover edge cases", prefs);
-  assert.match(result, /^🐛 Fix toolbar\n\n🧪 Cover edge cases\n\n---------\n\n/);
+  assert.equal(result, "🐛 Fix toolbar\n\n🧪 Cover edge cases");
   assert.ok(!result.includes("- 🐛"));
   assert.match(squashBody("- 🐛 Fix toolbar\n- Add tests", prefs), /^- 🐛 Fix toolbar\n- Add tests/);
 });
@@ -59,7 +62,7 @@ test("can omit bullets only if all retained subjects start with emoji", () => {
 test("keeps sync entries when filtering is disabled and supports no separator", () => {
   const result = squashBody("- 🔄 Sync branch to main\n- 🐛 Fix a bug",
     { webSquashFilterSync: false, webSquashSeparator: "none" });
-  assert.match(result, /^- 🔄 Sync branch to main\n- 🐛 Fix a bug\n\nCo-authored-by:/);
+  assert.equal(result, "- 🔄 Sync branch to main\n- 🐛 Fix a bug");
   assert.ok(!result.includes("__________"));
 });
 
@@ -82,8 +85,49 @@ test("formats GitHub's interleaved trailers and unindented commit descriptions",
     "    Keep author and committer separate.", "", "__________", "",
     "Co-authored-by: ChatGPT 6 <noreply@openai.com>",
     "Co-authored-by: Alice <alice@example.com>",
-    "Co-authored-by: Codex (Web) <noreply@openai.com>",
   ].join("\n"));
+});
+
+test("does not invent Codex co-authorship when no source commits credit it", () => {
+  const body = "- 🌱 Add constituency quotations\n- ✒️ Add reply-intent prompts";
+  assert.equal(squashBody(body), body);
+  assert.equal(squashBody(body + "\n\n__________"), body);
+  assert.doesNotMatch(squashBody(body), /Co-authored-by|noreply@openai.com/i);
+});
+
+test("keeps explicitly supplied Codex Web and ChatGPT credits distinct and stable", () => {
+  const body = [
+    "- 🐛 Fix formatting",
+    "",
+    "Co-authored-by: Codex (Web) <noreply@openai.com>",
+    "Co-authored-by: ChatGPT 6 <noreply@openai.com>",
+    "Co-authored-by: Codex (Web) <noreply@openai.com>",
+  ].join("\n");
+  const formatted = squashBody(body);
+  assert.equal(formatted, [
+    "- 🐛 Fix formatting", "", "__________", "",
+    "Co-authored-by: Codex (Web) <noreply@openai.com>",
+    "Co-authored-by: ChatGPT 6 <noreply@openai.com>",
+  ].join("\n"));
+  assert.equal(squashBody(formatted), formatted);
+});
+
+test("wand applies a PR title and commit list without adding an AI co-author", () => {
+  const title = { value: "Old commit title", dispatchEvent() {} };
+  const body = { value: "* 🌱 Add quote file\n* ✒️ Add prompts", dispatchEvent() {} };
+  context.location = { pathname: "/JFWooten4/stellar-tokenization-policy-drafting/pull/3" };
+  context.document.querySelector = () => ({ textContent: "✒️ Add constituency quotations and reply-intent prompts" });
+  const scope = {
+    querySelector(selector) { return selector === "#merge_title_field" ? title : body; },
+    querySelectorAll(selector) { return selector.includes("button")
+      ? [{ textContent: "Confirm squash and merge" }] : [title, body]; },
+  };
+  const status = {};
+  apply(scope, status);
+  assert.equal(title.value, "✒️ Add constituency quotations and reply-intent prompts (#3)");
+  assert.equal(body.value, "- 🌱 Add quote file\n- ✒️ Add prompts");
+  assert.doesNotMatch(body.value, /Codex|Co-authored-by|__________/i);
+  assert.match(status.textContent, /formatting applied/i);
 });
 
 test("reads the React PR heading when legacy title selectors are absent", () => {
