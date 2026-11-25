@@ -70,7 +70,8 @@ async function startFeature(fetch) {
     async poll() { events.poll(); await settle(); },
     async change(values) {
       settings = { ...settings, ...values };
-      events.storage({ notificationOrganizations: {} }, 'local');
+      const changes = Object.fromEntries(Object.entries(values).map(([key, newValue]) => [key, { newValue }]));
+      events.storage(changes, 'local');
       await settle();
     },
   };
@@ -117,6 +118,20 @@ test('shows every organization in settings order and dots only those with unread
   assert.deepEqual(feature.controls.map((control) => [
     new URL(control.href).searchParams.get('query'), control.hasAttribute(unreadAttribute),
   ]), [['org:Acme', false], ['org:Other', true]]);
+});
+
+test('switches between all organization logos and unread-only as notifications change', async () => {
+  let otherUnread = true;
+  const feature = await startFeature(async (url) => response(otherUnread && url.searchParams.get('query') === 'org:Other is:unread'));
+  await feature.change({ notificationOrganizations: ['Acme', 'Other'] });
+  assert.equal(feature.controls.length, 2);
+  await feature.change({ organizationInboxesUnreadOnly: true });
+  assert.deepEqual(feature.controls.map((control) => new URL(control.href).searchParams.get('query')), ['org:Other']);
+  otherUnread = false;
+  await feature.poll();
+  assert.equal(feature.controls.length, 0);
+  await feature.change({ organizationInboxesUnreadOnly: false });
+  assert.equal(feature.controls.length, 2);
 });
 
 test('focus and navigation share the pending poll; timeouts allow retry', async () => {

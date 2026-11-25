@@ -17,6 +17,7 @@
   ];
 
   let enabled = false;
+  let showUnreadOnly = false;
   let organizations = [];
   let unreadOrganizations = new Set();
   let refreshGeneration = 0;
@@ -124,15 +125,18 @@
       return;
     }
 
+    const visibleOrganizations = showUnreadOnly
+      ? organizations.filter((organization) => unreadOrganizations.has(organization.toLowerCase()))
+      : organizations;
     const controls = [...document.querySelectorAll(`[${CONTROL_ATTRIBUTE}]`)];
-    if (controls.length === organizations.length && controls.every((control, index) => (
+    if (controls.length === visibleOrganizations.length && controls.every((control, index) => (
       control.parentNode === defaultControl.parentNode
-      && control.getAttribute(CONTROL_ATTRIBUTE) === organizations[index]
-      && control.hasAttribute(UNREAD_ATTRIBUTE) === unreadOrganizations.has(organizations[index].toLowerCase())
+      && control.getAttribute(CONTROL_ATTRIBUTE) === visibleOrganizations[index]
+      && control.hasAttribute(UNREAD_ATTRIBUTE) === unreadOrganizations.has(visibleOrganizations[index].toLowerCase())
     ))) return;
 
     removeOrganizationControls();
-    for (const organization of organizations) {
+    for (const organization of visibleOrganizations) {
       defaultControl.parentNode.insertBefore(
         createOrganizationControl(defaultControl, organization, unreadOrganizations.has(organization.toLowerCase())),
         defaultControl,
@@ -228,6 +232,7 @@
   async function loadSettings() {
     const settings = await chrome.storage.local.get({
       organizationNotificationInboxesEnabled: false,
+      organizationInboxesUnreadOnly: false,
       notificationOrganizations: [],
     });
 
@@ -236,6 +241,7 @@
     nextCheckAt = 0;
     retryDelay = REFRESH_INTERVAL_MS;
     enabled = Boolean(settings.organizationNotificationInboxesEnabled);
+    showUnreadOnly = Boolean(settings.organizationInboxesUnreadOnly);
     organizations = normalizeOrganizations(settings.notificationOrganizations);
     renderOrganizationControls();
     void refreshOrganizationNotifications();
@@ -250,6 +256,7 @@
     if (areaName !== 'local') return;
     if (
       !changes.organizationNotificationInboxesEnabled
+      && !changes.organizationInboxesUnreadOnly
       && !changes.notificationOrganizations
     ) return;
     void loadSettings();
