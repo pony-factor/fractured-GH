@@ -30,7 +30,7 @@
         <details class="settings-foldout" open>
           <summary>
             <span>Notifications</span>
-            <span class="summary-meta">Muted accounts, Busy status, and organization inboxes</span>
+            <span class="summary-meta">Busy status and organization inboxes</span>
           </summary>
           <div class="foldout-body">
             <label class="preference">
@@ -54,26 +54,6 @@
                 <small>Hide the top-right Inbox button at all times. The inbox remains accessible through its URL or the compact actions menu.</small>
               </span>
             </label>
-
-            <label class="preference">
-              <input id="mute-inbox-accounts-enabled" type="checkbox" />
-              <span>
-                <strong>Filter muted accounts out of the inbox</strong>
-                <small>Automatically mark bot-only notifications Done, removing them from your inbox and unread count.</small>
-              </span>
-            </label>
-            <p class="help setup-note">
-              PR comments and other GitHub content remain visible. On GitHub pages, Fractured periodically
-              checks your notification inbox and uses GitHub's Done action for notifications whose visible
-              participants are exclusively muted bots. Notifications with human or unknown participants,
-              hidden additional participants, or saved status are never auto-dismissed. Changes may take
-              up to a minute to clear the unread bell; existing email and mobile alerts cannot be recalled.
-            </p>
-            <div id="muted-inbox-accounts" class="organization-list"
-                 aria-label="Accounts muted only in the notification inbox"></div>
-            <div class="row-actions">
-              <button id="add-muted-inbox-account" class="secondary" type="button">Add inbox-only muted account</button>
-            </div>
 
             <label class="preference">
 
@@ -135,6 +115,33 @@
           </div>
         </details>
 
+
+        <details class="settings-foldout" open>
+          <summary>
+            <span>Inbox account muting</span>
+          </summary>
+          <div class="foldout-body">
+            <label class="preference">
+              <input id="mute-inbox-accounts-enabled" type="checkbox" />
+              <span>
+                <strong>Filter muted accounts out of the inbox</strong>
+                <small>Automatically mark bot-only notifications Done, removing them from your inbox and unread count.</small>
+              </span>
+            </label>
+            <p class="help setup-note">
+              PR comments and other GitHub content remain visible. On GitHub pages, Fractured periodically
+              checks your notification inbox and uses GitHub's Done action for notifications whose visible
+              participants are exclusively muted bots. Notifications with human or unknown participants,
+              hidden additional participants, or saved status are never auto-dismissed. Changes may take
+              up to a minute to clear the unread bell; existing email and mobile alerts cannot be recalled.
+            </p>
+            <div id="muted-inbox-accounts" class="organization-list"
+                 aria-label="Accounts muted only in the notification inbox"></div>
+            <div class="row-actions">
+              <button id="add-muted-inbox-account" class="secondary" type="button">Add inbox-only muted account</button>
+            </div>
+          </div>
+        </details>
 
         <details class="settings-foldout" open>
           <summary>
