@@ -53,7 +53,6 @@ const excludeOrganizationNotificationsInput = document.getElementById('exclude-o
 const notificationOrganizationsList = document.getElementById('notification-organizations');
 const addNotificationOrganizationButton = document.getElementById('add-notification-organization');
 const notificationOrganizationTemplate = document.getElementById('notification-organization-template');
-const muteInboxAccountsInput = document.getElementById('mute-inbox-accounts-enabled');
 const mutedInboxAccountsList = document.getElementById('muted-inbox-accounts');
 const addMutedInboxAccountButton = document.getElementById('add-muted-inbox-account');
 const mutedInboxAccountTemplate = document.getElementById('muted-inbox-account-template');
@@ -436,7 +435,6 @@ async function loadSettings() {
     organizationInboxesUnreadOnly: false,
     excludeOrganizationNotificationsFromMainInbox: false,
     notificationOrganizations: [],
-    muteInboxAccountsEnabled: false,
     mutedInboxAccounts: [],
     userNicknamesEnabled: true,
     rainbowOwnMentionsEnabled: false,
@@ -497,7 +495,6 @@ async function loadSettings() {
   organizationInboxesInput.checked = Boolean(settings.organizationNotificationInboxesEnabled);
   organizationInboxesUnreadOnlyInput.checked = Boolean(settings.organizationInboxesUnreadOnly);
   excludeOrganizationNotificationsInput.checked = Boolean(settings.excludeOrganizationNotificationsFromMainInbox);
-  muteInboxAccountsInput.checked = settings.muteInboxAccountsEnabled === true;
   userNicknamesInput.checked = Boolean(settings.userNicknamesEnabled);
   rainbowOwnMentionsInput.checked = settings.rainbowOwnMentionsEnabled === true;
   preferDisplayNamesInput.checked = Boolean(settings.preferDisplayNamesEnabled);
@@ -623,7 +620,6 @@ async function saveSettings() {
     organizationInboxesUnreadOnly: organizationInboxesUnreadOnlyInput.checked,
     excludeOrganizationNotificationsFromMainInbox: excludeOrganizationNotificationsInput.checked,
     notificationOrganizations,
-    muteInboxAccountsEnabled: muteInboxAccountsInput.checked,
     mutedInboxAccounts,
     userNicknamesEnabled: userNicknamesInput.checked,
     rainbowOwnMentionsEnabled: rainbowOwnMentionsInput.checked,
@@ -691,7 +687,6 @@ ownerAvatarHeaderInput.addEventListener('change', () => void saveSettings());
 organizationInboxesInput.addEventListener('change', () => void saveSettings());
 organizationInboxesUnreadOnlyInput.addEventListener('change', () => void saveSettings());
 excludeOrganizationNotificationsInput.addEventListener('change', () => void saveSettings());
-muteInboxAccountsInput.addEventListener('change', () => void saveSettings());
 addMutedInboxAccountButton.addEventListener('click', () => {
   addMutedInboxAccountRow('', { focus: true });
 });

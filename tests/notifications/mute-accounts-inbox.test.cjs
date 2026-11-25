@@ -7,7 +7,7 @@ const vm = require('node:vm');
 const script = fs.readFileSync(path.join(__dirname, '../../features/notifications/mute-accounts-inbox.js'), 'utf8');
 const {
   normalizeAccount, accountFromHref, isMutedActor, notificationParticipants,
-  isBotOnlyNotification, isInbox, notificationId, doneButton, createDoneRequest,
+  isMutedAccountNotification, isInbox, notificationId, doneButton, createDoneRequest,
 } = require('../../features/notifications/mute-accounts-inbox.js');
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
@@ -54,12 +54,12 @@ test('normalizes app logins and does not mistake repository paths for account na
 test('leaves human participation, hidden avatars, unknown actors and saved notifications intact', () => {
   const muted = new Set(['vercel[bot]', 'kefania-pony[bot]']);
   assert.deepEqual(notificationParticipants(row(['/apps/vercel', '/kefania-pony%5Bbot%5D'])), ['vercel[bot]', 'kefania-pony[bot]']);
-  assert.equal(isBotOnlyNotification(row(['/apps/vercel']), muted), true);
-  assert.equal(isBotOnlyNotification(row(['/apps/vercel', '/alice']), muted), false);
-  assert.equal(isBotOnlyNotification(row(['/apps/vercel'], { more: '+2' }), muted), false);
-  assert.equal(isBotOnlyNotification(row(['/apps/vercel', '/unknown/repo']), muted), false);
-  assert.equal(isBotOnlyNotification(row(['/apps/vercel'], { saved: true }), muted), false);
-  assert.equal(isBotOnlyNotification(row([], { actor: 'vercel[bot]' }), muted), false);
+  assert.equal(isMutedAccountNotification(row(['/apps/vercel']), muted), true);
+  assert.equal(isMutedAccountNotification(row(['/apps/vercel', '/alice']), muted), false);
+  assert.equal(isMutedAccountNotification(row(['/apps/vercel'], { more: '+2' }), muted), false);
+  assert.equal(isMutedAccountNotification(row(['/apps/vercel', '/unknown/repo']), muted), false);
+  assert.equal(isMutedAccountNotification(row(['/apps/vercel'], { saved: true }), muted), false);
+  assert.equal(isMutedAccountNotification(row([], { actor: 'vercel[bot]' }), muted), false);
 });
 
 test('only acts on regular inbox views', () => {
@@ -90,14 +90,14 @@ test('requires a per-thread Done form, real numeric ID and CSRF token', () => {
   assert.equal(createDoneRequest(row(['/apps/vercel'], { form, id: 'all' }), page), null);
 });
 
-test('uses native Done only for exclusively muted bot notifications, without mutating other rows', async () => {
+test('uses native Done for listed accounts and skips all rows when the list is empty', async () => {
   const rows = [
     row(['/apps/vercel']),
     row(['/alice', '/apps/vercel']),
-    row(['/alice']),
+    row(['/alice'], { id: '125' }),
     row(['/kefania-pony%5Bbot%5D'], { id: '124' }),
   ];
-  let settings = { muteInboxAccountsEnabled: true, mutedInboxAccounts: ['vercel[bot]', 'kefania-pony[bot]'] };
+  let settings = { mutedInboxAccounts: [] };
   const handlers = {};
   const timers = new Map();
   let id = 0;
@@ -130,13 +130,18 @@ test('uses native Done only for exclusively muted bot notifications, without mut
   });
   await flush();
   runTimers();
-  assert.deepEqual(rows.map((r) => r.checkedButton.clicks), [1, 0, 0, 1]);
-  runTimers();
-  assert.deepEqual(rows.map((r) => r.checkedButton.clicks), [1, 0, 0, 1]);
+  assert.deepEqual(rows.map((r) => r.checkedButton.clicks), [0, 0, 0, 0]);
 
-  settings = { muteInboxAccountsEnabled: false, mutedInboxAccounts: settings.mutedInboxAccounts };
-  handlers.storage({ muteInboxAccountsEnabled: {} }, 'local');
+  settings = { muteInboxAccountsEnabled: false, mutedInboxAccounts: ['vercel[bot]', 'kefania-pony[bot]', 'alice'] };
+  handlers.storage({ mutedInboxAccounts: {} }, 'local');
   await flush();
   runTimers();
-  assert.deepEqual(rows.map((r) => r.checkedButton.clicks), [1, 0, 0, 1]);
+  assert.deepEqual(rows.map((r) => r.checkedButton.clicks), [1, 0, 1, 1]);
+
+  rows.push(row(['/alice'], { id: '126' }));
+  settings = { mutedInboxAccounts: [] };
+  handlers.storage({ mutedInboxAccounts: {} }, 'local');
+  await flush();
+  runTimers();
+  assert.deepEqual(rows.map((r) => r.checkedButton.clicks), [1, 0, 1, 1, 0]);
 });

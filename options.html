@@ -128,19 +128,11 @@
             <span>Inbox account muting</span>
           </summary>
           <div class="foldout-body">
-            <label class="preference">
-              <input id="mute-inbox-accounts-enabled" type="checkbox" />
-              <span>
-                <strong>Filter muted accounts out of the inbox</strong>
-                <small>Automatically mark bot-only notifications Done, removing them from your inbox and unread count.</small>
-              </span>
-            </label>
             <p class="help setup-note">
-              PR comments and other GitHub content remain visible. On GitHub pages, Fractured periodically
-              checks your notification inbox and uses GitHub's Done action for notifications whose visible
-              participants are exclusively muted bots. Notifications with human or unknown participants,
-              hidden additional participants, or saved status are never auto-dismissed. Changes may take
-              up to a minute to clear the unread bell; existing email and mobile alerts cannot be recalled.
+              Add a GitHub account to mute it in your inbox. Fractured marks a notification Done when
+              all its participants are on this list, removing it from your inbox and unread count.
+              Saved notifications and threads with unknown, hidden, or unlisted participants stay in your inbox.
+              PR comments and other GitHub content remain visible. The unread count may take up to a minute to update.
             </p>
             <div id="muted-inbox-accounts" class="organization-list"
                  aria-label="Accounts muted only in the notification inbox"></div>
