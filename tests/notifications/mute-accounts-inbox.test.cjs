@@ -93,7 +93,7 @@ test('requires a per-thread Done form, real numeric ID and CSRF token', () => {
 test('uses native Done for listed accounts and skips all rows when the list is empty', async () => {
   const rows = [
     row(['/apps/vercel']),
-    row(['/alice', '/apps/vercel']),
+    row(['/bob', '/apps/vercel'], { id: '127' }),
     row(['/alice'], { id: '125' }),
     row(['/kefania-pony%5Bbot%5D'], { id: '124' }),
   ];
