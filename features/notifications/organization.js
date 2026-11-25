@@ -6,15 +6,20 @@
   const REQUEST_TIMEOUT_MS = 15_000;
   const MAX_RETRY_MS = 5 * REFRESH_INTERVAL_MS;
   const CONTROL_ATTRIBUTE = 'data-fractured-github-organization-notification';
+  const UNREAD_ATTRIBUTE = 'data-fractured-github-organization-unread';
+  const HEADER_SELECTOR = ':is(.AppHeader, .GlobalNav, header[role="banner"], header[aria-label="Global navigation menu"])';
   const DEFAULT_CONTROL_SELECTORS = [
     '#AppHeader-notifications-button',
+    `${HEADER_SELECTOR} a:is([aria-label*="unread notifications" i], [data-hotkey="g n"], :has(svg.octicon-inbox))`,
     '.AppHeader a[href="/notifications"]',
     '.AppHeader a[href^="/notifications?"]',
+    '.GlobalNav a[href="/notifications"]',
     'header[role="banner"] a[href="/notifications"]',
     'header[role="banner"] a[href^="/notifications?"]',
   ];
 
   let enabled = false;
+  let showUnreadOnly = false;
   let organizations = [];
   let unreadOrganizations = new Set();
   let refreshGeneration = 0;
@@ -81,16 +86,17 @@
     }
   }
 
-  function createOrganizationControl(defaultControl, organization) {
+  function createOrganizationControl(defaultControl, organization, unread) {
     const control = document.createElement('a');
     copySafeControlAttributes(defaultControl, control);
     control.setAttribute(CONTROL_ATTRIBUTE, organization);
     control.href = notificationUrl(organization).toString();
-    control.setAttribute('aria-label', `${organization} notifications`);
-    control.title = `${organization} notifications`;
+    const label = `${organization} notifications${unread ? ' (unread)' : ''}`;
+    control.setAttribute('aria-label', label);
+    control.title = label;
     control.style.alignItems = 'center';
     control.style.justifyContent = 'center';
-    control.style.overflow = 'hidden';
+    control.style.position = 'relative';
 
     const avatar = document.createElement('img');
     avatar.alt = '';
@@ -102,21 +108,39 @@
     avatar.style.objectFit = 'cover';
 
     control.replaceChildren(avatar);
+    if (unread) {
+      control.setAttribute(UNREAD_ATTRIBUTE, '');
+      const dot = document.createElement('span');
+      dot.setAttribute('aria-hidden', 'true');
+      dot.style.cssText = 'position:absolute;top:2px;right:2px;width:8px;height:8px;'
+        + 'border-radius:50%;background:var(--fgColor-accent,#0969da);'
+        + 'box-shadow:0 0 0 1px var(--bgColor-default,#fff);pointer-events:none';
+      control.append(dot);
+    }
     return control;
   }
 
   function renderOrganizationControls() {
+    const defaultControl = enabled && organizations.length ? findDefaultNotificationControl() : null;
+    if (!defaultControl?.parentNode) {
+      removeOrganizationControls();
+      return;
+    }
+
+    const visibleOrganizations = showUnreadOnly
+      ? organizations.filter((organization) => unreadOrganizations.has(organization.toLowerCase()))
+      : organizations;
+    const controls = [...document.querySelectorAll(`[${CONTROL_ATTRIBUTE}]`)];
+    if (controls.length === visibleOrganizations.length && controls.every((control, index) => (
+      control.parentNode === defaultControl.parentNode
+      && control.getAttribute(CONTROL_ATTRIBUTE) === visibleOrganizations[index]
+      && control.hasAttribute(UNREAD_ATTRIBUTE) === unreadOrganizations.has(visibleOrganizations[index].toLowerCase())
+    ))) return;
+
     removeOrganizationControls();
-
-    if (!enabled || unreadOrganizations.size === 0) return;
-
-    const defaultControl = findDefaultNotificationControl();
-    if (!defaultControl?.parentNode) return;
-
-    for (const organization of organizations) {
-      if (!unreadOrganizations.has(organization.toLowerCase())) continue;
+    for (const organization of visibleOrganizations) {
       defaultControl.parentNode.insertBefore(
-        createOrganizationControl(defaultControl, organization),
+        createOrganizationControl(defaultControl, organization, unreadOrganizations.has(organization.toLowerCase())),
         defaultControl,
       );
     }
@@ -210,6 +234,7 @@
   async function loadSettings() {
     const settings = await chrome.storage.local.get({
       organizationNotificationInboxesEnabled: false,
+      organizationInboxesUnreadOnly: false,
       notificationOrganizations: [],
     });
 
@@ -218,7 +243,9 @@
     nextCheckAt = 0;
     retryDelay = REFRESH_INTERVAL_MS;
     enabled = Boolean(settings.organizationNotificationInboxesEnabled);
+    showUnreadOnly = Boolean(settings.organizationInboxesUnreadOnly);
     organizations = normalizeOrganizations(settings.notificationOrganizations);
+    renderOrganizationControls();
     void refreshOrganizationNotifications();
   }
 
@@ -231,6 +258,7 @@
     if (areaName !== 'local') return;
     if (
       !changes.organizationNotificationInboxesEnabled
+      && !changes.organizationInboxesUnreadOnly
       && !changes.notificationOrganizations
     ) return;
     void loadSettings();
@@ -254,8 +282,7 @@
   });
 
   const observer = new MutationObserver(() => {
-    if (!enabled || unreadOrganizations.size === 0) return;
-    if (document.querySelector(`[${CONTROL_ATTRIBUTE}]`)) return;
+    if (!enabled || organizations.length === 0) return;
     scheduleDomRefresh();
   });
 

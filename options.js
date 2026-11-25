@@ -48,11 +48,11 @@ const hideInboxInput = document.getElementById('hide-inbox-while-busy');
 const relativeTimesInput = document.getElementById('relative-times-only');
 const ownerAvatarHeaderInput = document.getElementById('owner-avatar-header-enabled');
 const organizationInboxesInput = document.getElementById('organization-notification-inboxes-enabled');
+const organizationInboxesUnreadOnlyInput = document.getElementById('organization-inboxes-unread-only');
 const excludeOrganizationNotificationsInput = document.getElementById('exclude-organization-notifications-from-main-inbox');
 const notificationOrganizationsList = document.getElementById('notification-organizations');
 const addNotificationOrganizationButton = document.getElementById('add-notification-organization');
 const notificationOrganizationTemplate = document.getElementById('notification-organization-template');
-const muteInboxAccountsInput = document.getElementById('mute-inbox-accounts-enabled');
 const mutedInboxAccountsList = document.getElementById('muted-inbox-accounts');
 const addMutedInboxAccountButton = document.getElementById('add-muted-inbox-account');
 const mutedInboxAccountTemplate = document.getElementById('muted-inbox-account-template');
@@ -432,9 +432,9 @@ async function loadSettings() {
     relativeTimesOnly: false,
     ownerAvatarHeaderEnabled: true,
     organizationNotificationInboxesEnabled: false,
+    organizationInboxesUnreadOnly: false,
     excludeOrganizationNotificationsFromMainInbox: false,
     notificationOrganizations: [],
-    muteInboxAccountsEnabled: false,
     mutedInboxAccounts: [],
     userNicknamesEnabled: true,
     rainbowOwnMentionsEnabled: false,
@@ -493,8 +493,8 @@ async function loadSettings() {
   relativeTimesInput.checked = Boolean(settings.relativeTimesOnly);
   ownerAvatarHeaderInput.checked = Boolean(settings.ownerAvatarHeaderEnabled);
   organizationInboxesInput.checked = Boolean(settings.organizationNotificationInboxesEnabled);
+  organizationInboxesUnreadOnlyInput.checked = Boolean(settings.organizationInboxesUnreadOnly);
   excludeOrganizationNotificationsInput.checked = Boolean(settings.excludeOrganizationNotificationsFromMainInbox);
-  muteInboxAccountsInput.checked = settings.muteInboxAccountsEnabled === true;
   userNicknamesInput.checked = Boolean(settings.userNicknamesEnabled);
   rainbowOwnMentionsInput.checked = settings.rainbowOwnMentionsEnabled === true;
   preferDisplayNamesInput.checked = Boolean(settings.preferDisplayNamesEnabled);
@@ -617,9 +617,9 @@ async function saveSettings() {
     relativeTimesOnly: relativeTimesInput.checked,
     ownerAvatarHeaderEnabled: ownerAvatarHeaderInput.checked,
     organizationNotificationInboxesEnabled: organizationInboxesInput.checked,
+    organizationInboxesUnreadOnly: organizationInboxesUnreadOnlyInput.checked,
     excludeOrganizationNotificationsFromMainInbox: excludeOrganizationNotificationsInput.checked,
     notificationOrganizations,
-    muteInboxAccountsEnabled: muteInboxAccountsInput.checked,
     mutedInboxAccounts,
     userNicknamesEnabled: userNicknamesInput.checked,
     rainbowOwnMentionsEnabled: rainbowOwnMentionsInput.checked,
@@ -685,8 +685,8 @@ hideInboxInput.addEventListener('change', () => void saveSettings());
 relativeTimesInput.addEventListener('change', () => void saveSettings());
 ownerAvatarHeaderInput.addEventListener('change', () => void saveSettings());
 organizationInboxesInput.addEventListener('change', () => void saveSettings());
+organizationInboxesUnreadOnlyInput.addEventListener('change', () => void saveSettings());
 excludeOrganizationNotificationsInput.addEventListener('change', () => void saveSettings());
-muteInboxAccountsInput.addEventListener('change', () => void saveSettings());
 addMutedInboxAccountButton.addEventListener('click', () => {
   addMutedInboxAccountRow('', { focus: true });
 });

@@ -56,26 +56,6 @@
             </label>
 
             <label class="preference">
-              <input id="mute-inbox-accounts-enabled" type="checkbox" />
-              <span>
-                <strong>Mute accounts in the notification inbox only</strong>
-                <small>Automatically mark bot-only notifications Done, removing them from your inbox and unread count.</small>
-              </span>
-            </label>
-            <p class="help setup-note">
-              PR comments and other GitHub content remain visible. On GitHub pages, Fractured periodically
-              checks your notification inbox and uses GitHub's Done action for notifications whose visible
-              participants are exclusively muted bots. Notifications with human or unknown participants,
-              hidden additional participants, or saved status are never auto-dismissed. Changes may take
-              up to a minute to clear the unread bell; existing email and mobile alerts cannot be recalled.
-            </p>
-            <div id="muted-inbox-accounts" class="organization-list"
-                 aria-label="Accounts muted only in the notification inbox"></div>
-            <div class="row-actions">
-              <button id="add-muted-inbox-account" class="secondary" type="button">Add inbox-only muted account</button>
-            </div>
-
-            <label class="preference">
 
             <input id="organization-notification-inboxes-enabled" type="checkbox" />
 
@@ -83,7 +63,7 @@
 
             <strong>Organization notification inboxes</strong>
 
-            <small>Show inbox icons for organizations with unread notifications.</small>
+            <small>Show organization inbox shortcuts in the top bar, with a dot for unread notifications.</small>
 
             </span>
 
@@ -95,6 +75,21 @@
 
             </p>
 
+            <label class="preference">
+              <input id="organization-inboxes-unread-only" type="checkbox" />
+              <span>
+                <strong>Show organization inboxes only when unread</strong>
+                <small>Leave unchecked to always show the configured organizations.</small>
+              </span>
+            </label>
+          </div>
+        </details>
+
+        <details class="settings-foldout" open>
+          <summary>
+            <span>Organization Inbox filtering</span>
+          </summary>
+          <div class="foldout-body">
             <label class="preference">
 
             <input id="exclude-organization-notifications-from-main-inbox" type="checkbox" />
@@ -127,6 +122,25 @@
           </div>
         </details>
 
+
+        <details class="settings-foldout" open>
+          <summary>
+            <span>Inbox account muting</span>
+          </summary>
+          <div class="foldout-body">
+            <p class="help setup-note">
+              Add a GitHub account to mute it in your inbox. Fractured marks a notification Done when
+              all its participants are on this list, removing it from your inbox and unread count.
+              Saved notifications and threads with unknown, hidden, or unlisted participants stay in your inbox.
+              PR comments and other GitHub content remain visible. The unread count may take up to a minute to update.
+            </p>
+            <div id="muted-inbox-accounts" class="organization-list"
+                 aria-label="Accounts muted only in the notification inbox"></div>
+            <div class="row-actions">
+              <button id="add-muted-inbox-account" class="secondary" type="button">Add inbox-only muted account</button>
+            </div>
+          </div>
+        </details>
 
         <details class="settings-foldout" open>
           <summary>

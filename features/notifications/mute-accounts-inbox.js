@@ -49,12 +49,11 @@
     return accounts.every(Boolean) ? accounts : null;
   }
 
-  function isBotOnlyNotification(row, mutedAccounts) {
+  function isMutedAccountNotification(row, mutedAccounts) {
     if (!mutedAccounts.size || row.classList?.contains('notification-starred')) return false;
     if (row.querySelector('.notification-starred, [aria-label="Saved"], [data-state="saved"]')) return false;
     const participants = notificationParticipants(row);
-    // Do not archive a conversation involving a human or an unknown sender,
-    // even if its latest comment appears to have been posted by a muted bot.
+    // Every participant must be identifiable and on the mute list.
     return Boolean(participants?.length && participants.every((account) => isMutedActor(account, mutedAccounts)));
   }
 
@@ -105,13 +104,12 @@
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
       normalizeAccount, accountFromHref, isMutedActor,
-      notificationParticipants, isBotOnlyNotification, isInbox,
+      notificationParticipants, isMutedAccountNotification, isInbox,
       notificationId, doneButton, createDoneRequest,
     };
     return;
   }
 
-  let enabled = false;
   let mutedAccounts = new Set();
   let refreshTimer = null;
   let polling = false;
@@ -133,9 +131,9 @@
   }
 
   function checkVisibleInbox() {
-    if (!enabled || !isInbox(window.location)) return;
+    if (!mutedAccounts.size || !isInbox(window.location)) return;
     for (const row of document.querySelectorAll(ROW_SELECTOR)) {
-      if (!isBotOnlyNotification(row, mutedAccounts)) continue;
+      if (!isMutedAccountNotification(row, mutedAccounts)) continue;
       const button = doneButton(row);
       if (!button || !mayAttempt(row)) continue;
       // Use GitHub's native per-thread Done action; it marks the thread
@@ -150,7 +148,7 @@
   }
 
   async function pollInbox() {
-    if (!enabled || polling || document.hidden || window.location.hostname !== 'github.com'
+    if (!mutedAccounts.size || polling || document.hidden || window.location.hostname !== 'github.com'
       || isInbox(window.location)) return;
     polling = true;
     try {
@@ -164,7 +162,7 @@
       let completed = 0;
       for (const row of page.querySelectorAll(ROW_SELECTOR)) {
         if (completed >= MAX_DONE_PER_POLL) break;
-        if (!isBotOnlyNotification(row, mutedAccounts)) continue;
+        if (!isMutedAccountNotification(row, mutedAccounts)) continue;
         const body = createDoneRequest(row, page);
         if (!body || !mayAttempt(row)) continue;
         const result = await window.fetch(DONE_PATH, {
@@ -191,20 +189,18 @@
 
   async function loadSettings() {
     const settings = await chrome.storage.local.get({
-      muteInboxAccountsEnabled: false,
       mutedInboxAccounts: [],
     });
-    enabled = settings.muteInboxAccountsEnabled === true;
     mutedAccounts = new Set(
       (Array.isArray(settings.mutedInboxAccounts) ? settings.mutedInboxAccounts : [])
         .map(normalizeAccount).filter(Boolean),
     );
     scheduleRefresh();
-    if (enabled) void pollInbox();
+    if (mutedAccounts.size) void pollInbox();
   }
 
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== 'local' || (!changes.muteInboxAccountsEnabled && !changes.mutedInboxAccounts)) return;
+    if (area !== 'local' || !changes.mutedInboxAccounts) return;
     void loadSettings();
   });
 
