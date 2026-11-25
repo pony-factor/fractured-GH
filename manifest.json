@@ -69,6 +69,7 @@
         "features/notifications/hide-reason.js",
         "features/pull-requests/hide-empty-development-copy.js",
         "features/pull-requests/hide-coauthor-only-commit-details.js",
+        "features/pull-requests/toggle-commit-descriptions.js",
         "features/pull-requests/wrap-diff-lines.js",
         "features/pull-requests/toggle-sidebar.js",
         "features/writing/spellcheck/image-attachments.js",
