@@ -1,6 +1,7 @@
 (() => {
   "use strict";
   const MARK = "data-fractured-squash-format-button";
+  const ACTIONS = "data-fractured-squash-format-actions";
   const TRAILER = /^Co-authored-by:\s*(.+?)\s*<([^<>\s]+@[^<>\s]+)>\s*$/i;
   const SYNC = /^(?:🔄\s*)?Sync (?:brach|branch) to main(?:\s*\(#\d+\))?$/i;
   const EMOJI = /^(?:\p{Extended_Pictographic}|\p{Regional_Indicator}{2})/u;
@@ -172,7 +173,7 @@
       button.title = "Apply SweetieBot formatting";
       button.setAttribute("aria-label", "Apply SweetieBot formatting");
       const actions = document.createElement("span");
-      actions.setAttribute("data-fractured-squash-format-actions", "");
+      actions.setAttribute(ACTIONS, "");
       actions.style.display = "inline-grid";
       actions.style.gridTemplateColumns = "max-content max-content";
       actions.style.alignItems = "center";
@@ -201,10 +202,10 @@
     observer.disconnect();
     if (!settings.webSquashFormattingEnabled) {
       document.querySelectorAll("[" + MARK + "]").forEach(button => {
-        const actions = button.parentElement;
+        const actions = button.closest("[" + ACTIONS + "]");
         if (button.nextElementSibling?.getAttribute("role") === "status") button.nextElementSibling.remove();
         button.remove();
-        if (actions?.hasAttribute("data-fractured-squash-format-actions")) {
+        if (actions) {
           actions.replaceWith(...actions.childNodes);
         }
       });

@@ -196,3 +196,10 @@ test("single-commit prose and credits survive applying the exact PR title", () =
   assert.equal(body.value, description);
   assert.match(status.textContent, /Description preserved/);
 });
+test("the formatter uses one named actions wrapper and preserves the native grid", () => {
+  assert.match(source, /const ACTIONS = "data-fractured-squash-format-actions"/);
+  assert.match(source, /actions\.setAttribute\(ACTIONS, ""\)/);
+  assert.match(source, /actions\.style\.display = "inline-grid"/);
+  assert.match(source, /button\.closest\("\[" \+ ACTIONS \+ "\]"\)/);
+  assert.match(source, /actions\.replaceWith\(\.\.\.actions\.childNodes\)/);
+});
