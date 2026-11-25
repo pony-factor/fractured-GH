@@ -7,8 +7,10 @@
   const MAX_RETRY_MS = 5 * REFRESH_INTERVAL_MS;
   const CONTROL_ATTRIBUTE = 'data-fractured-github-organization-notification';
   const UNREAD_ATTRIBUTE = 'data-fractured-github-organization-unread';
+  const HEADER_SELECTOR = ':is(.AppHeader, .GlobalNav, header[role="banner"], header[aria-label="Global navigation menu"])';
   const DEFAULT_CONTROL_SELECTORS = [
     '#AppHeader-notifications-button',
+    `${HEADER_SELECTOR} a:is([aria-label*="unread notifications" i], [data-hotkey="g n"], :has(svg.octicon-inbox))`,
     '.AppHeader a[href="/notifications"]',
     '.AppHeader a[href^="/notifications?"]',
     '.GlobalNav a[href="/notifications"]',

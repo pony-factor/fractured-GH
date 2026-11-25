@@ -9,7 +9,7 @@ const settle = () => new Promise((resolve) => setImmediate(resolve));
 const response = (unread) => ({ ok: true, text: async () => unread ? 'unread' : 'empty' });
 const unreadAttribute = 'data-fractured-github-organization-unread';
 
-async function startFeature(fetch) {
+async function startFeature(fetch, { notificationsPage = false } = {}) {
   let settings = { organizationNotificationInboxesEnabled: true, notificationOrganizations: ['Acme'] };
   const controls = [];
   const events = {};
@@ -32,12 +32,21 @@ async function startFeature(fetch) {
     hidden: false,
     documentElement: {},
     querySelectorAll: () => [...controls],
-    querySelector: () => defaultControl,
+    querySelector(selector) {
+      if (!notificationsPage) return defaultControl;
+      if (selector.includes('svg.octicon-inbox')) return defaultControl;
+      if (selector === 'header[role="banner"] a[href="/notifications"]') return breadcrumb;
+      return null;
+    },
     createElement: () => new Anchor(),
     addEventListener: (name, callback) => { events[name] = callback; },
   };
   const defaultControl = new Anchor();
+  defaultControl.className = 'native-inbox-button';
   defaultControl.parentNode = { insertBefore(control) { control.parentNode = this; controls.push(control); } };
+  const breadcrumb = new Anchor();
+  breadcrumb.className = 'breadcrumb-link';
+  breadcrumb.parentNode = defaultControl.parentNode;
   vm.runInNewContext(source, {
     chrome: { storage: {
       local: { get: async () => settings },
@@ -118,6 +127,11 @@ test('shows every organization in settings order and dots only those with unread
   assert.deepEqual(feature.controls.map((control) => [
     new URL(control.href).searchParams.get('query'), control.hasAttribute(unreadAttribute),
   ]), [['org:Acme', false], ['org:Other', true]]);
+});
+
+test('uses the native inbox button instead of the Notifications breadcrumb', async () => {
+  const feature = await startFeature(async () => response(false), { notificationsPage: true });
+  assert.equal(feature.controls[0].className, 'native-inbox-button');
 });
 
 test('switches between all organization logos and unread-only as notifications change', async () => {
