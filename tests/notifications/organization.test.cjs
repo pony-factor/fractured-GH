@@ -7,6 +7,7 @@ const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../../features/notifications/organization.js'), 'utf8');
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 const response = (unread) => ({ ok: true, text: async () => unread ? 'unread' : 'empty' });
+const unreadAttribute = 'data-fractured-github-organization-unread';
 
 async function startFeature(fetch) {
   let settings = { organizationNotificationInboxesEnabled: true, notificationOrganizations: ['Acme'] };
@@ -23,7 +24,8 @@ async function startFeature(fetch) {
     setAttribute(key, value) { this.attributes.set(key, value); }
     getAttribute(key) { return this.attributes.get(key); }
     hasAttribute(key) { return this.attributes.has(key); }
-    replaceChildren() {}
+    replaceChildren(...children) { this.children = children; }
+    append(child) { this.children.push(child); }
     remove() { controls.splice(controls.indexOf(this), 1); }
   }
   const documentFixture = {
@@ -31,11 +33,11 @@ async function startFeature(fetch) {
     documentElement: {},
     querySelectorAll: () => [...controls],
     querySelector: () => defaultControl,
-    createElement: (tag) => tag === 'a' ? new Anchor() : { style: {} },
+    createElement: () => new Anchor(),
     addEventListener: (name, callback) => { events[name] = callback; },
   };
   const defaultControl = new Anchor();
-  defaultControl.parentNode = { insertBefore: (control) => controls.push(control) };
+  defaultControl.parentNode = { insertBefore(control) { control.parentNode = this; controls.push(control); } };
   vm.runInNewContext(source, {
     chrome: { storage: {
       local: { get: async () => settings },
@@ -83,23 +85,38 @@ test('failed polls preserve unread badges, stay quiet, and recover on the next p
     return response(mode === 'unread');
   });
   assert.equal(feature.controls.length, 1);
+  const unreadControl = feature.controls[0];
+  assert.equal(unreadControl.hasAttribute(unreadAttribute), true);
+  assert.equal(unreadControl.children.length, 2);
   for (mode of ['network', 'http', 'body']) {
     feature.advance(300_000);
     await feature.poll();
     assert.equal(feature.controls.length, 1);
+    assert.equal(feature.controls[0], unreadControl);
     assert.equal(feature.timers.size, 0);
   }
   assert.deepEqual(feature.warnings, []);
   mode = 'empty';
   feature.advance(300_000);
   await feature.poll();
-  assert.equal(feature.controls.length, 0);
+  assert.equal(feature.controls.length, 1);
+  assert.equal(feature.controls[0].hasAttribute(unreadAttribute), false);
+  assert.equal(feature.controls[0].children.length, 1);
 });
 
-test('an initial network failure does not invent unread notifications', async () => {
+test('an initial network failure still shows organization logos without unread dots', async () => {
   const feature = await startFeature(async () => { throw new TypeError('Failed to fetch'); });
-  assert.equal(feature.controls.length, 0);
+  assert.equal(feature.controls.length, 1);
+  assert.equal(feature.controls[0].hasAttribute(unreadAttribute), false);
   assert.deepEqual(feature.warnings, []);
+});
+
+test('shows every organization in settings order and dots only those with unread items', async () => {
+  const feature = await startFeature(async (url) => response(url.searchParams.get('query') === 'org:Other is:unread'));
+  await feature.change({ notificationOrganizations: ['Acme', 'Other'] });
+  assert.deepEqual(feature.controls.map((control) => [
+    new URL(control.href).searchParams.get('query'), control.hasAttribute(unreadAttribute),
+  ]), [['org:Acme', false], ['org:Other', true]]);
 });
 
 test('focus and navigation share the pending poll; timeouts allow retry', async () => {

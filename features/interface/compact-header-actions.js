@@ -34,7 +34,7 @@
     'html[' + HIDE_ATTRIBUTE + '] .AppHeader a[href^="/notifications?"]:not(.fractured-header-inbox),',
     'html[' + HIDE_ATTRIBUTE + '] .GlobalNav a[href="/notifications"]:not(.fractured-header-inbox),',
     'html[' + HIDE_ATTRIBUTE + '] header[role="banner"] a[href="/notifications"]:not(.fractured-header-inbox),',
-    'html[' + HIDE_ATTRIBUTE + '] header[role="banner"] :is(a, button)[aria-label*="notification" i]:not(.fractured-header-inbox) {',
+    'html[' + HIDE_ATTRIBUTE + '] header[role="banner"] :is(a, button)[aria-label*="notification" i]:not(.fractured-header-inbox, [data-fractured-github-organization-notification]) {',
     '  display: none !important;',
     '}',
     '[' + NATIVE_ATTRIBUTE + '] { visibility: hidden !important; }',
