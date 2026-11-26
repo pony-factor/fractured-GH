@@ -236,14 +236,26 @@ function queueSave() {
   }, 250);
 }
 
-function showSaved() {
+function showSaved(message = 'Saved. Refresh open GitHub tabs to apply changes.') {
   window.clearTimeout(statusTimer);
-  status.textContent = 'Saved. Refresh open GitHub tabs to apply changes.';
+  status.textContent = message;
   status.dataset.state = 'saved';
   statusTimer = window.setTimeout(() => {
     status.textContent = 'Changes save automatically.';
     delete status.dataset.state;
   }, 2500);
+}
+
+function showNotificationDotColor(color) {
+  const custom = typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color);
+  notificationDotColorInput.value = custom ? color : notificationDotColorInput.defaultValue;
+  resetNotificationDotColorButton.disabled = !custom;
+}
+
+async function saveNotificationDotColor(color) {
+  showNotificationDotColor(color);
+  await chrome.storage.local.set({ notificationDotColor: color });
+  showSaved('Saved.');
 }
 
 function addMutedInboxAccountRow(username = '', { focus = false } = {}) {
@@ -714,15 +726,3 @@ addMutedUserButton.addEventListener('click', () => {
 });
 
 void loadSettings();
-
-function showNotificationDotColor(color) {
-  const custom = typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color);
-  notificationDotColorInput.value = custom ? color : notificationDotColorInput.defaultValue;
-  resetNotificationDotColorButton.disabled = !custom;
-}
-
-async function saveNotificationDotColor(color) {
-  await chrome.storage.local.set({ notificationDotColor: color });
-  showNotificationDotColor(color);
-  showSaved();
-}
