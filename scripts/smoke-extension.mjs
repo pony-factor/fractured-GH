@@ -77,6 +77,26 @@ try {
   await github.evaluate(() => window.dispatchEvent(new Event("focus")));
   for (const inbox of inboxes) await expect(inbox).toBeVisible();
 
+  await worker.evaluate(() => chrome.storage.local.set({ hideInboxWhileBusy: false }));
+  await github.reload();
+  for (const inbox of inboxes) await expect(inbox).toBeVisible();
+
+  const popupPath = await worker.evaluate(() => chrome.action.getPopup({}));
+  assert.equal(popupPath, `chrome-extension://${extensionId}/popup.html`);
+  const popup = await context.newPage();
+  await popup.goto(popupPath);
+  const pauseInboxes = popup.getByRole("checkbox", { name: "Pause inboxes", exact: true });
+  await expect(popup.getByRole("checkbox")).toHaveCount(1);
+  await expect(pauseInboxes).not.toBeChecked();
+  await pauseInboxes.check();
+  for (const inbox of inboxes) await expect(inbox).toHaveCSS("display", "none");
+  await popup.reload();
+  await github.reload();
+  await expect(pauseInboxes).toBeChecked();
+  for (const inbox of inboxes) await expect(inbox).toHaveCSS("display", "none");
+  await pauseInboxes.uncheck();
+  for (const inbox of inboxes) await expect(inbox).toBeVisible();
+
   // Exercise the settings UI and real chrome.storage change propagation.
   await options.getByRole("tab", { name: "Copilot", exact: true }).click();
   const hideCopilot = options.locator("#hide-copilot");
@@ -91,8 +111,12 @@ try {
   await expect(copilot).toBeHidden();
   await options.reload();
   await expect(hideCopilot).toBeChecked();
+  await options.close();
+  const openedOptions = context.waitForEvent("page");
+  await popup.getByRole("button", { name: "Full settings" }).click();
+  await expect(await openedOptions).toHaveURL(`chrome-extension://${extensionId}/options.html`);
   assert.deepEqual(pageErrors, [], "Extension pages and content scripts must not throw");
-  console.log("Chromium verified Busy inbox visibility, settings persistence, and live preference updates.");
+  console.log("Chromium verified Busy and manual inbox hiding, the toolbar popup, and settings persistence.");
 } finally {
   await context?.close();
   rmSync(profilePath, { recursive: true, force: true });
