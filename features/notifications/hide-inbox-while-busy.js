@@ -1,9 +1,9 @@
 (async () => {
   'use strict';
 
-  const { hideInboxWhileBusy, inboxesPaused } = await chrome.storage.local.get({
+  const { hideInboxWhileBusy, inboxesVisibleUntil } = await chrome.storage.local.get({
     hideInboxWhileBusy: true,
-    inboxesPaused: false,
+    inboxesVisibleUntil: 0,
   });
 
   const STYLE_ID = 'fractured-github-hide-inbox-style';
@@ -13,7 +13,8 @@
   const BUSY_CACHE_KEY = 'fractured-github-busy';
   const LEGACY_BUSY_CACHE_KEY = 'github-viewer-busy';
   let currentBusy = null;
-  let manuallyPaused = inboxesPaused === true;
+  let visibleUntil = inboxesVisibleUntil;
+  let expiryTimer;
   const CHECK_INTERVAL_MS = 60_000;
   const MAX_RETRY_MS = 5 * CHECK_INTERVAL_MS;
   const REQUEST_TIMEOUT_MS = 15_000;
@@ -73,8 +74,15 @@
   }
 
   function applyVisibility() {
-    document.documentElement?.toggleAttribute(PAUSED_ATTR, manuallyPaused);
+    document.documentElement?.toggleAttribute(PAUSED_ATTR, !(visibleUntil > Date.now()));
     if (currentBusy !== null) setBusy(currentBusy);
+  }
+
+  function scheduleExpiry() {
+    window.clearTimeout(expiryTimer);
+    applyVisibility();
+    const remaining = visibleUntil - Date.now();
+    if (remaining > 0) expiryTimer = window.setTimeout(scheduleExpiry, remaining);
   }
 
   function readCachedBusyStatus() {
@@ -179,9 +187,16 @@
   }
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName !== 'local' || !changes.inboxesPaused) return;
-    manuallyPaused = changes.inboxesPaused.newValue === true;
-    applyVisibility();
+    const change = changes.inboxesVisibleUntil;
+    if (areaName !== 'local' || !change) return;
+    visibleUntil = change.newValue ?? 0;
+    scheduleExpiry();
+  });
+
+  window.addEventListener('pageshow', scheduleExpiry);
+  window.addEventListener('focus', scheduleExpiry);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) scheduleExpiry();
   });
 
   if (hideInboxWhileBusy) {
@@ -201,7 +216,7 @@
     attributeFilter: [BUSY_ATTR, PAUSED_ATTR],
   });
   installStyle();
-  applyVisibility();
+  scheduleExpiry();
 
   if (!hideInboxWhileBusy) return;
 
