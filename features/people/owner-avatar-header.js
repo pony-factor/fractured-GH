@@ -17,6 +17,7 @@
   let failedAvatarOwner = '';
   let failedBrandLogo = false;
   let stopped = false;
+  let brandImageUrl = '';
 
   function normalizeText(value) {
     return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -284,15 +285,8 @@
   }
 
   function installFracturedLogo(header) {
-    // A reload can invalidate the runtime between the refresh check and getURL.
-    let imageUrl;
-    try {
-      imageUrl = chrome.runtime.getURL('icons/fractured.png');
-    } catch (error) {
-      if (!isContextInvalidated(error)) throw error;
-      stopInvalidatedContext();
-      return;
-    }
+    // Resolve the packaged resource only at startup, never in a navigation callback.
+    if (!brandImageUrl) return;
 
     const logo = findGitHubLogo(header);
     if (!(logo instanceof HTMLAnchorElement)) return;
@@ -326,7 +320,7 @@
       logo.append(avatar);
     }
 
-    if (avatar.src !== imageUrl) avatar.src = imageUrl;
+    if (avatar.src !== brandImageUrl) avatar.src = brandImageUrl;
     avatar.onerror = () => {
       if (!avatar.isConnected) return;
       failedBrandLogo = true;
@@ -460,6 +454,11 @@
 
   if (!hasActiveContext()) return;
   try {
+    if (typeof chrome.runtime?.getURL !== 'function') {
+      stopInvalidatedContext();
+      return;
+    }
+    brandImageUrl = chrome.runtime.getURL('icons/fractured.png');
     chrome.storage.onChanged.addListener((changes, areaName) => {
       if (stopped || areaName !== 'local' || !(ENABLED_KEY in changes)) return;
       void loadSettings();

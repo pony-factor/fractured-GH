@@ -8,12 +8,12 @@ const source = fs.readFileSync(
   path.join(__dirname, '../../features/people/owner-avatar-header.js'), 'utf8',
 );
 
-function harness(initiallyEnabled, initialStorageError = null) {
+function harness(initiallyEnabled, initialStorageError = null, initialRuntimeError = null) {
   let setting = initiallyEnabled;
   let repositoryNwo = 'pony-factor/fractured-GH';
   let storageListener;
   let storageError = initialStorageError;
-  let runtimeError = null;
+  let runtimeError = initialRuntimeError;
   let observerCallback;
   let disconnected = false;
   let storageReads = 0;
@@ -355,11 +355,23 @@ function assertRestored(feature) {
   assert.equal(feature.lifecycle().listeners, 0);
 }
 
-test('restores the original header when getURL throws during navigation to notifications', async () => {
+test('never calls getURL during notifications navigation or mutation refreshes', async () => {
   const feature = harness(true);
   await feature.settle();
+  assert.equal(feature.lifecycle().urlReads, 1);
   feature.failGetURL(new Error('Extension context invalidated.'));
-  feature.navigate('/notifications');
+  for (const event of ['turbo:load', 'pjax:end', 'popstate']) {
+    feature.navigate('/notifications', event);
+    await feature.settle();
+    feature.mutate();
+    await feature.settle();
+    assert.equal(feature.logo.hasAttribute('data-fractured-brand-logo'), true);
+    assert.equal(feature.logo.querySelector('[data-fractured-owner-avatar]')?.src,
+      'chrome-extension://fractured/icons/fractured.png');
+    assert.equal(feature.lifecycle().urlReads, 1);
+  }
+  feature.invalidateRuntime();
+  feature.mutate();
   await feature.settle();
   assertRestored(feature);
   const before = feature.lifecycle();
@@ -367,6 +379,18 @@ test('restores the original header when getURL throws during navigation to notif
   feature.change(true);
   await feature.settle();
   assert.deepEqual(feature.lifecycle(), before);
+  assert.equal(feature.warnings.length, 0);
+});
+
+test('handles getURL invalidation at startup before registering callbacks', async () => {
+  const feature = harness(true, null, new Error('Extension context invalidated.'));
+  await feature.settle();
+  assert.equal(feature.lifecycle().urlReads, 1);
+  assert.equal(feature.lifecycle().listeners, 0);
+  assert.equal(feature.lifecycle().storageReads, 0);
+  assert.equal(feature.lifecycle().queued, 0);
+  assert.equal(feature.logo.children.length, 0);
+  assert.equal(feature.logo.getAttribute('href'), '/');
   assert.equal(feature.warnings.length, 0);
 });
 
@@ -378,7 +402,7 @@ test('stops queued refreshes on repository pages when the runtime ID disappears'
   await feature.settle();
   assertRestored(feature);
   assert.equal(feature.lifecycle().queued, 0);
-  assert.equal(feature.lifecycle().urlReads, 0);
+  assert.equal(feature.lifecycle().urlReads, 1);
 });
 
 test('restores existing Fractured branding on invalidation', async () => {
