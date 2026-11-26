@@ -9,7 +9,7 @@ const source = fs.readFileSync(
 );
 
 function setup({
-  pathname, submit = 'Comment', bodySelector = 'textarea[name="comment[body]"]',
+  pathname, search = '', submit = 'Comment', bodySelector = 'textarea[name="comment[body]"]',
   draft = false, secondSubmit = null, publishedControls = false, toolbarLayout = 'block',
   otherFooterContent = false,
 }) {
@@ -123,7 +123,8 @@ function setup({
     document, window, chrome,
     Element, Document: class {},
     MutationObserver: class { observe() {} },
-    location: { pathname, href: 'https://github.com' + pathname },
+    URLSearchParams,
+    location: { pathname, search, href: 'https://github.com' + pathname + search },
     queueMicrotask: callback => callback(),
     getComputedStyle: () => ({ display: toolbarLayout, columnGap: '12px' }),
   });
@@ -183,6 +184,25 @@ test('adds spellcheck to an existing issue comment', () => {
   assert.equal(issue.enhancers[0].title, 'Spellcheck this comment');
   issue.events['turbo:load']();
   assert.equal(issue.enhancers.length, 1);
+});
+
+test('adds spellcheck to the comment composer in a GitHub Projects issue pane', () => {
+  for (const owner of ['users/JFWooten4', 'orgs/pony-factor']) {
+    const app = setup({
+      pathname: `/${owner}/projects/1/views/1`,
+      search: '?pane=issue&itemId=301917219&issue=JFWooten4%7Cagenda%7C35',
+      publishedControls: true,
+    });
+    assert.equal(app.enhancers.length, 1, owner);
+    assert.equal(app.enhancers[0].title, 'Spellcheck this comment');
+  }
+});
+
+test('does not add comment spellcheck to other project views', () => {
+  const pathname = '/users/JFWooten4/projects/1/views/1';
+  for (const search of ['', '?pane=info&issue=JFWooten4%7Cagenda%7C35', '?pane=issue&itemId=301917219']) {
+    assert.equal(setup({ pathname, search }).enhancers.length, 0, search);
+  }
 });
 
 test('does not add comment-only spellcheck to unrelated pages or actions', () => {
