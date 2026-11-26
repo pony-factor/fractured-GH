@@ -79,6 +79,14 @@
         margin-inline-end: 8px;
         vertical-align: middle;
       }
+      /* Restore the split button's outer corners when the toolbar precedes its first item. */
+      .BtnGroup > .fractured-spellcheck-actions:first-child + .BtnGroup-item {
+        border-top-left-radius: var(--borderRadius-medium, 6px);
+        border-bottom-left-radius: var(--borderRadius-medium, 6px);
+      }
+      .d-flex:has(> .js-collab-option + div > .BtnGroup > .fractured-spellcheck-actions:first-child) {
+        column-gap: 8px;
+      }
       .${BUTTON_CLASS}, .fractured-rounded-image-button {
         align-items: center;
         background: transparent;
