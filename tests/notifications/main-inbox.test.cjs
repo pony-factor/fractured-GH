@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const script = fs.readFileSync(path.join(__dirname, '../../features/notifications/main-inbox.js'), 'utf8');
-const { normalizeOrganizations, isMainInbox, ownerFromHref, notificationOwner } = require('../../features/notifications/main-inbox.js');
+const { normalizeOrganizations, isMainInbox, ownerFromHref, notificationOwner, hasVisibleUnread } = require('../../features/notifications/main-inbox.js');
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
 function row(links, repositoryText = null) {
@@ -44,7 +44,7 @@ test('filters only default, read and unread inbox pages, never organization or c
   assert.deepEqual([...normalizeOrganizations(['Acme', '@ACME', 'https://github.com/Other/', ''])], ['acme', 'other']);
 });
 
-async function featureHarness() {
+async function featureHarness({ referencedLabel = false } = {}) {
   const rows = [row(['/Acme/tool/issues/1']), row(['/other/widget/pull/2']), row(['/AcMe/other/pull/1'])];
   let settings = {
     organizationNotificationInboxesEnabled: true,
@@ -54,27 +54,51 @@ async function featureHarness() {
   const location = inbox();
   const handlers = {};
   const styles = [];
+  const rootAttributes = new Set();
+  const button = row([]);
+  const nativeLabel = 'You have unread notifications ( g then n )';
+  const labelNode = { nodeType: 3, data: 'You have unread notifications' };
+  const shortcutNode = { nodeType: 1, textContent: '(g then n)' };
+  if (referencedLabel) button.setAttribute('aria-labelledby', 'inbox-label');
+  else button.setAttribute('aria-label', nativeLabel);
+  button.getAttribute = (name) => button.attributes.get(name);
+  let unreadRows = rows.filter((_row, index) => index !== 1);
   const timers = new Map();
   let nextTimer = 0;
   let mutation;
   const doc = {
-    documentElement: { append: (style) => styles.push(style) },
+    documentElement: {
+      append: (style) => styles.push(style),
+      toggleAttribute: (name, present) => present ? rootAttributes.add(name) : rootAttributes.delete(name),
+    },
+    querySelector: () => button,
     querySelectorAll: () => rows,
-    getElementById: (id) => styles.find((s) => s.id === id),
+    getElementById: (id) => id === 'inbox-label'
+      ? { childNodes: [labelNode, shortcutNode] }
+      : styles.find((s) => s.id === id),
     createElement: () => ({}),
     addEventListener: (event, callback) => { handlers[event] = callback; },
   };
   const window = {
-    location,
+    location: Object.assign(location, { origin: 'https://github.com' }),
     clearTimeout: (id) => timers.delete(id),
     setTimeout: (fn) => { timers.set(++nextTimer, fn); return nextTimer; },
+    setInterval: (fn) => { handlers.poll = fn; },
+    addEventListener: (event, callback) => { handlers[event] = callback; },
+    fetch: async () => ({ ok: true, text: async () => '' }),
   };
+  let clock = 0;
   vm.runInNewContext(script, {
     chrome: { storage: {
       local: { get: async () => settings },
       onChanged: { addListener: (fn) => { handlers.storage = fn; } },
     } },
-    document: doc, window, URL, URLSearchParams,
+    document: doc, window, URL, URLSearchParams, AbortController,
+    navigator: { onLine: true },
+    Date: { now: () => clock },
+    DOMParser: class {
+      parseFromString() { return { querySelectorAll: () => unreadRows, querySelector: () => null }; }
+    },
     MutationObserver: class { constructor(callback) { mutation = callback; } observe() {} },
   });
   await flush();
@@ -87,7 +111,15 @@ async function featureHarness() {
     handlers.storage({ excludeOrganizationNotificationsFromMainInbox: {} }, 'local');
     await flush();
   }
-  return { rows, styles, location, handlers, refresh, changeSettings, get mutation() { return mutation; } };
+  return {
+    rows, styles, location, handlers, refresh, changeSettings, rootAttributes, button, nativeLabel, labelNode, shortcutNode,
+    get mutation() { return mutation; },
+    async pollUnread(nextRows) {
+      unreadRows = nextRows;
+      clock += 60_000;
+      await handlers.poll();
+    },
+  };
 }
 
 test('toggle filters configured owners, restores them, and honors navigation and dynamic rows', async () => {
@@ -115,4 +147,55 @@ test('toggle filters configured owners, restores them, and honors navigation and
   assert.equal(feature.rows.every((r) => !r.attributes.has(hidden)), true);
   await feature.changeSettings({ excludeOrganizationNotificationsFromMainInbox: true, organizationNotificationInboxesEnabled: false });
   assert.equal(feature.rows.every((r) => !r.attributes.has(hidden)), true);
+});
+
+test('suppresses the native dot and unread label only when all unread items belong to excluded owners', async () => {
+  const feature = await featureHarness();
+  const suppressed = 'data-fractured-main-inbox-no-unread';
+  assert.equal(feature.rootAttributes.has(suppressed), false);
+
+  await feature.changeSettings({ excludeOrganizationNotificationsFromMainInbox: true });
+  assert.equal(feature.rootAttributes.has(suppressed), true);
+  assert.equal(feature.button.getAttribute('aria-label'), 'Notifications ( g then n )');
+
+  await feature.pollUnread([feature.rows[0], feature.rows[1]]);
+  assert.equal(feature.rootAttributes.has(suppressed), false);
+  assert.equal(feature.button.getAttribute('aria-label'), feature.nativeLabel);
+
+  await feature.pollUnread([feature.rows[0]]);
+  assert.equal(feature.rootAttributes.has(suppressed), true);
+  await feature.changeSettings({ excludeOrganizationNotificationsFromMainInbox: false });
+  assert.equal(feature.rootAttributes.has(suppressed), false);
+  assert.equal(feature.button.getAttribute('aria-label'), feature.nativeLabel);
+});
+
+test('updates GitHub’s referenced Inbox label while preserving its keyboard shortcut', async () => {
+  const feature = await featureHarness({ referencedLabel: true });
+  await feature.changeSettings({ excludeOrganizationNotificationsFromMainInbox: true });
+  assert.equal(feature.labelNode.data, 'Notifications');
+  assert.equal(feature.shortcutNode.textContent, '(g then n)');
+  await feature.pollUnread([feature.rows[1]]);
+  assert.equal(feature.labelNode.data, 'You have unread notifications');
+});
+
+test('checks later unread pages before hiding the main Inbox dot', async () => {
+  const pages = [
+    { rows: [row(['/acme/tool/issues/1'])], next: '/notifications?after=second&query=is%3Aunread' },
+    { rows: [row(['/other/tool/pull/2'])] },
+  ];
+  const requested = [];
+  const result = await hasVisibleUnread(new Set(['acme']), {
+    origin: 'https://github.com',
+    fetchPage: async (url) => {
+      const index = requested.length;
+      requested.push(url.searchParams.get('after'));
+      return { ok: true, text: async () => index };
+    },
+    parsePage: (index) => ({
+      querySelectorAll: () => pages[index].rows,
+      querySelector: () => pages[index].next && { getAttribute: () => pages[index].next },
+    }),
+  });
+  assert.equal(result, true);
+  assert.deepEqual(requested, [null, 'second']);
 });
