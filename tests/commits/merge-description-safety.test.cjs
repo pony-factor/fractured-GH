@@ -54,18 +54,20 @@ function mount(feature, pathname, action, mergeIds = false, requestAnimationFram
   const source = fs.readFileSync(path.join(__dirname, "../../features/commits", feature), "utf8");
   const exports = feature === "message-simplifier.js"
     ? "isTitle, isBody, scan, prepare, beforeSubmit, activate: () => { enabled = true; }"
-    : "isCommitTitleField, prefixField, bindField, scan, activate: () => { enabled = true; }";
+    : "isCommitTitleField, prefixField, bindField, scan, classifyEmoji, FALLBACK_EMOJIS, activate: () => { enabled = true; }";
+  const document = { addEventListener() {}, removeEventListener() {}, querySelector() { return null; }, querySelectorAll() { return []; } };
+  const window = { location: { pathname }, addEventListener() {}, removeEventListener() {} };
+  const math = Object.create(Math);
   const context = vm.createContext({
     Element, HTMLFormElement: Form, HTMLInputElement: Input, HTMLTextAreaElement: Textarea,
     Document: class {}, DocumentFragment: class {}, Event: class { constructor(type) { this.type = type; } },
-    document: { addEventListener() {}, removeEventListener() {}, querySelectorAll() { return []; } },
-    window: { location: { pathname }, addEventListener() {}, removeEventListener() {} },
+    document, window, Math: math,
     MutationObserver: class { observe() {} disconnect() {} },
     requestAnimationFrame,
     chrome: { storage: { onChanged: { addListener() {} }, local: { get: async defaults => defaults } } },
   });
   vm.runInContext(source.replace(/\}\)\(\);\s*$/, "globalThis.testHelpers = { " + exports + " };\n})();"), context);
-  return { title, description, form, ...context.testHelpers };
+  return { title, description, form, document, window, math, ...context.testHelpers };
 }
 
 test("squash merge messages and titles survive commit simplification without other settings", () => {
@@ -168,7 +170,7 @@ test("emoji suggestions run once and leave later edits alone", () => {
   const page = mount("title-emojis.js", "/owner/repo/edit/main/file.js", "Commit changes");
   page.activate();
   page.bindField(page.title);
-  assert.equal(page.title.value, "🔧 Update code");
+  assert.equal(page.title.value, "📋 Update code");
   for (const value of ["Update code", "", "🔧", "🎨 My title", "A replacement title"]) {
     page.title.value = value;
     for (const type of ["input", "change", "blur"]) page.title.dispatchEvent({ type });
@@ -192,9 +194,9 @@ test("empty editors wait for the first input and preserve the caret", () => {
     assert.deepEqual([start, end, direction], [4, 4, "none"]);
   };
   page.title.dispatchEvent({ type: "input" });
-  assert.equal(page.title.value, "🔧 A");
+  assert.equal(page.title.value, "📋 A");
   page.scan(page.form);
-  assert.equal(page.title.value, "🔧 A");
+  assert.equal(page.title.value, "📋 A");
 });
 
 test("existing emoji including bare emoji are never duplicated or restored", () => {
@@ -259,7 +261,7 @@ test("composition completes before the first emoji is suggested", () => {
   page.scan(page.form);
   assert.equal(page.title.value, "入力");
   page.title.dispatchEvent({ type: "compositionend" });
-  assert.equal(page.title.value, "🔧 入力");
+  assert.equal(page.title.value, "📋 入力");
 });
 
 
@@ -271,7 +273,7 @@ test("reentrant input events cannot insert a second prefix", () => {
   page.title.addEventListener("input", () => page.scan(page.form));
   page.title.value = "Update code";
   page.title.dispatchEvent({ type: "input" });
-  assert.equal(page.title.value, "🔧 Update code");
+  assert.equal(page.title.value, "📋 Update code");
 });
 
 
@@ -302,4 +304,121 @@ test("unknown commit editors retain descriptions while ordinary file editors sti
     page.scan(page.form);
     assert.equal(page.description.value, original);
   }
+});
+
+test("Studio's specific emoji rules distinguish overlapping changes", () => {
+  const code = "/owner/repo/edit/main/parser.py";
+  const prose = "/owner/repo/edit/main/statement.md";
+  const cases = [
+    ["Improve Stellar DEX order book", code, "💱"],
+    ["Add Soroban contract helper", code, "🧮"],
+    ["Document decentralization", prose, "🌐"],
+    ["Explain free-market economics", prose, "📈"],
+    ["Adjust sidebar spacing", code, "🖌️"],
+    ["Update sidebar color palette", code, "🎨"],
+    ["Replace sidebar image", code, "🖼️"],
+    ["Refresh storefront", "/owner/repo/edit/main/logo.svg", "🖼️"],
+    ["Refresh brand color palette", code, "✨"],
+    ["Address human review feedback", code, "🤝"],
+    ["Address @reviewer and Copilot review feedback", code, "🤝"],
+    ["Address Copilot review feedback by simplifying parser", code, "🗜️"],
+    ["Address @reviewer[bot] review feedback", code, "📋"],
+    ["Sync release branch with main", code, "🔄"],
+    ["Update parser", "/owner/repo/edit/main/parser.py", "📋"],
+    ["Add inline comments", code, "💬"],
+    ["Add a sticky note", prose, "💭"],
+    ["Write about freedom in voting", prose, "🕊️"],
+    ["Implement freedom settings", code, "🦅"],
+    ["Revise privacy policy", prose, "⚖️"],
+    ["Update United States policy", prose, "🗽"],
+    ["Refactor image processing", code, "🏗️"],
+    ["Update server configuration", "/owner/repo/edit/main/server.yaml", "⚙️"],
+    ["Tune page-size threshold", "/owner/repo/edit/main/server.yaml", "🔧"],
+    ["Wire parser to renderer", code, "🔩"],
+    ["Reduce boilerplate in parser", code, "🗜️"],
+    ["Update package configuration", "/owner/repo/edit/main/package.json", "🧰"],
+    ["Update project requirements", "/owner/repo/edit/main/pyproject.toml", "🧰"],
+    ["Discuss Superstonk", prose, "🦍"],
+    ["Add math formula", code, "🧾"],
+    ["Delete cache directory", "/owner/repo/delete/main/cache/index.md", "📁"],
+    ["Delete stale cache file", "/owner/repo/delete/main/cache.json", "🗑️"],
+    ["Consolidate files into one report", prose, "🗃️"],
+    ["Reorganize files and directories", code, "🗂️"],
+    ["Create archive", code, "🗄️"],
+    ["Add cache directory", code, "📂"],
+    ["Draft the announcement", prose, "✒️"],
+    ["Revise existing announcement", prose, "🖋️"],
+    ["Revise punctuation in announcement", prose, "🖊️"],
+    ["Revise the footnote", prose, "✏️"],
+    ["Add a standalone URL", prose, "🖍️"],
+    ["Revise several sections", prose, "📝"],
+    ["Add an empty file as a placeholder", prose, "🌱"],
+    ["Add an HTTP request", code, "📡"],
+    ["Add a keyboard shortcut", code, "⌨️"],
+    ["Update release process", "/owner/repo/edit/colors/settings/README.md", "🖋️"],
+    ["Update benchmark collection", code, "📊"],
+  ];
+  for (const [title, url, expected] of cases) {
+    const page = mount("title-emojis.js", url, "Commit changes");
+    assert.equal(page.classifyEmoji(title), expected, title);
+  }
+});
+
+test("Studio's Pony fandom emoji requires known private repository visibility", () => {
+  const page = mount("title-emojis.js", "/owner/repo/edit/main/notes.md", "Commit changes");
+  const title = "Add My Little Pony materials";
+  assert.equal(page.classifyEmoji(title), "✒️");
+  for (const [visibility, expected] of [["true", "✒️"], ["false", "🦄"]]) {
+    page.document.querySelector = (selector) => selector.includes("repository_public") ? { content: visibility } : null;
+    assert.equal(page.classifyEmoji(title), expected);
+  }
+});
+
+test("the complete Studio fallback palette can be matched by name and preserved", () => {
+  const page = mount("title-emojis.js", "/owner/repo/edit/main/file.js", "Commit changes");
+  assert.equal(page.FALLBACK_EMOJIS.size, 256);
+  page.activate();
+  for (const [name, emoji] of page.FALLBACK_EMOJIS) {
+    assert.equal(page.classifyEmoji(`Add ${name}`), emoji, name);
+    page.title.removeAttribute("data-fractured-commit-emoji-handled");
+    page.title.value = `${emoji} An existing title`;
+    page.prefixField(page.title);
+    assert.equal(page.title.value, `${emoji} An existing title`, name);
+  }
+});
+
+test("each Studio bug, inclusion, and security emoji can be selected", () => {
+  const page = mount("title-emojis.js", "/owner/repo/edit/main/file.js", "Commit changes");
+  const cases = [
+    ["Fix parser bug", "🐛 🐜 🐝 🐞 🦗 🕷️ 🦟"],
+    ["Explain financial inclusion policy", "🌍 🌎 🌏"],
+    ["Add authentication tests", "📌 📍 📎 🖇️ 📏 📐 ✂️ 🧷 🔒 🔓 🔏 🔐 🔑 🗝️ 🔨 🪓 ⛏️ ⚒️ 🛠️ 🧲 🛡️ 🦯 🔗 ⛓️ ⚗️ 🧪 🧬 🔬 🔭 💊 🩹"],
+  ];
+  for (const [title, emojis] of cases) {
+    const expected = emojis.split(" ");
+    for (const [index, emoji] of expected.entries()) {
+      page.math.random = () => (index + 0.5) / expected.length;
+      page.window.localStorage = { getItem() { return null; }, setItem() {} };
+      assert.equal(page.classifyEmoji(title), emoji, title);
+    }
+  }
+});
+
+test("a bug emoji is reused within a branch, including names with slashes", () => {
+  const page = mount("title-emojis.js", "/owner/repo/edit/feature/alpha/first.py", "Commit changes");
+  const stored = new Map();
+  page.window.localStorage = { getItem: stored.get.bind(stored), setItem: stored.set.bind(stored) };
+  const breadcrumb = (ref) => [{ getAttribute: () => `/owner/repo/tree/${ref}`, textContent: ref }];
+  page.document.querySelectorAll = () => breadcrumb("feature/alpha");
+
+  page.math.random = () => 0;
+  assert.equal(page.classifyEmoji("Fix parser bug"), "🐛");
+
+  page.math.random = () => 0.99;
+  page.window.location.pathname = "/owner/repo/edit/feature/alpha/second.py";
+  assert.equal(page.classifyEmoji("Fix renderer bug"), "🐛");
+
+  page.window.location.pathname = "/owner/repo/edit/feature/beta/second.py";
+  page.document.querySelectorAll = () => breadcrumb("feature/beta");
+  assert.equal(page.classifyEmoji("Fix renderer bug"), "🦟");
 });
