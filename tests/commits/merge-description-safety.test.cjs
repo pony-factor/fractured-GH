@@ -4,7 +4,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 const test = require("node:test");
 
-function mount(feature, pathname, action, mergeIds = false) {
+function mount(feature, pathname, action, mergeIds = false, requestAnimationFrame = (callback) => callback()) {
   class Element {}
   class Form extends Element {
     querySelectorAll(selector) {
@@ -20,11 +20,16 @@ function mount(feature, pathname, action, mergeIds = false) {
       this.name = name;
       this.value = value;
       this.type = "text";
+      this.isConnected = true;
       this.labels = [];
       this.attributes = new Set();
       this.listeners = new Map();
     }
-    getAttribute(name) { return name === "name" ? this.name : null; }
+    getAttribute(name) {
+      if (name === "name") return this.name;
+      if (name === "placeholder") return this.placeholder || null;
+      return null;
+    }
     closest(selector) {
       if (selector === "#merge_pull_request_form") return mergeIds ? form : null;
       return form;
@@ -56,7 +61,7 @@ function mount(feature, pathname, action, mergeIds = false) {
     document: { addEventListener() {}, removeEventListener() {}, querySelectorAll() { return []; } },
     window: { location: { pathname }, addEventListener() {}, removeEventListener() {} },
     MutationObserver: class { observe() {} disconnect() {} },
-    requestAnimationFrame(callback) { callback(); },
+    requestAnimationFrame,
     chrome: { storage: { onChanged: { addListener() {} }, local: { get: async defaults => defaults } } },
   });
   vm.runInContext(source.replace(/\}\)\(\);\s*$/, "globalThis.testHelpers = { " + exports + " };\n})();"), context);
@@ -218,6 +223,30 @@ test("late initial titles receive one suggestion without replacing their wording
   page.title.value = "Sync my branch";
   page.scan(page.form);
   assert.equal(page.title.value, "Sync my branch");
+});
+
+test("Copilot's pending commit title does not consume the emoji suggestion", () => {
+  const frames = [];
+  const page = mount("title-emojis.js", "/owner/repo/edit/main/file.js", "Commit changes", false,
+    (callback) => frames.push(callback));
+  page.activate();
+  page.title.id = "commit-message-input";
+  page.title.placeholder = "Copilot is thinking...";
+  page.title.value = "Update file.js";
+  page.bindField(page.title);
+  frames.shift()();
+  assert.equal(page.title.value, "Update file.js");
+
+  page.title.value = "Refactor parser";
+  page.scan(page.form);
+  frames.shift()();
+  assert.equal(page.title.value, "Refactor parser");
+
+  page.title.placeholder = "Update file.js";
+  page.scan(page.form);
+  assert.equal(page.title.value, "Refactor parser");
+  frames.shift()();
+  assert.equal(page.title.value, "🏗️ Refactor parser");
 });
 
 test("composition completes before the first emoji is suggested", () => {

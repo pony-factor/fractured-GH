@@ -5,6 +5,7 @@
   const BOUND_ATTR = 'data-fractured-commit-emoji-bound';
   const HANDLED_ATTR = 'data-fractured-commit-emoji-handled';
   const composingFields = new WeakSet();
+  const queuedFields = new WeakSet();
   const BUG_EMOJIS = ['🐛', '🐜', '🐝', '🐞', '🦗', '🕷️', '🦟'];
   const FINANCIAL_INCLUSION_EMOJIS = ['🌍', '🌎', '🌏'];
   const SECURITY_EMOJIS = [
@@ -184,6 +185,7 @@
 
   function prefixField(field) {
     if (!enabled || !isCommitTitleField(field) || field.hasAttribute(HANDLED_ATTR) || composingFields.has(field)) return;
+    if (field.id === 'commit-message-input' && /^Copilot is thinking\b/i.test(field.getAttribute('placeholder') || '')) return;
 
     const title = field.value.trim();
     if (!title) return;
@@ -204,10 +206,25 @@
     }
   }
 
+  function suggestPrefix(field) {
+    if (field.id !== 'commit-message-input') {
+      prefixField(field);
+      return;
+    }
+    if (field.hasAttribute(HANDLED_ATTR) || queuedFields.has(field)) return;
+
+    // Let GitHub's controlled commit dialog finish rendering the suggestion.
+    queuedFields.add(field);
+    requestAnimationFrame(() => {
+      queuedFields.delete(field);
+      if (field.isConnected) prefixField(field);
+    });
+  }
+
   function bindField(field) {
     if (!isCommitTitleField(field)) return;
     if (field.hasAttribute(BOUND_ATTR)) {
-      prefixField(field);
+      suggestPrefix(field);
       return;
     }
 
@@ -215,13 +232,13 @@
     field.addEventListener('compositionstart', () => composingFields.add(field));
     field.addEventListener('input', (event) => {
       if (event.isComposing) composingFields.add(field);
-      else prefixField(field);
+      else suggestPrefix(field);
     });
     field.addEventListener('compositionend', () => {
       composingFields.delete(field);
-      prefixField(field);
+      suggestPrefix(field);
     });
-    prefixField(field);
+    suggestPrefix(field);
   }
 
   function scan(root = document) {
@@ -254,7 +271,7 @@
     if (!enabled) return;
 
     // Discover new editors and late initial titles without rewriting handled drafts.
-    observer.observe(document, { childList: true, subtree: true, attributes: true, attributeFilter: ['value'] });
+    observer.observe(document, { childList: true, subtree: true, attributes: true, attributeFilter: ['value', 'placeholder'] });
     document.addEventListener('turbo:load', scanPage);
     document.addEventListener('pjax:end', scanPage);
     window.addEventListener('popstate', scanPage);
