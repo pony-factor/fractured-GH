@@ -84,6 +84,9 @@
         border-top-left-radius: var(--borderRadius-medium, 6px);
         border-bottom-left-radius: var(--borderRadius-medium, 6px);
       }
+      .d-flex:has(> .js-collab-option + div > .BtnGroup > .fractured-spellcheck-actions:first-child) {
+        column-gap: 8px;
+      }
       .${BUTTON_CLASS}, .fractured-rounded-image-button {
         align-items: center;
         background: transparent;
