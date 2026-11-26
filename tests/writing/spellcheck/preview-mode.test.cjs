@@ -39,10 +39,11 @@ function setup({ preview = true, deferred = false, missingBody = false, writeAva
   const scope = {
     querySelectorAll: () => writeAvailable ? [write, previewTab] : [previewTab],
   };
-  const submitControl = { closest: () => scope };
+  const submitControl = { closest: () => null };
   const funcs = vm.runInNewContext(`${helpers}\n({ previewIsSelected, writableFieldsFor })`, {
-    scopeFor: () => missingBody && !editorVisible ? null : scope,
-    fieldsFor: () => missingBody && !editorVisible ? null : { title, body },
+    scopeFor: () => null,
+    fieldsFor: candidate => candidate !== scope || (missingBody && !editorVisible)
+      ? null : { title, body },
     visible: () => editorVisible,
     controlText: control => control.textContent,
     requestAnimationFrame(callback) {
@@ -56,7 +57,7 @@ function setup({ preview = true, deferred = false, missingBody = false, writeAva
   });
   return {
     ...funcs,
-    submitControl, title, body,
+    scope, submitControl, title, body,
     get clicks() { return clicks; },
     get frames() { return frames; },
   };
@@ -67,30 +68,30 @@ test('clicking Spellcheck from Preview restores Write and retains the source', a
   assert.equal(app.previewIsSelected({ querySelectorAll: () => [{
     textContent: 'Preview', getAttribute: () => 'true',
   }] }), true);
-  const fields = await app.writableFieldsFor(app.submitControl);
+  const fields = await app.writableFieldsFor(app.scope, app.submitControl);
   assert.equal(fields.title, app.title);
   assert.equal(fields.body, app.body);
   assert.equal(app.body.value, 'Thsi text should stay as wrtiten');
   assert.equal(app.clicks, 1);
 });
 
-test('Spellcheck in Write mode does not change tabs', async () => {
+test('Spellcheck in Write mode finds the editor after GitHub replaces the submit button', async () => {
   const app = setup({ preview: false });
-  const fields = await app.writableFieldsFor(app.submitControl);
+  const fields = await app.writableFieldsFor(app.scope, app.submitControl);
   assert.equal(fields.body, app.body);
   assert.equal(app.clicks, 0);
 });
 
 test('retrieves the Markdown textarea when Preview temporarily removes it', async () => {
   const app = setup({ missingBody: true });
-  const fields = await app.writableFieldsFor(app.submitControl);
+  const fields = await app.writableFieldsFor(app.scope, app.submitControl);
   assert.equal(fields.body, app.body);
   assert.equal(app.clicks, 1);
 });
 
 test('waits for asynchronous GitHub editor rendering after switching tabs', async () => {
   const app = setup({ deferred: true });
-  const fields = await app.writableFieldsFor(app.submitControl);
+  const fields = await app.writableFieldsFor(app.scope, app.submitControl);
   assert.equal(fields.body, app.body);
   assert.equal(app.clicks, 1);
   assert.equal(app.frames, 2);
@@ -98,7 +99,7 @@ test('waits for asynchronous GitHub editor rendering after switching tabs', asyn
 
 test('does not attempt spellcheck against an unavailable hidden editor', async () => {
   const app = setup({ writeAvailable: false });
-  const fields = await app.writableFieldsFor(app.submitControl);
+  const fields = await app.writableFieldsFor(app.scope, app.submitControl);
   assert.equal(fields, null);
   assert.equal(app.clicks, 0);
 });

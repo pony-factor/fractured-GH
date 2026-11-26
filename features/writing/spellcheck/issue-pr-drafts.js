@@ -725,10 +725,9 @@
         || tab.matches?.('[aria-current="page"], .selected, .active')));
   }
 
-  async function writableFieldsFor(submitControl) {
-    let scope = scopeFor(submitControl) || submitControl.closest('form, [role="dialog"]');
-    if (!scope) return null;
-
+  async function writableFieldsFor(scope, submitControl) {
+    // GitHub can replace the submit button as the draft changes while keeping
+    // the editor and injected toolbar mounted. Read from their shared scope.
     let fields = fieldsFor(scope, submitControl);
     if (fields && visible(fields.body) && !previewIsSelected(scope)) return fields;
 
@@ -741,7 +740,6 @@
 
     writeTab.click();
     for (let attempt = 0; attempt < 8; attempt += 1) {
-      scope = scopeFor(submitControl) || submitControl.closest('form, [role="dialog"]') || scope;
       fields = fieldsFor(scope, submitControl);
       if (fields && visible(fields.body)) return fields;
       await new Promise((resolve) => requestAnimationFrame(resolve));
@@ -749,8 +747,8 @@
     return null;
   }
 
-  async function launchSpellcheck(control, submitControl) {
-    const fields = await writableFieldsFor(submitControl);
+  async function launchSpellcheck(control, scope, submitControl) {
+    const fields = await writableFieldsFor(scope, submitControl);
     if (!fields) {
       showSidebar({ status: 'Switch to Write to spellcheck this draft.', error: true });
       return;
@@ -902,7 +900,7 @@
     }
   }
 
-  function createEnhancer(control, fields) {
+  function createEnhancer(control, scope, fields) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = BUTTON_CLASS;
@@ -911,7 +909,7 @@
       ? 'Spellcheck this comment'
       : 'Spellcheck title and body; generate a title if blank';
     button.setAttribute('aria-label', button.title);
-    button.addEventListener('click', () => void launchSpellcheck(button, control));
+    button.addEventListener('click', () => void launchSpellcheck(button, scope, control));
     // Keep the rounded-image staging and deferred GitHub upload unchanged;
     // the modal handles drag-and-drop and local selection before staging.
     const attach = document.createElement('button');
@@ -972,8 +970,7 @@
       actions.classList.add('fractured-spellcheck-actions--stacked');
     }
     // Prevent publishing provisional URLs, including with keyboard submission.
-    const scope = scopeFor(control);
-    scope?.addEventListener('submit', (event) => {
+    scope.addEventListener('submit', (event) => {
       globalThis.fracturedSpellcheckImages?.preventUnresolvedSubmission(event, fields.body);
     }, true);
     control.addEventListener('click', (event) => {
@@ -992,7 +989,7 @@
       const fields = scope && fieldsFor(scope, control);
       if (!fields || scope.querySelector(`.${BUTTON_CLASS}`)) continue;
       control.setAttribute(BUTTON_BOUND, 'true');
-      createEnhancer(control, fields);
+      createEnhancer(control, scope, fields);
     }
   }
 
