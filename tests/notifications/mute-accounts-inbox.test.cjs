@@ -83,7 +83,7 @@ test('only follows a GitHub issue or pull request notification permalink', () =>
   assert.equal(notificationComment(row([], { href: href.replace('#issuecomment-123', '#event-123') })), null);
 });
 
-test('requires a per-thread Done form, real numeric ID and CSRF token', () => {
+test('requires a per-thread Done form, a GitHub notification ID and CSRF token', () => {
   const bot = row(['/apps/vercel']);
   const page = { querySelector: () => null };
   assert.equal(notificationId(bot), '123');
@@ -99,6 +99,8 @@ test('requires a per-thread Done form, real numeric ID and CSRF token', () => {
   };
   const trusted = row(['/apps/vercel'], { form });
   assert.equal(createDoneRequest(trusted, page).toString(), 'authenticity_token=secret-test-token&notification_ids%5B%5D=123');
+  const opaqueId = row(['/apps/vercel'], { form, id: 'NT_kwHO_123-abc' });
+  assert.equal(createDoneRequest(opaqueId, page).get('notification_ids[]'), 'NT_kwHO_123-abc');
   assert.equal(createDoneRequest(row(['/apps/vercel'], { form, id: 'all' }), page), null);
 });
 
@@ -110,7 +112,7 @@ test('uses native Done for muted comment authors in an organization inbox', asyn
     row(['/bob', '/apps/vercel'], { id: '127' }),
     row(['/alice'], { id: '125' }),
     row(['/kefania-pony%5Bbot%5D'], { id: '124' }),
-    row(mixed, { id: '128', more: '+1', href: linkedComment(12, 123) }),
+    row(mixed, { id: 'NT_kwHO_123-abc', more: '+1', href: linkedComment(12, 123) }),
     row(mixed, { id: '129', href: linkedComment(8, 456) }),
     row(mixed, { id: '130', href: linkedComment(7, 789) }),
     row(mixed, { id: '131', saved: true, href: linkedComment(6, 123) }),

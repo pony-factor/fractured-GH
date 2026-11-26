@@ -95,7 +95,7 @@
   function notificationId(row) {
     const id = row.getAttribute('data-notification-id')
       || row.querySelector('input[name="notification_ids[]"]')?.value;
-    return /^\d+$/.test(String(id || '')) ? String(id) : null;
+    return /^(?:\d+|NT_[A-Za-z0-9_-]+)$/.test(String(id || '')) ? String(id) : null;
   }
 
   function doneButton(row) {
