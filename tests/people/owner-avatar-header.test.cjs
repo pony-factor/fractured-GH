@@ -8,10 +8,25 @@ const source = fs.readFileSync(
   path.join(__dirname, '../../features/people/owner-avatar-header.js'), 'utf8',
 );
 
-function harness(initiallyEnabled) {
+function harness(initiallyEnabled, initialStorageError = null) {
   let setting = initiallyEnabled;
   let repositoryNwo = 'pony-factor/fractured-GH';
   let storageListener;
+  let storageError = initialStorageError;
+  let runtimeError = null;
+  let observerCallback;
+  let disconnected = false;
+  let storageReads = 0;
+  let urlReads = 0;
+  const warnings = [];
+  const runtime = {
+    id: 'fractured',
+    getURL(resource) {
+      urlReads++;
+      if (runtimeError) throw runtimeError;
+      return 'chrome-extension://fractured/' + resource;
+    },
+  };
   const frames = [];
   const styles = new Map();
   const location = { pathname: '/pony-factor/fractured-GH', origin: 'https://github.com' };
@@ -71,24 +86,45 @@ function harness(initiallyEnabled) {
     },
     querySelectorAll() { return []; },
     addEventListener(name, callback) { documentListeners.set(name, callback); },
+    removeEventListener(name) { documentListeners.delete(name); },
   };
   vm.runInNewContext(source, {
     document, HTMLAnchorElement: Anchor, HTMLImageElement: Image,
     location,
-    window: { location, addEventListener(name, callback) { windowListeners.set(name, callback); } },
+    window: {
+      location,
+      addEventListener(name, callback) { windowListeners.set(name, callback); },
+      removeEventListener(name) { windowListeners.delete(name); },
+    },
+    console: { warn(...args) { warnings.push(args); } },
     chrome: {
-      runtime: { getURL(resource) { return 'chrome-extension://fractured/' + resource; } },
+      runtime,
       storage: {
-        local: { async get() { return { ownerAvatarHeaderEnabled: setting }; } },
+        local: { async get() {
+          storageReads++;
+          if (storageError) throw storageError;
+          return { ownerAvatarHeaderEnabled: setting };
+        } },
         onChanged: { addListener(listener) { storageListener = listener; } },
       },
     },
     requestAnimationFrame(callback) { frames.push(callback); },
-    MutationObserver: class { observe() {} },
+    MutationObserver: class {
+      constructor(callback) { observerCallback = callback; }
+      observe() {}
+      disconnect() { disconnected = true; }
+    },
   });
 
   return {
-    logo, styles,
+    logo, styles, warnings,
+    invalidateRuntime() { delete runtime.id; },
+    failGetURL(error) { runtimeError = error; },
+    failStorage(error) { storageError = error; },
+    mutate() { observerCallback?.(); },
+    lifecycle() {
+      return { disconnected, listeners: documentListeners.size + windowListeners.size, storageReads, urlReads, queued: frames.length };
+    },
     navigate(pathname, eventName = 'turbo:load', nwo = null) {
       location.pathname = pathname;
       if (nwo !== null) repositoryNwo = nwo;
@@ -307,4 +343,80 @@ test('restores the original GitHub homepage logo when the preference is disabled
   assert.equal(feature.logo.children.length, 0);
   assert.equal(feature.logo.getAttribute('href'), '/');
   assert.equal(feature.logo.getAttribute('aria-label'), 'Homepage');
+});
+
+function assertRestored(feature) {
+  assert.equal(feature.logo.hasAttribute('data-fractured-owner-logo'), false);
+  assert.equal(feature.logo.hasAttribute('data-fractured-brand-logo'), false);
+  assert.equal(feature.logo.getAttribute('href'), '/');
+  assert.equal(feature.logo.getAttribute('aria-label'), 'Homepage');
+  assert.equal(feature.logo.children.length, 0);
+  assert.equal(feature.lifecycle().disconnected, true);
+  assert.equal(feature.lifecycle().listeners, 0);
+}
+
+test('restores the original header when getURL throws during navigation to notifications', async () => {
+  const feature = harness(true);
+  await feature.settle();
+  feature.failGetURL(new Error('Extension context invalidated.'));
+  feature.navigate('/notifications');
+  await feature.settle();
+  assertRestored(feature);
+  const before = feature.lifecycle();
+  feature.mutate();
+  feature.change(true);
+  await feature.settle();
+  assert.deepEqual(feature.lifecycle(), before);
+  assert.equal(feature.warnings.length, 0);
+});
+
+test('stops queued refreshes on repository pages when the runtime ID disappears', async () => {
+  const feature = harness(true);
+  await feature.settle();
+  feature.mutate();
+  feature.invalidateRuntime();
+  await feature.settle();
+  assertRestored(feature);
+  assert.equal(feature.lifecycle().queued, 0);
+  assert.equal(feature.lifecycle().urlReads, 0);
+});
+
+test('restores existing Fractured branding on invalidation', async () => {
+  const feature = harness(true);
+  feature.navigate('/notifications');
+  await feature.settle();
+  assert.equal(feature.logo.hasAttribute('data-fractured-brand-logo'), true);
+  feature.invalidateRuntime();
+  feature.mutate();
+  await feature.settle();
+  assertRestored(feature);
+});
+
+test('handles invalidated storage reads at startup and after settings changes', async () => {
+  const error = new Error('Extension context invalidated.');
+  const startup = harness(true, error);
+  await startup.settle();
+  assertRestored(startup);
+  assert.equal(startup.warnings.length, 0);
+
+  const running = harness(true);
+  await running.settle();
+  running.failStorage(error);
+  running.change(false);
+  await running.settle();
+  assertRestored(running);
+  assert.equal(running.warnings.length, 0);
+});
+
+test('does not suppress unrelated storage failures or permanently disable the feature', async () => {
+  const error = new Error('Storage unavailable');
+  const feature = harness(true, error);
+  await feature.settle();
+  assert.equal(feature.warnings.length, 1);
+  assert.equal(feature.warnings[0][1], error);
+  assert.equal(feature.lifecycle().disconnected, false);
+  feature.failStorage(null);
+  feature.change(true);
+  await feature.settle();
+  assert.equal(feature.logo.getAttribute('href'), '/pony-factor');
 });

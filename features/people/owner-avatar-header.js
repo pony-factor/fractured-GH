@@ -16,6 +16,7 @@
   let refreshQueued = false;
   let failedAvatarOwner = '';
   let failedBrandLogo = false;
+  let stopped = false;
 
   function normalizeText(value) {
     return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -218,6 +219,33 @@
     currentOwner = '';
   }
 
+  function isContextInvalidated(error) {
+    return /extension context invalidated/i.test(String(error?.message || error));
+  }
+
+  function stopInvalidatedContext() {
+    if (stopped) return;
+    stopped = true;
+    enabled = false;
+    observer?.disconnect();
+    observer = null;
+    document.removeEventListener('turbo:load', queueRefresh);
+    document.removeEventListener('pjax:end', queueRefresh);
+    window.removeEventListener('popstate', queueRefresh);
+    reset();
+  }
+
+  function hasActiveContext() {
+    if (stopped) return false;
+    try {
+      if (typeof chrome !== 'undefined' && chrome.runtime?.id) return true;
+    } catch (error) {
+      if (!isContextInvalidated(error)) throw error;
+    }
+    stopInvalidatedContext();
+    return false;
+  }
+
   function installOwnerAvatar(header, owner) {
     const logo = findGitHubLogo(header);
     if (!(logo instanceof HTMLAnchorElement)) return;
@@ -256,6 +284,16 @@
   }
 
   function installFracturedLogo(header) {
+    // A reload can invalidate the runtime between the refresh check and getURL.
+    let imageUrl;
+    try {
+      imageUrl = chrome.runtime.getURL('icons/fractured.png');
+    } catch (error) {
+      if (!isContextInvalidated(error)) throw error;
+      stopInvalidatedContext();
+      return;
+    }
+
     const logo = findGitHubLogo(header);
     if (!(logo instanceof HTMLAnchorElement)) return;
 
@@ -288,7 +326,6 @@
       logo.append(avatar);
     }
 
-    const imageUrl = chrome.runtime.getURL('icons/fractured.png');
     if (avatar.src !== imageUrl) avatar.src = imageUrl;
     avatar.onerror = () => {
       if (!avatar.isConnected) return;
@@ -350,6 +387,7 @@
 
   function refresh() {
     refreshQueued = false;
+    if (!hasActiveContext()) return;
 
     if (!enabled) {
       if (currentOwner || document.querySelector(`[${LOGO_ATTRIBUTE}], [${BRAND_ATTRIBUTE}]`)) reset();
@@ -390,15 +428,24 @@
   }
 
   function queueRefresh() {
-    if (refreshQueued) return;
+    if (stopped || refreshQueued) return;
     refreshQueued = true;
     requestAnimationFrame(refresh);
   }
 
   async function loadSettings() {
-    const settings = await chrome.storage.local.get({
-      [ENABLED_KEY]: true,
-    });
+    if (!hasActiveContext()) return;
+    let settings;
+    try {
+      settings = await chrome.storage.local.get({
+        [ENABLED_KEY]: true,
+      });
+    } catch (error) {
+      if (isContextInvalidated(error)) stopInvalidatedContext();
+      else console.warn('Fractured owner avatar settings could not be loaded:', error);
+      return;
+    }
+    if (!hasActiveContext()) return;
 
     const nextEnabled = Boolean(settings[ENABLED_KEY]);
     if (enabled === nextEnabled) {
@@ -411,16 +458,24 @@
     else reset();
   }
 
-  chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName !== 'local' || !(ENABLED_KEY in changes)) return;
-    void loadSettings();
-  });
+  if (!hasActiveContext()) return;
+  try {
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (stopped || areaName !== 'local' || !(ENABLED_KEY in changes)) return;
+      void loadSettings();
+    });
+  } catch (error) {
+    if (!isContextInvalidated(error)) throw error;
+    stopInvalidatedContext();
+    return;
+  }
 
   document.addEventListener('turbo:load', queueRefresh);
   document.addEventListener('pjax:end', queueRefresh);
   window.addEventListener('popstate', queueRefresh);
 
   function observeDocument() {
+    if (!hasActiveContext()) return;
     if (!document.documentElement) {
       window.setTimeout(observeDocument, 50);
       return;
