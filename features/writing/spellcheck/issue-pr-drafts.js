@@ -268,10 +268,16 @@
     return title && body ? { title, body } : null;
   }
 
+  function isCommentPage() {
+    if (/^\/[^/]+\/[^/]+\/(?:issues|pull)\/\d+(?:\/|$)/.test(location.pathname)) return true;
+    if (!/^\/(?:users|orgs)\/[^/]+\/projects\/\d+(?:\/views\/\d+)?\/?$/.test(location.pathname)) return false;
+
+    const params = new URLSearchParams(location.search);
+    return params.get('pane') === 'issue' && /^[^|]+\|[^|]+\|\d+$/.test(params.get('issue') || '');
+  }
+
   function commentFields(scope, control) {
-    // Comment composers have a body but no title on both issue and PR pages.
-    if (!/^\/[^/]+\/[^/]+\/(?:issues|pull)\/\d+(?:\/|$)/.test(location.pathname)
-      || !/\b(comment|reply|review)\b/i.test(controlText(control))) return null;
+    if (!isCommentPage() || !/\b(comment|reply|review)\b/i.test(controlText(control))) return null;
 
     let body = pickField(scope, COMMENT_SELECTORS);
     if (!body) {
