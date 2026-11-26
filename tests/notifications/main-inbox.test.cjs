@@ -5,17 +5,22 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const script = fs.readFileSync(path.join(__dirname, '../../features/notifications/main-inbox.js'), 'utf8');
-const { normalizeOrganizations, isMainInbox, ownerFromHref, notificationOwner, hasVisibleUnread } = require('../../features/notifications/main-inbox.js');
+const { normalizeOrganizations, isMainInbox, ownerFromHref, notificationOwner, hasVisibleUnread, nextInboxPage } = require('../../features/notifications/main-inbox.js');
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
 function row(links, repositoryText = null) {
   const attributes = new Map();
   return {
     attributes,
+    isConnected: true,
     querySelector() { return repositoryText === null ? null : { textContent: repositoryText }; },
     querySelectorAll() { return links.map((href) => ({ getAttribute: () => href })); },
     setAttribute: (key, value) => attributes.set(key, value),
     removeAttribute: (key) => attributes.delete(key),
+    replaceWith(placeholder) {
+      this.isConnected = false;
+      placeholder.isConnected = true;
+    },
   };
 }
 
@@ -26,6 +31,7 @@ function inbox(query = '') {
 test('extracts the repository owner without confusing notification or external links', () => {
   assert.equal(ownerFromHref('/Acme/widget/pull/12'), 'acme');
   assert.equal(ownerFromHref('https://github.com/Other/repo/issues/2'), 'other');
+  assert.equal(ownerFromHref('/orgs/Acme/discussions/17'), 'acme');
   assert.equal(ownerFromHref('/notifications/123'), null);
   assert.equal(ownerFromHref('/settings/profile'), null);
   assert.equal(ownerFromHref('https://example.com/Acme/repo'), null);
@@ -72,11 +78,17 @@ async function featureHarness({ referencedLabel = false } = {}) {
       toggleAttribute: (name, present) => present ? rootAttributes.add(name) : rootAttributes.delete(name),
     },
     querySelector: () => button,
-    querySelectorAll: () => rows,
+    querySelectorAll: () => rows.filter((row) => row.isConnected),
     getElementById: (id) => id === 'inbox-label'
       ? { childNodes: [labelNode, shortcutNode] }
       : styles.find((s) => s.id === id),
     createElement: () => ({}),
+    createComment: () => ({
+      replaceWith(row) {
+        this.isConnected = false;
+        row.isConnected = true;
+      },
+    }),
     addEventListener: (event, callback) => { handlers[event] = callback; },
   };
   const window = {
@@ -124,29 +136,28 @@ async function featureHarness({ referencedLabel = false } = {}) {
 
 test('toggle filters configured owners, restores them, and honors navigation and dynamic rows', async () => {
   const feature = await featureHarness();
-  const hidden = 'data-fractured-main-inbox-hidden';
-  assert.equal(feature.rows.every((r) => !r.attributes.has(hidden)), true);
+  assert.equal(feature.rows.every((row) => row.isConnected), true);
 
   await feature.changeSettings({ excludeOrganizationNotificationsFromMainInbox: true });
-  assert.deepEqual(feature.rows.map((r) => r.attributes.has(hidden)), [true, false, true]);
+  assert.deepEqual(feature.rows.map((row) => row.isConnected), [false, true, false]);
   assert.equal(feature.styles.length, 1);
 
   feature.location.search = '?query=org%3AAcme';
   feature.handlers['turbo:load']();
   feature.refresh();
-  assert.equal(feature.rows.every((r) => !r.attributes.has(hidden)), true);
+  assert.equal(feature.rows.every((row) => row.isConnected), true);
 
   feature.location.search = '?query=is%3Aunread';
   feature.mutation();
   feature.refresh();
-  assert.deepEqual(feature.rows.map((r) => r.attributes.has(hidden)), [true, false, true]);
+  assert.deepEqual(feature.rows.map((row) => row.isConnected), [false, true, false]);
 
   await feature.changeSettings({ notificationOrganizations: ['Other'] });
-  assert.deepEqual(feature.rows.map((r) => r.attributes.has(hidden)), [false, true, false]);
+  assert.deepEqual(feature.rows.map((row) => row.isConnected), [true, false, true]);
   await feature.changeSettings({ excludeOrganizationNotificationsFromMainInbox: false });
-  assert.equal(feature.rows.every((r) => !r.attributes.has(hidden)), true);
+  assert.equal(feature.rows.every((row) => row.isConnected), true);
   await feature.changeSettings({ excludeOrganizationNotificationsFromMainInbox: true, organizationNotificationInboxesEnabled: false });
-  assert.equal(feature.rows.every((r) => !r.attributes.has(hidden)), true);
+  assert.equal(feature.rows.every((row) => row.isConnected), true);
 });
 
 test('suppresses the native dot and unread label only when all unread items belong to excluded owners', async () => {
@@ -198,4 +209,18 @@ test('checks later unread pages before hiding the main Inbox dot', async () => {
   });
   assert.equal(result, true);
   assert.deepEqual(requested, [null, 'second']);
+});
+
+test('continues with GitHub’s cursor and filter for All, Read and Unread', () => {
+  const withNext = (href) => ({ querySelector: () => href && { getAttribute: () => href } });
+  for (const query of ['', 'is:read', 'is:unread']) {
+    const current = new URL('https://github.com/notifications');
+    if (query) current.searchParams.set('query', query);
+    const href = `/notifications?after=cursor&query=${encodeURIComponent(query)}&sort=oldest`;
+    assert.equal(nextInboxPage(withNext(href), current).href, `https://github.com${href}`);
+    assert.equal(nextInboxPage(withNext(null), current), null);
+  }
+  const current = new URL('https://github.com/notifications?query=is%3Aunread');
+  assert.throws(() => nextInboxPage(withNext('/notifications?after=cursor&query=is%3Aread'), current), /Unexpected inbox pagination/);
+  assert.throws(() => nextInboxPage(withNext('https://example.com/notifications?after=cursor&query=is%3Aunread'), current), /Unexpected inbox pagination/);
 });

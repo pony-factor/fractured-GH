@@ -1,12 +1,17 @@
 (() => {
   'use strict';
 
-  const HIDDEN_ATTRIBUTE = 'data-fractured-main-inbox-hidden';
+  const FILTERED_ATTRIBUTE = 'data-fractured-main-inbox-filtered';
   const NO_UNREAD_ATTRIBUTE = 'data-fractured-main-inbox-no-unread';
+  const NATIVE_PAGINATION_ATTRIBUTE = 'data-fractured-main-inbox-native-pagination';
   const STYLE_ID = 'fractured-main-inbox-style';
   const ROW_SELECTOR = '.notifications-list-item, li[data-notification-id], [data-testid="notification-row"], [data-testid="notification-list-item"]';
   const REPOSITORY_SELECTOR = '.notifications-list-item-repository, .notification-list-item-repository, [data-testid="notification-repository"]';
   const NEXT_PAGE_SELECTOR = 'a[rel="next"], .pagination a[href*="after="], a[aria-label="Next"][href*="after="]';
+  const GROUP_SELECTOR = '.js-notifications-list';
+  const GROUP_ROW_SELECTOR = `${GROUP_SELECTOR} :is(${ROW_SELECTOR})`;
+  const PAGINATOR_SELECTOR = '.js-notifications-list-paginator-buttons';
+  const COUNTS_SELECTOR = '.js-notifications-list-paginator-counts';
   const INBOX_BUTTON_SELECTOR = '#AppHeader-notifications-button, :is(.AppHeader, .GlobalNav, header[role="banner"], header[aria-label="Global navigation menu"]) a:has(svg.octicon-inbox)';
   const REFRESH_INTERVAL_MS = 60_000;
   const REQUEST_TIMEOUT_MS = 15_000;
@@ -35,6 +40,9 @@
     try { url = new URL(href, 'https://github.com'); } catch { return null; }
     if (url.hostname !== 'github.com') return null;
     const segments = url.pathname.split('/').filter(Boolean);
+    if (segments[0] === 'orgs' && segments[2] === 'discussions' && segments[3]) {
+      return segments[1].toLowerCase();
+    }
     if (segments.length < 2 || RESERVED_OWNERS.has(segments[0].toLowerCase())) return null;
     return segments[0].toLowerCase();
   }
@@ -51,38 +59,50 @@
     return null;
   }
 
+  async function fetchInboxPage(page, { fetchPage, parsePage, signal }) {
+    const response = await fetchPage(page, {
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: { Accept: 'text/html', 'X-Requested-With': 'XMLHttpRequest' },
+      signal,
+    });
+    const responseUrl = response.url && new URL(response.url);
+    if (!response.ok || (responseUrl && (responseUrl.origin !== page.origin || responseUrl.pathname !== '/notifications'))) {
+      throw new Error('Could not load the inbox page');
+    }
+    return parsePage(await response.text());
+  }
+
+  function nextInboxPage(inbox, current) {
+    const href = inbox.querySelector(NEXT_PAGE_SELECTOR)?.getAttribute('href');
+    if (!href) return null;
+    const next = new URL(href, current);
+    const query = (url) => (url.searchParams.get('query') ?? '').trim().toLowerCase();
+    if (next.origin !== current.origin || next.pathname !== '/notifications'
+      || query(next) !== query(current) || !next.searchParams.has('after')) {
+      throw new Error('Unexpected inbox pagination');
+    }
+    return next;
+  }
+
   async function hasVisibleUnread(organizations, { origin, fetchPage, parsePage, signal }) {
     let page = new URL('/notifications?query=is%3Aunread', origin);
     const visited = new Set();
     while (page && !visited.has(page.href)) {
       visited.add(page.href);
-      const response = await fetchPage(page, {
-        credentials: 'same-origin',
-        cache: 'no-store',
-        headers: { Accept: 'text/html', 'X-Requested-With': 'XMLHttpRequest' },
-        signal,
-      });
-      if (!response.ok || (response.url && new URL(response.url).pathname !== '/notifications')) {
-        throw new Error('Could not load the unread inbox');
-      }
-      const inbox = parsePage(await response.text());
+      const inbox = await fetchInboxPage(page, { fetchPage, parsePage, signal });
       if ([...inbox.querySelectorAll(ROW_SELECTOR)].some((row) => !organizations.has(notificationOwner(row)))) {
         return true;
       }
 
-      const nextLink = inbox.querySelector(NEXT_PAGE_SELECTOR)?.getAttribute('href');
-      if (!nextLink) return false;
-      page = new URL(nextLink, page);
-      if (page.origin !== origin || page.pathname !== '/notifications'
-        || page.searchParams.get('query') !== 'is:unread' || !page.searchParams.has('after')) {
-        throw new Error('Unexpected unread inbox pagination');
-      }
+      page = nextInboxPage(inbox, page);
+      if (!page) return false;
     }
     throw new Error('Unread inbox pagination repeated');
   }
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { normalizeOrganizations, isMainInbox, ownerFromHref, notificationOwner, hasVisibleUnread };
+    module.exports = { normalizeOrganizations, isMainInbox, ownerFromHref, notificationOwner, hasVisibleUnread, nextInboxPage };
     return;
   }
 
@@ -94,6 +114,8 @@
   let unreadRequest = null;
   let lastUnreadCheck = -Infinity;
   let relabeled = null;
+  let pagination = null;
+  const excludedRows = new Map();
 
   function filteringEnabled() {
     return enabled && exclude && organizations.size > 0;
@@ -104,7 +126,8 @@
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
-      [${HIDDEN_ATTRIBUTE}] { display: none !important; }
+      html[${FILTERED_ATTRIBUTE}] ${GROUP_SELECTOR}:not(:has(:is(${ROW_SELECTOR}))) { display: none !important; }
+      [${NATIVE_PAGINATION_ATTRIBUTE}] { display: none !important; }
       html[${NO_UNREAD_ATTRIBUTE}] :is(${INBOX_BUTTON_SELECTOR})[class*="notificationIndicator"]::before {
         content: none !important;
       }
@@ -113,6 +136,133 @@
       }
     `;
     document.documentElement.append(style);
+  }
+
+  function stopPagination() {
+    if (!pagination) return;
+    pagination.request?.abort();
+    for (const group of pagination.addedGroups) group.remove();
+    pagination.nativeNext.removeAttribute(NATIVE_PAGINATION_ATTRIBUTE);
+    pagination.nativeCounts?.removeAttribute(NATIVE_PAGINATION_ATTRIBUTE);
+    pagination.more.remove();
+    pagination.status.remove();
+    pagination = null;
+  }
+
+  function appendInboxGroups(page, state) {
+    let added = 0;
+    const knownIds = new Set(
+      [...state.container.querySelectorAll(ROW_SELECTOR)].map((row) => row.getAttribute('data-notification-id')).filter(Boolean),
+    );
+    const groups = [];
+    for (const group of page.querySelectorAll(GROUP_SELECTOR)) {
+      for (const row of group.querySelectorAll(ROW_SELECTOR)) {
+        const id = row.getAttribute('data-notification-id');
+        if (organizations.has(notificationOwner(row)) || (id && knownIds.has(id))) {
+          row.remove();
+        } else {
+          if (id) knownIds.add(id);
+          added++;
+        }
+      }
+      if (group.querySelector(ROW_SELECTOR)) groups.push(document.importNode(group, true));
+    }
+    const lastGroup = state.addedGroups.at(-1) ?? state.lastNativeGroup;
+    lastGroup.after(...groups);
+    state.addedGroups.push(...groups);
+    return added;
+  }
+
+  async function loadInboxRows(state, needed) {
+    if (state.request || !state.next) return;
+    const request = new AbortController();
+    state.request = request;
+    state.more.disabled = true;
+    state.more.textContent = 'Loading…';
+    const timeout = window.setTimeout(() => request.abort(), REQUEST_TIMEOUT_MS);
+    let failed = false;
+    try {
+      let added = 0;
+      while (state.next && added < needed) {
+        const pageUrl = state.next;
+        if (state.visited.has(pageUrl.href)) throw new Error('Inbox pagination repeated');
+        const page = await fetchInboxPage(pageUrl, {
+          fetchPage: (url, options) => window.fetch(url, options),
+          parsePage: (markup) => new DOMParser().parseFromString(markup, 'text/html'),
+          signal: request.signal,
+        });
+        if (pagination !== state || !state.lastNativeGroup.isConnected || state.url !== window.location.href) return;
+        const next = nextInboxPage(page, pageUrl);
+        if (page.querySelector(ROW_SELECTOR) && !page.querySelector(GROUP_SELECTOR)) {
+          throw new Error('Unexpected inbox list markup');
+        }
+        added += appendInboxGroups(page, state);
+        state.visited.add(pageUrl.href);
+        state.next = next;
+      }
+    } catch {
+      failed = true;
+    } finally {
+      window.clearTimeout(timeout);
+      if (pagination === state) {
+        state.request = null;
+        state.more.disabled = false;
+        state.more.hidden = !state.next;
+        state.more.textContent = failed ? 'Retry loading notifications' : 'Load more notifications';
+        updatePaginationCount(state);
+      }
+    }
+  }
+
+  function updatePaginationCount(state) {
+    const count = state.container.querySelectorAll(GROUP_ROW_SELECTOR).length;
+    const label = count === 0 && !state.next ? 'No notifications match' : `${count} shown`;
+    if (state.status.textContent !== label) state.status.textContent = label;
+  }
+
+  function updatePagination(shouldExclude) {
+    const url = window.location.href;
+    if (pagination && (!shouldExclude || pagination.url !== url
+      || !pagination.nativeNext.isConnected || !pagination.lastNativeGroup.isConnected)) stopPagination();
+    if (!shouldExclude || !url) return;
+    if (pagination) {
+      updatePaginationCount(pagination);
+      return;
+    }
+
+    const pager = document.querySelector(PAGINATOR_SELECTOR);
+    const nativeNext = pager?.querySelector('a[aria-label="Next"], button[aria-label="Next"]');
+    const groups = [...document.querySelectorAll(GROUP_SELECTOR)];
+    const lastNativeGroup = groups.at(-1);
+    if (!nativeNext || !lastNativeGroup?.parentElement?.contains(pager)) return;
+
+    let next;
+    try { next = nextInboxPage(pager, new URL(url)); } catch { return; }
+    const container = lastNativeGroup.parentElement;
+    const rows = groups.flatMap((group) => [...group.querySelectorAll(ROW_SELECTOR)]);
+    const hiddenCount = [...excludedRows.values()].filter((placeholder) => container.contains(placeholder)).length;
+    const pageSize = rows.length + hiddenCount;
+    if (!pageSize) return;
+    const nativeCounts = pager.parentElement.querySelector(COUNTS_SELECTOR);
+    const status = document.createElement('span');
+    status.className = 'mr-2 color-fg-muted';
+    status.setAttribute('role', 'status');
+    const more = document.createElement('button');
+    more.type = 'button';
+    more.className = 'btn BtnGroup-item';
+    more.textContent = 'Load more notifications';
+    more.hidden = !next;
+    nativeNext.setAttribute(NATIVE_PAGINATION_ATTRIBUTE, '');
+    nativeCounts?.setAttribute(NATIVE_PAGINATION_ATTRIBUTE, '');
+    pager.before(status);
+    pager.append(more);
+
+    const state = { url, container, nativeNext, nativeCounts, lastNativeGroup, next, status, more,
+      addedGroups: [], visited: new Set([url]), request: null };
+    pagination = state;
+    more.addEventListener('click', () => void loadInboxRows(state, pageSize));
+    updatePaginationCount(state);
+    if (hiddenCount && next) void loadInboxRows(state, hiddenCount);
   }
 
   function updateUnreadIndicator() {
@@ -174,11 +324,23 @@
     const shouldExclude = filteringEnabled() && isMainInbox(window.location);
     if (filteringEnabled()) ensureStyle();
     updateUnreadIndicator();
-    for (const row of document.querySelectorAll(ROW_SELECTOR)) {
-      const shouldHide = shouldExclude && organizations.has(notificationOwner(row));
-      if (shouldHide) row.setAttribute(HIDDEN_ATTRIBUTE, '');
-      else row.removeAttribute(HIDDEN_ATTRIBUTE);
+    document.documentElement?.toggleAttribute(FILTERED_ATTRIBUTE, shouldExclude);
+    for (const [row, placeholder] of excludedRows) {
+      if (!placeholder.isConnected) {
+        excludedRows.delete(row);
+      } else if (!shouldExclude || !organizations.has(notificationOwner(row))) {
+        placeholder.replaceWith(row);
+        excludedRows.delete(row);
+      }
     }
+    // GitHub's bulk selection includes CSS-hidden rows, so keep excluded rows off the live list.
+    for (const row of document.querySelectorAll(ROW_SELECTOR)) {
+      if (!shouldExclude || !organizations.has(notificationOwner(row))) continue;
+      const placeholder = document.createComment('Excluded organization notification');
+      row.replaceWith(placeholder);
+      excludedRows.set(row, placeholder);
+    }
+    updatePagination(shouldExclude);
   }
 
   function scheduleRefresh() {
@@ -192,6 +354,7 @@
       excludeOrganizationNotificationsFromMainInbox: false,
       notificationOrganizations: [],
     });
+    stopPagination();
     enabled = Boolean(settings.organizationNotificationInboxesEnabled);
     exclude = Boolean(settings.excludeOrganizationNotificationsFromMainInbox);
     organizations = normalizeOrganizations(settings.notificationOrganizations);
