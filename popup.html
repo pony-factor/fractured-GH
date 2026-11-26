@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fractured GitHub</title>
+    <link rel="stylesheet" href="options.css" />
+    <link rel="stylesheet" href="popup.css" />
+    <script src="popup.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <header class="popup-header">
+        <img src="icons/fractured-48.png" width="32" height="32" alt="" />
+        <h1>Fractured GitHub</h1>
+      </header>
+      <label class="preference">
+        <input id="show-inboxes" type="checkbox" aria-labelledby="inbox-label" aria-describedby="inbox-description" disabled />
+        <span>
+          <strong id="inbox-label">Show inboxes</strong>
+          <small id="inbox-description">Show your personal and organization inbox buttons for 8 hours.</small>
+        </span>
+      </label>
+      <p id="popup-status" role="status" hidden></p>
+      <button type="button" id="open-full-settings" class="secondary">Full settings</button>
+    </main>
+  </body>
+</html>

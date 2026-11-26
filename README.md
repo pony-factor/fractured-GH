@@ -4,7 +4,7 @@ Fractured GitHub is a browser extension that customizes GitHub's interface, noti
 
 ## Development
 
-The extension uses Manifest V3. Load this repository as an unpacked extension in a Chromium-based browser, then open **Fractured GitHub** from the extensions menu to manage settings.
+The extension uses Manifest V3. Load this repository as an unpacked extension in a Chromium-based browser, then open **Fractured GitHub** from the extensions menu. Inbox buttons start hidden. Turn on **Show inboxes** to make them visible for eight hours, or choose **Full settings** to manage other preferences.
 
 Run the automated tests from the repository root with `node --test`. Content scripts are organized by feature under `features/`, with corresponding tests under `tests/`.
 

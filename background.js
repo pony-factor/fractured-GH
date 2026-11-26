@@ -107,10 +107,6 @@ chrome.runtime.onStartup.addListener(() => {
   void applyActionIcon();
 });
 
-chrome.action.onClicked.addListener(() => {
-  void chrome.runtime.openOptionsPage();
-});
-
 function normalizeChatgptProjectUrl(value) {
   if (typeof value !== 'string' || !value.trim()) return null;
   try {

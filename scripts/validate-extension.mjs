@@ -23,6 +23,7 @@ assert.equal(typeof manifest.name, "string");
 assert.match(manifest.version, /^\d+\.\d+\.\d+$/);
 requireFile(manifest.background?.service_worker, "background.service_worker");
 requireFile(manifest.options_page, "options_page");
+requireFile(manifest.action?.default_popup, "action.default_popup");
 
 for (const [size, icon] of Object.entries(manifest.icons || {})) {
   requireFile(icon, `icons.${size}`);
@@ -46,10 +47,12 @@ for (const [index, entry] of (manifest.web_accessible_resources || []).entries()
   }
 }
 
-const html = readFileSync(resolve(root, manifest.options_page), "utf8");
-for (const match of html.matchAll(/<(?:script|link)\b[^>]*\b(?:src|href)="([^"]+)"/g)) {
-  if (!/^(?:https?:|data:|#)/i.test(match[1])) {
-    requireFile(match[1], "options_page asset");
+for (const page of [manifest.options_page, manifest.action.default_popup]) {
+  const html = readFileSync(resolve(root, page), "utf8");
+  for (const match of html.matchAll(/<(?:script|link|img)\b[^>]*\b(?:src|href)="([^"]+)"/g)) {
+    if (!/^(?:https?:|data:|#)/i.test(match[1])) {
+      requireFile(match[1], `${page} asset`);
+    }
   }
 }
 console.log(`Validated Manifest V3 and ${checked.size} referenced extension assets.`);
