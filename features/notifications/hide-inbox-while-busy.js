@@ -1,16 +1,19 @@
 (async () => {
   'use strict';
 
-  const { hideInboxWhileBusy = true } = await chrome.storage.local.get({
+  const { hideInboxWhileBusy, inboxesPaused } = await chrome.storage.local.get({
     hideInboxWhileBusy: true,
+    inboxesPaused: false,
   });
-  if (!hideInboxWhileBusy) return;
 
   const STYLE_ID = 'fractured-github-hide-inbox-style';
   const BUSY_ATTR = 'data-fractured-github-busy';
+  const PAUSED_ATTR = 'data-fractured-github-inboxes-paused';
+  const HIDDEN_ROOT = `html:is([${BUSY_ATTR}="true"], [${PAUSED_ATTR}])`;
   const BUSY_CACHE_KEY = 'fractured-github-busy';
   const LEGACY_BUSY_CACHE_KEY = 'github-viewer-busy';
   let currentBusy = null;
+  let manuallyPaused = inboxesPaused === true;
   const CHECK_INTERVAL_MS = 60_000;
   const MAX_RETRY_MS = 5 * CHECK_INTERVAL_MS;
   const REQUEST_TIMEOUT_MS = 15_000;
@@ -24,22 +27,22 @@
     'input.js-user-status-limited-availability-checkbox',
   ].join(',');
   const CSS = `
-    html[${BUSY_ATTR}="true"] [data-fractured-github-organization-notification],
-    html[${BUSY_ATTR}="true"] #AppHeader-notifications-button,
-    html[${BUSY_ATTR}="true"] .AppHeader a[href="/notifications"],
-    html[${BUSY_ATTR}="true"] .AppHeader a[href^="/notifications?"],
-    html[${BUSY_ATTR}="true"] .GlobalNav a[href="/notifications"],
-    html[${BUSY_ATTR}="true"] .GlobalNav a[href^="/notifications?"],
-    html[${BUSY_ATTR}="true"] .AppHeader a[aria-label*="notification" i],
-    html[${BUSY_ATTR}="true"] .AppHeader button[aria-label*="notification" i],
-    html[${BUSY_ATTR}="true"] header[role="banner"] a[href="/notifications"],
-    html[${BUSY_ATTR}="true"] header[role="banner"] a[href^="/notifications?"],
-    html[${BUSY_ATTR}="true"] header[role="banner"] a[aria-label*="notification" i],
-    html[${BUSY_ATTR}="true"] header[role="banner"] button[aria-label*="notification" i],
-    html[${BUSY_ATTR}="true"] header[role="banner"] a:has(.octicon-inbox),
-    html[${BUSY_ATTR}="true"] header[role="banner"] button:has(.octicon-inbox),
-    html[${BUSY_ATTR}="true"] header[role="banner"] a:has(.octicon-bell),
-    html[${BUSY_ATTR}="true"] header[role="banner"] button:has(.octicon-bell) {
+    ${HIDDEN_ROOT} [data-fractured-github-organization-notification],
+    ${HIDDEN_ROOT} #AppHeader-notifications-button,
+    ${HIDDEN_ROOT} .AppHeader a[href="/notifications"],
+    ${HIDDEN_ROOT} .AppHeader a[href^="/notifications?"],
+    ${HIDDEN_ROOT} .GlobalNav a[href="/notifications"],
+    ${HIDDEN_ROOT} .GlobalNav a[href^="/notifications?"],
+    ${HIDDEN_ROOT} .AppHeader a[aria-label*="notification" i],
+    ${HIDDEN_ROOT} .AppHeader button[aria-label*="notification" i],
+    ${HIDDEN_ROOT} header[role="banner"] a[href="/notifications"],
+    ${HIDDEN_ROOT} header[role="banner"] a[href^="/notifications?"],
+    ${HIDDEN_ROOT} header[role="banner"] a[aria-label*="notification" i],
+    ${HIDDEN_ROOT} header[role="banner"] button[aria-label*="notification" i],
+    ${HIDDEN_ROOT} header[role="banner"] a:has(.octicon-inbox),
+    ${HIDDEN_ROOT} header[role="banner"] button:has(.octicon-inbox),
+    ${HIDDEN_ROOT} header[role="banner"] a:has(.octicon-bell),
+    ${HIDDEN_ROOT} header[role="banner"] button:has(.octicon-bell) {
       display: none !important;
     }
   `;
@@ -69,6 +72,11 @@
     }
   }
 
+  function applyVisibility() {
+    document.documentElement?.toggleAttribute(PAUSED_ATTR, manuallyPaused);
+    if (currentBusy !== null) setBusy(currentBusy);
+  }
+
   function readCachedBusyStatus() {
     try {
       const value = window.localStorage.getItem(BUSY_CACHE_KEY)
@@ -94,26 +102,6 @@
     currentBusy = isBusy;
     cacheBusyStatus(isBusy);
     setBusy(isBusy);
-  }
-
-  function restoreCachedBusyStatus() {
-    const cachedBusy = readCachedBusyStatus();
-    if (cachedBusy === null) return;
-    currentBusy = cachedBusy;
-    cacheBusyStatus(cachedBusy);
-
-    if (document.documentElement) {
-      setBusy(cachedBusy);
-      return;
-    }
-
-    const observer = new MutationObserver(() => {
-      if (!document.documentElement) return;
-      observer.disconnect();
-      setBusy(cachedBusy);
-    });
-
-    observer.observe(document, { childList: true });
   }
 
   function parseBusyStatus(statusDocument) {
@@ -190,6 +178,33 @@
     window.setTimeout(() => void checkBusyStatus(), 1_500);
   }
 
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== 'local' || !changes.inboxesPaused) return;
+    manuallyPaused = changes.inboxesPaused.newValue === true;
+    applyVisibility();
+  });
+
+  if (hideInboxWhileBusy) {
+    currentBusy = readCachedBusyStatus();
+    if (currentBusy !== null) cacheBusyStatus(currentBusy);
+  }
+
+  // GitHub can reset root attributes or replace the head during navigation.
+  const presentationObserver = new MutationObserver(() => {
+    installStyle();
+    applyVisibility();
+  });
+  presentationObserver.observe(document, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: [BUSY_ATTR, PAUSED_ATTR],
+  });
+  installStyle();
+  applyVisibility();
+
+  if (!hideInboxWhileBusy) return;
+
   document.addEventListener('submit', (event) => {
     const form = event.target;
     if (form instanceof HTMLFormElement && form.matches('.js-user-status-form')) {
@@ -207,22 +222,6 @@
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) void checkBusyStatus();
   });
-
-  restoreCachedBusyStatus();
-
-  // GitHub can reset root attributes or replace the head during navigation.
-  // Keep the last known status applied without another network round trip.
-  const presentationObserver = new MutationObserver(() => {
-    installStyle();
-    if (currentBusy !== null) setBusy(currentBusy);
-  });
-  presentationObserver.observe(document, {
-    childList: true,
-    subtree: true,
-    attributes: true,
-    attributeFilter: [BUSY_ATTR],
-  });
-  installStyle();
 
   void checkBusyStatus();
   window.setInterval(checkBusyStatus, CHECK_INTERVAL_MS);

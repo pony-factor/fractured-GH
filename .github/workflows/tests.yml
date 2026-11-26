@@ -75,7 +75,7 @@ jobs:
         run: |
           zip -q -r "$RUNNER_TEMP/fractured-github.zip" \
             manifest.json background.js options.html options.js options-page.js \
-            options.css features fonts icons
+            options.css popup.html popup.js popup.css features fonts icons
           unzip -t "$RUNNER_TEMP/fractured-github.zip"
       - uses: actions/upload-artifact@v4
         with:

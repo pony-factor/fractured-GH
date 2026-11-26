@@ -24,6 +24,7 @@ async function startFeature(fetch) {
       getAttribute: (key) => attributes.get(key),
       setAttribute: (key, value) => attributes.set(key, value),
       removeAttribute: (key) => attributes.delete(key),
+      toggleAttribute: (key, present) => present ? attributes.set(key, '') : attributes.delete(key),
       append() {},
     },
     getElementById: () => true,
@@ -42,7 +43,10 @@ async function startFeature(fetch) {
     setInterval: (callback) => { poll = callback; },
   };
   vm.runInNewContext(source, {
-    chrome: { storage: { local: { get: async () => ({ hideInboxWhileBusy: true }) } } },
+    chrome: { storage: {
+      local: { get: async (defaults) => defaults },
+      onChanged: { addListener() {} },
+    } },
     window, document, navigator, URL, AbortController,
     Date: { now: () => now },
     console: { warn: (...args) => warnings.push(args) },
