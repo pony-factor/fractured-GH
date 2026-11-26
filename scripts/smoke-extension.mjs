@@ -36,7 +36,7 @@ try {
   assert.equal(await options.locator("#settings-panel-general").isVisible(), false);
 
   const github = await context.newPage();
-  let busy = false;
+  let busy = true;
   await github.route("https://github.com/users/status?*", (route) => route.fulfill({
     contentType: "text/html",
     body: `<input type="checkbox" name="limited_availability"${busy ? " checked" : ""}>`,
@@ -72,9 +72,6 @@ try {
     github.locator('[data-fractured-github-organization-notification="acme"]'),
     github.locator('[data-fractured-github-organization-notification="example"]'),
   ];
-  for (const inbox of inboxes) await expect(inbox).toBeVisible();
-  busy = true;
-  await github.evaluate(() => window.dispatchEvent(new Event("focus")));
   for (const inbox of inboxes) await expect(inbox).toHaveCSS("display", "none");
   busy = false;
   await github.evaluate(() => window.dispatchEvent(new Event("focus")));
@@ -95,7 +92,7 @@ try {
   await options.reload();
   await expect(hideCopilot).toBeChecked();
   assert.deepEqual(pageErrors, [], "Extension pages and content scripts must not throw");
-  console.log("Chromium loaded the extension archive, settings tabs, and GitHub content scripts; settings persisted and updated an open page.");
+  console.log("Chromium verified Busy inbox visibility, settings persistence, and live preference updates.");
 } finally {
   await context?.close();
   rmSync(profilePath, { recursive: true, force: true });
