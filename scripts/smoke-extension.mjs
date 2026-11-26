@@ -36,10 +36,28 @@ try {
   assert.equal(await options.locator("#settings-panel-general").isVisible(), false);
 
   const github = await context.newPage();
+  let busy = false;
+  await github.route("https://github.com/users/status?*", (route) => route.fulfill({
+    contentType: "text/html",
+    body: `<input type="checkbox" name="limited_availability"${busy ? " checked" : ""}>`,
+  }));
+  await github.route("https://github.com/notifications?*", (route) => route.fulfill({
+    contentType: "text/html",
+    body: '<div class="notifications-list-item"></div>',
+  }));
+  await worker.evaluate(() => chrome.storage.local.set({
+    organizationNotificationInboxesEnabled: true,
+    notificationOrganizations: ["acme", "example"],
+  }));
   await github.route("https://github.com/fractured-ci-smoke", (route) => route.fulfill({
     status: 200,
     contentType: "text/html",
-    body: '<!doctype html><html><head><title>CI fixture</title></head><body><main>GitHub fixture <a href="/copilot">Copilot</a></main></body></html>',
+    body: `<!doctype html><html><head><title>CI fixture</title></head><body>
+      <header class="AppHeader" role="banner">
+        <a id="AppHeader-notifications-button" href="/notifications">Inbox</a>
+      </header>
+      <main>GitHub fixture <a href="/copilot">Copilot</a></main>
+    </body></html>`,
   }));
   await github.goto("https://github.com/fractured-ci-smoke");
   await github.waitForSelector("#fractured-github-hide-copilot-style", {
@@ -48,6 +66,19 @@ try {
   });
   const copilot = github.getByRole("link", { name: "Copilot", includeHidden: true });
   await expect(copilot).toBeHidden();
+
+  const inboxes = [
+    github.locator("#AppHeader-notifications-button"),
+    github.locator('[data-fractured-github-organization-notification="acme"]'),
+    github.locator('[data-fractured-github-organization-notification="example"]'),
+  ];
+  for (const inbox of inboxes) await expect(inbox).toBeVisible();
+  busy = true;
+  await github.evaluate(() => window.dispatchEvent(new Event("focus")));
+  for (const inbox of inboxes) await expect(inbox).toHaveCSS("display", "none");
+  busy = false;
+  await github.evaluate(() => window.dispatchEvent(new Event("focus")));
+  for (const inbox of inboxes) await expect(inbox).toBeVisible();
 
   // Exercise the settings UI and real chrome.storage change propagation.
   await options.getByRole("tab", { name: "Copilot", exact: true }).click();
