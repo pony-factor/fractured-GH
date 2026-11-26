@@ -80,8 +80,8 @@
 
   function scheduleExpiry() {
     window.clearTimeout(expiryTimer);
-    applyVisibility();
     const remaining = visibleUntil - Date.now();
+    applyVisibility();
     if (remaining > 0) expiryTimer = window.setTimeout(scheduleExpiry, remaining);
   }
 
