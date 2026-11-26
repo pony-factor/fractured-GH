@@ -9,9 +9,14 @@ const settle = () => new Promise((resolve) => setImmediate(resolve));
 const response = (unread) => ({ ok: true, text: async () => unread ? 'unread' : 'empty' });
 const unreadAttribute = 'data-fractured-github-organization-unread';
 
-async function startFeature(fetch, { notificationsPage = false } = {}) {
-  let settings = { organizationNotificationInboxesEnabled: true, notificationOrganizations: ['Acme'] };
+async function startFeature(fetch, { notificationsPage = false, dotColor = '' } = {}) {
+  let settings = {
+    organizationNotificationInboxesEnabled: true,
+    notificationOrganizations: ['Acme'],
+    notificationDotColor: dotColor,
+  };
   const controls = [];
+  const styles = new Map();
   const events = {};
   const timers = new Map();
   const warnings = [];
@@ -30,7 +35,13 @@ async function startFeature(fetch, { notificationsPage = false } = {}) {
   }
   const documentFixture = {
     hidden: false,
-    documentElement: {},
+    documentElement: {
+      append(style) {
+        styles.set(style.id, style);
+        style.remove = () => styles.delete(style.id);
+      },
+    },
+    getElementById: (id) => styles.get(id),
     querySelectorAll: () => [...controls],
     querySelector(selector) {
       if (!notificationsPage) return defaultControl;
@@ -71,7 +82,7 @@ async function startFeature(fetch, { notificationsPage = false } = {}) {
   });
   await settle();
   return {
-    controls, events, timers, warnings,
+    controls, events, timers, warnings, styles,
     get requests() { return requests; },
     navigator,
     get document() { return documentFixture; },
@@ -132,6 +143,25 @@ test('shows every organization in settings order and dots only those with unread
 test('uses the native inbox button instead of the Notifications breadcrumb', async () => {
   const feature = await startFeature(async () => response(false), { notificationsPage: true });
   assert.equal(feature.controls[0].className, 'native-inbox-button');
+});
+
+test('recolors native and organization unread dots without replacing controls or polling', async () => {
+  const feature = await startFeature(async () => response(true), { dotColor: '#c045f6' });
+  const styleId = 'fractured-notification-dot-color';
+  const control = feature.controls[0];
+  assert.equal(control.children[1].hasAttribute('data-fractured-github-organization-dot'), true);
+  assert.match(feature.styles.get(styleId).textContent, /notificationIndicator__.*::before/);
+  assert.match(feature.styles.get(styleId).textContent, /background-color: #c045f6/);
+
+  await feature.change({ notificationDotColor: '#ff5500' });
+  assert.match(feature.styles.get(styleId).textContent, /background-color: #ff5500/);
+  assert.equal(feature.controls[0], control);
+  assert.equal(feature.requests, 1);
+
+  await feature.change({ notificationDotColor: '' });
+  assert.equal(feature.styles.has(styleId), false);
+  await feature.change({ notificationDotColor: 'red; display: none' });
+  assert.equal(feature.styles.has(styleId), false);
 });
 
 test('switches between all organization logos and unread-only as notifications change', async () => {

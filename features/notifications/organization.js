@@ -7,6 +7,8 @@
   const MAX_RETRY_MS = 5 * REFRESH_INTERVAL_MS;
   const CONTROL_ATTRIBUTE = 'data-fractured-github-organization-notification';
   const UNREAD_ATTRIBUTE = 'data-fractured-github-organization-unread';
+  const DOT_ATTRIBUTE = 'data-fractured-github-organization-dot';
+  const DOT_STYLE_ID = 'fractured-notification-dot-color';
   const HEADER_SELECTOR = ':is(.AppHeader, .GlobalNav, header[role="banner"], header[aria-label="Global navigation menu"])';
   const DEFAULT_CONTROL_SELECTORS = [
     '#AppHeader-notifications-button',
@@ -27,6 +29,29 @@
   let activeRefresh = null;
   let retryDelay = REFRESH_INTERVAL_MS;
   let nextCheckAt = 0;
+  let dotColor = '';
+
+  function applyDotColor() {
+    const current = document.getElementById(DOT_STYLE_ID);
+    if (!dotColor) {
+      current?.remove();
+      return;
+    }
+    if (!document.documentElement) return;
+    const style = current || document.createElement('style');
+    style.id = DOT_STYLE_ID;
+    style.textContent = `
+      a[href="/notifications"][class*="notificationIndicator__"]::before,
+      .notification-indicator .mail-status.unread,
+      [${DOT_ATTRIBUTE}] { background-color: ${dotColor} !important; }
+    `;
+    if (!current) document.documentElement.append(style);
+  }
+
+  function setDotColor(color) {
+    dotColor = typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color) ? color : '';
+    applyDotColor();
+  }
 
   function normalizeOrganization(value) {
     return String(value || '')
@@ -112,6 +137,7 @@
       control.setAttribute(UNREAD_ATTRIBUTE, '');
       const dot = document.createElement('span');
       dot.setAttribute('aria-hidden', 'true');
+      dot.setAttribute(DOT_ATTRIBUTE, '');
       dot.style.cssText = 'position:absolute;top:2px;right:2px;width:8px;height:8px;'
         + 'border-radius:50%;background:var(--fgColor-accent,#0969da);'
         + 'box-shadow:0 0 0 1px var(--bgColor-default,#fff);pointer-events:none';
@@ -256,6 +282,7 @@
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== 'local') return;
+    if (changes.notificationDotColor) setDotColor(changes.notificationDotColor.newValue);
     if (
       !changes.organizationNotificationInboxesEnabled
       && !changes.organizationInboxesUnreadOnly
@@ -293,9 +320,12 @@
     }
 
     observer.observe(document.documentElement, { childList: true, subtree: true });
+    if (dotColor) applyDotColor();
   }
 
   observeDocument();
+  void chrome.storage.local.get({ notificationDotColor: '' })
+    .then((settings) => setDotColor(settings.notificationDotColor));
   void loadSettings();
   window.setInterval(() => void refreshOrganizationNotifications(), REFRESH_INTERVAL_MS);
 })();

@@ -49,6 +49,8 @@ const relativeTimesInput = document.getElementById('relative-times-only');
 const ownerAvatarHeaderInput = document.getElementById('owner-avatar-header-enabled');
 const organizationInboxesInput = document.getElementById('organization-notification-inboxes-enabled');
 const organizationInboxesUnreadOnlyInput = document.getElementById('organization-inboxes-unread-only');
+const notificationDotColorInput = document.getElementById('notification-dot-color');
+const resetNotificationDotColorButton = document.getElementById('reset-notification-dot-color');
 const excludeOrganizationNotificationsInput = document.getElementById('exclude-organization-notifications-from-main-inbox');
 const notificationOrganizationsList = document.getElementById('notification-organizations');
 const addNotificationOrganizationButton = document.getElementById('add-notification-organization');
@@ -234,14 +236,26 @@ function queueSave() {
   }, 250);
 }
 
-function showSaved() {
+function showSaved(message = 'Saved. Refresh open GitHub tabs to apply changes.') {
   window.clearTimeout(statusTimer);
-  status.textContent = 'Saved. Refresh open GitHub tabs to apply changes.';
+  status.textContent = message;
   status.dataset.state = 'saved';
   statusTimer = window.setTimeout(() => {
     status.textContent = 'Changes save automatically.';
     delete status.dataset.state;
   }, 2500);
+}
+
+function showNotificationDotColor(color) {
+  const custom = typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color);
+  notificationDotColorInput.value = custom ? color : notificationDotColorInput.defaultValue;
+  resetNotificationDotColorButton.disabled = !custom;
+}
+
+async function saveNotificationDotColor(color) {
+  showNotificationDotColor(color);
+  await chrome.storage.local.set({ notificationDotColor: color });
+  showSaved('Saved.');
 }
 
 function addMutedInboxAccountRow(username = '', { focus = false } = {}) {
@@ -433,6 +447,7 @@ async function loadSettings() {
     ownerAvatarHeaderEnabled: true,
     organizationNotificationInboxesEnabled: false,
     organizationInboxesUnreadOnly: false,
+    notificationDotColor: '',
     excludeOrganizationNotificationsFromMainInbox: false,
     notificationOrganizations: [],
     mutedInboxAccounts: [],
@@ -494,6 +509,7 @@ async function loadSettings() {
   ownerAvatarHeaderInput.checked = Boolean(settings.ownerAvatarHeaderEnabled);
   organizationInboxesInput.checked = Boolean(settings.organizationNotificationInboxesEnabled);
   organizationInboxesUnreadOnlyInput.checked = Boolean(settings.organizationInboxesUnreadOnly);
+  showNotificationDotColor(settings.notificationDotColor);
   excludeOrganizationNotificationsInput.checked = Boolean(settings.excludeOrganizationNotificationsFromMainInbox);
   userNicknamesInput.checked = Boolean(settings.userNicknamesEnabled);
   rainbowOwnMentionsInput.checked = settings.rainbowOwnMentionsEnabled === true;
@@ -686,6 +702,8 @@ relativeTimesInput.addEventListener('change', () => void saveSettings());
 ownerAvatarHeaderInput.addEventListener('change', () => void saveSettings());
 organizationInboxesInput.addEventListener('change', () => void saveSettings());
 organizationInboxesUnreadOnlyInput.addEventListener('change', () => void saveSettings());
+notificationDotColorInput.addEventListener('change', () => void saveNotificationDotColor(notificationDotColorInput.value));
+resetNotificationDotColorButton.addEventListener('click', () => void saveNotificationDotColor(''));
 excludeOrganizationNotificationsInput.addEventListener('change', () => void saveSettings());
 addMutedInboxAccountButton.addEventListener('click', () => {
   addMutedInboxAccountRow('', { focus: true });
