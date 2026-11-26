@@ -9,7 +9,7 @@ const script = fs.readFileSync(path.join(__dirname, '../../../features/writing/s
   .replace('await pause(250);\n        await closeBridgeTab();', 'await pause(0);\n        await closeBridgeTab();')
   .replace(/  void run\(\)\.catch\([\s\S]*?\n  \}\);(?=\n\}\)\(\);)/, '  globalThis.bridge = { run, writeJob, buildPrompt, shouldGenerateTitle, needsShortTitleEmoji };');
 
-function harness({ getError, setError, invalidateOnSet = false } = {}) {
+function harness({ getError, setError, invalidateOnSet = false, composerFixture } = {}) {
   const writes = [];
   const warnings = [];
   const messages = [];
@@ -27,7 +27,8 @@ function harness({ getError, setError, invalidateOnSet = false } = {}) {
             throw getError;
           }
           return { fracturedSpellcheckJobV1: {
-            id: 'test-job', status: 'pending', original: { title: '', body: '' },
+            id: 'test-job', status: 'pending', original: composerFixture
+              ? { title: 'Fix teh draft', body: 'Correct thiss.' } : { title: '', body: '' },
           } };
         },
         async set(value) {
@@ -45,11 +46,97 @@ function harness({ getError, setError, invalidateOnSet = false } = {}) {
     document: { querySelector() { return null; } },
     window: { setTimeout, clearTimeout },
     console: { warn: (...args) => warnings.push(args), error: (...args) => warnings.push(args) },
+    ...composerFixture,
   };
   vm.runInNewContext(script, ctx, { filename: 'spellcheck-chatgpt-bridge.js' });
   assert.ok(ctx.bridge, 'test bridge exports expected functions');
   return { ...ctx.bridge, writes, warnings, messages, invalidate: () => { runtimeId = ''; } };
 }
+
+test('activates a picker row with adjacent labels and sends from the remounted composer', async () => {
+  const calls = [];
+  const messages = [];
+  const node = (attributes = {}) => ({
+    getClientRects: () => [{}],
+    getAttribute: (name) => attributes[name] ?? null,
+    closest: () => null,
+  });
+  const chip = node({ 'app-mention-display-name': 'Spellcheck Only' });
+  const send = {
+    ...node({ 'data-testid': 'send-button', 'aria-label': 'Send prompt' }),
+    click() {
+      calls.push('send');
+      assert.match(current.innerText, /"title":"Fix teh draft"/);
+      messages.push({ innerText: '{"title":"Fix the draft","body":"Correct this."}' });
+    },
+  };
+  const clipboardSend = {
+    ...node({ 'aria-label': 'Send from Clipboard' }),
+    id: 'ghrc-clipboard-send',
+    click() { assert.fail('the extension clipboard control must not submit the prompt'); },
+  };
+  const form = {
+    querySelectorAll(selector) {
+      if (selector.includes('app-mention')) return current === replacement ? [chip] : [];
+      if (selector.includes('send-button')) return [send];
+      if (selector.includes('aria-label^="Send"')) return [clipboardSend, send];
+      return [];
+    },
+  };
+  function editor() {
+    return {
+      children: [], innerText: '', isContentEditable: true,
+      closest: () => form,
+      contains: () => false,
+      querySelectorAll: () => [],
+      focus() { assert.equal(this, current); },
+    };
+  }
+  const replacement = editor();
+  let current = editor();
+  let append = false;
+  const row = {
+    ...node(),
+    textContent: 'Spellcheck OnlyCorrect spelling',
+    querySelector: () => ({ textContent: 'Spellcheck Only' }),
+    click() { calls.push('activate'); current = replacement; },
+  };
+  const bridge = harness({ composerFixture: {
+    HTMLTextAreaElement: class {},
+    HTMLInputElement: class {},
+    MutationObserver: class { observe() {} disconnect() {} },
+    fracturedSpellcheckLinks: {
+      protect: (original) => ({ masked: original }),
+      restore: (_draft, result) => result,
+    },
+    document: {
+      documentElement: {},
+      querySelector: () => current,
+      querySelectorAll(selector) {
+        if (selector.includes('data-message-author-role')) return messages;
+        if (selector.includes('data-mention-list-scroll-area') && current.innerText === '@Spellcheck Only') {
+          return [{ ...node(), querySelectorAll: () => [row] }];
+        }
+        return [];
+      },
+      createRange: () => ({
+        selectNodeContents() { append = false; },
+        collapse() { append = true; },
+      }),
+      execCommand(_command, _ui, text) {
+        current.innerText = append ? current.innerText + text : text;
+      },
+    },
+    window: {
+      getSelection: () => ({ removeAllRanges() {}, addRange() {} }),
+      setTimeout(callback, ms) { return setTimeout(callback, ms === 120000 ? ms : 0); },
+      clearTimeout,
+    },
+  } });
+  await bridge.run();
+  assert.deepEqual(calls, ['activate', 'send']);
+  assert.equal(bridge.writes[0].fracturedSpellcheckJobV1.result?.body, 'Correct this.');
+});
 
 test('writes pending job updates normally while the extension is active', async () => {
   const bridge = harness();

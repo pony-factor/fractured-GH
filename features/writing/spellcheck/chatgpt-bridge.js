@@ -42,6 +42,7 @@
       node?.getAttribute?.('title'),
       node?.getAttribute?.('app-mention-display-name'),
       node?.getAttribute?.('app-mention-name'),
+      node?.querySelector?.('[data-menu-row-content] .truncate.shrink-0')?.textContent,
       node?.textContent,
     ].filter(Boolean).map((value) => String(value).replace(/\s+/g, ' ').trim()).filter(Boolean);
   }
@@ -55,10 +56,15 @@
   }
 
   function findPluginMention(composer) {
-    return [...(composer?.querySelectorAll?.('[app-mention-path]') || [])].find((node) => (
-      /^app:\/\//.test(node.getAttribute?.('app-mention-path') || '')
-      && pluginLabelMatches(node)
-    )) || null;
+    const scope = composer.closest('form') || composer.closest('[data-type="unified-composer"]') || composer;
+    const inline = [...composer.querySelectorAll('[app-mention-path]')];
+    const chips = [...scope.querySelectorAll('[app-mention-path], [app-mention-display-name]')];
+    return [...inline, ...chips].find((node) => {
+      const path = node.getAttribute('app-mention-path');
+      return visible(node) && !node.closest('[inert]')
+        && (path ? /^app:\/\//.test(path) : !composer.contains(node))
+        && pluginLabelMatches(node);
+    }) || null;
   }
 
   function findPluginSuggestion() {
@@ -81,9 +87,21 @@
   }
 
   function controlValue(control) {
-    return control instanceof HTMLTextAreaElement || control instanceof HTMLInputElement
-      ? control.value
-      : (control.innerText || control.textContent || '');
+    if (control instanceof HTMLTextAreaElement || control instanceof HTMLInputElement) {
+      return control.value;
+    }
+    const paragraphs = [...control.children];
+    if (paragraphs.length && paragraphs.every((node) => node.tagName === 'P')) {
+      const readNode = (node) => {
+        if (node.nodeType === 3) return node.nodeValue || '';
+        if (node.nodeName === 'BR') {
+          return node.classList.contains('ProseMirror-trailingBreak') ? '' : '\n';
+        }
+        return [...node.childNodes].map(readNode).join('');
+      };
+      return paragraphs.map(readNode).join('\n');
+    }
+    return control.innerText || control.textContent || '';
   }
 
   function nativeSet(control, text) {
@@ -133,13 +151,20 @@
     document.execCommand('insertText', false, PLUGIN_NAME);
 
     const suggestion = await waitUntil(findPluginSuggestion, MENTION_TIMEOUT_MS);
-    if (!suggestion) return false;
+    if (!suggestion) return null;
     suggestion.click();
-    return Boolean(await waitUntil(() => findPluginMention(composer), MENTION_TIMEOUT_MS));
+    return waitUntil(() => {
+      const current = composerInput();
+      return current && findPluginMention(current) ? current : null;
+    }, MENTION_TIMEOUT_MS);
   }
 
   async function appendPrompt(composer, prompt) {
-    if (!findPluginMention(composer)) return false;
+    const mention = findPluginMention(composer);
+    if (!mention) return false;
+    if (!composer.contains(mention)) {
+      return await replaceComposerText(composer, prompt) && Boolean(findPluginMention(composer));
+    }
     composer.focus({ preventScroll: true });
     const selection = window.getSelection();
     if (!selection) return false;
@@ -150,16 +175,29 @@
     selection.addRange(range);
     document.execCommand('insertText', false, `\n${prompt}`);
     await pause(50);
-    return controlValue(composer).includes(prompt.slice(-80));
+    return Boolean(findPluginMention(composer)) && controlValue(composer).trimEnd().endsWith(prompt);
   }
 
   function sendButton(composer) {
-    const form = composer.closest('form') || composer.closest('[data-type="unified-composer"]');
-    return form?.querySelector([
+    const selectors = [
+      'button[data-testid="composer-submit-button"]',
       'button[data-testid="send-button"]',
+      'button#composer-submit-button',
       'button[aria-label^="Send" i]',
       'button[type="submit"]',
-    ].join(', ')) || null;
+    ];
+    const scope = composer.closest('form') || composer.closest('[data-type="unified-composer"]');
+    for (const selector of selectors) {
+      const button = [...(scope?.querySelectorAll(selector) || [])].find((candidate) => (
+        visible(candidate)
+        && !(candidate.id || '').startsWith('ghrc-')
+        && !/ghrc-/.test(candidate.className || '')
+        && !/stop|voice|dictat|speech|search/i.test(candidate.getAttribute('aria-label') || '')
+        && !/stop|voice|dictat|speech/i.test(candidate.getAttribute('data-testid') || '')
+      ));
+      if (button) return button;
+    }
+    return null;
   }
 
   function stopButton() {
@@ -326,7 +364,7 @@
       if (projectMode && !/^\/g\/g-p-[A-Za-z0-9_-]+\/project\/?$/.test(location.pathname)) {
         throw new Error('ChatGPT opened outside the selected Project. Verify your access to the Project URL.');
       }
-      const composer = await waitUntil(composerInput, COMPOSER_TIMEOUT_MS);
+      let composer = await waitUntil(composerInput, COMPOSER_TIMEOUT_MS);
       if (!composer) throw new Error('ChatGPT composer was not available for Spellcheck Only.');
       const links = globalThis.fracturedSpellcheckLinks;
       if (!links) throw new Error('Markdown link protection was not available.');
@@ -339,7 +377,8 @@
           throw new Error('Fractured could not prepare the title generation request.');
         }
       } else {
-        if (!await activatePlugin(composer)) throw new Error('Fractured could not activate the Spellcheck Only plugin.');
+        composer = await activatePlugin(composer);
+        if (!composer) throw new Error('Fractured could not activate the Spellcheck Only plugin.');
         if (!await appendPrompt(composer, prompt)) throw new Error('Fractured could not prepare the Spellcheck Only request.');
       }
 
