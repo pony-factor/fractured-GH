@@ -133,7 +133,7 @@
     module.exports = {
       normalizeAccount, accountFromHref, isMutedActor,
       notificationParticipants, isMutedAccountNotification, isInbox,
-      notificationComment, commentAuthor,
+      notificationComment,
       notificationId, doneButton, createDoneRequest,
     };
     return;
@@ -149,7 +149,7 @@
     try {
       // Signed-in and public GitHub can serve different versions of the timeline.
       for (const credentials of ['same-origin', 'omit']) {
-        const response = await window.fetch(path, { credentials, redirect: 'error' });
+        const response = await window.fetch(path, { credentials, redirect: 'manual' });
         if (!response.ok) continue;
         const page = new DOMParser().parseFromString(await response.text(), 'text/html');
         const author = commentAuthor(page, id);
@@ -180,7 +180,7 @@
     const author = await findCommentAuthor(comment);
     const current = notificationComment(row);
     return current?.id === comment.id && current.path === comment.path && !isSaved(row)
-      && isMutedActor(author, accounts);
+      && (author ? isMutedActor(author, accounts) : isMutedAccountNotification(row, accounts));
   }
 
   function attemptKey(row) {

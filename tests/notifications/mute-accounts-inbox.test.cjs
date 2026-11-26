@@ -7,11 +7,11 @@ const vm = require('node:vm');
 const script = fs.readFileSync(path.join(__dirname, '../../features/notifications/mute-accounts-inbox.js'), 'utf8');
 const {
   normalizeAccount, accountFromHref, isMutedActor, notificationParticipants,
-  isMutedAccountNotification, isInbox, notificationId, doneButton, createDoneRequest,
+  isMutedAccountNotification, isInbox, notificationComment, notificationId, doneButton, createDoneRequest,
 } = require('../../features/notifications/mute-accounts-inbox.js');
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
-function row(avatars = [], { more = '', saved = false, actor = null, id = '123', button = null, form = null } = {}) {
+function row(avatars = [], { more = '', saved = false, actor = null, id = '123', button = null, form = null, href = null } = {}) {
   const attributes = new Map([['data-notification-id', id]]);
   if (actor) attributes.set('data-notification-actor', actor);
   const links = avatars.map((href) => ({ getAttribute: () => href }));
@@ -31,6 +31,7 @@ function row(avatars = [], { more = '', saved = false, actor = null, id = '123',
       if (selector === 'input[name="notification_ids[]"]') return null;
       if (selector === 'relative-time') return { getAttribute: () => '2026-11-06T16:00:00Z' };
       if (selector === 'form[action="/notifications/beta/archive"]') return doneForm;
+      if (selector === 'a[href*="notification_referrer_id="]' && href) return { getAttribute: () => href };
       return null;
     },
     querySelectorAll: (selector) => {
@@ -62,13 +63,24 @@ test('leaves human participation, hidden avatars, unknown actors and saved notif
   assert.equal(isMutedAccountNotification(row([], { actor: 'vercel[bot]' }), muted), false);
 });
 
-test('only acts on regular inbox views', () => {
+test('acts on filtered inboxes and skips Done and Saved views', () => {
   const location = { hostname: 'github.com', pathname: '/notifications', search: '' };
   assert.equal(isInbox(location), true);
   assert.equal(isInbox({ ...location, search: '?query=is%3Aunread' }), true);
-  assert.equal(isInbox({ ...location, search: '?query=org%3Apony-factor' }), false);
+  assert.equal(isInbox({ ...location, search: '?query=org%3Ablocktransfer' }), true);
+  assert.equal(isInbox({ ...location, search: '?query=org%3Ablocktransfer+is%3Asaved' }), false);
   assert.equal(isInbox({ ...location, search: '?query=is%3Adone' }), false);
   assert.equal(isInbox({ ...location, pathname: '/pony-factor/repo/pull/1' }), false);
+});
+
+test('only follows a GitHub issue or pull request notification permalink', () => {
+  const href = '/blocktransfer/issuer-disclosures/pull/12?notification_referrer_id=NT_example&notifications_query=org%3Ablocktransfer#issuecomment-123';
+  assert.deepEqual(notificationComment(row([], { href })), {
+    path: '/blocktransfer/issuer-disclosures/pull/12',
+    id: 'issuecomment-123',
+  });
+  assert.equal(notificationComment(row([], { href: 'https://example.com' + href })), null);
+  assert.equal(notificationComment(row([], { href: href.replace('#issuecomment-123', '#event-123') })), null);
 });
 
 test('requires a per-thread Done form, real numeric ID and CSRF token', () => {
@@ -90,18 +102,25 @@ test('requires a per-thread Done form, real numeric ID and CSRF token', () => {
   assert.equal(createDoneRequest(row(['/apps/vercel'], { form, id: 'all' }), page), null);
 });
 
-test('uses native Done for listed accounts and skips all rows when the list is empty', async () => {
+test('uses native Done for muted comment authors in an organization inbox', async () => {
+  const linkedComment = (pr, comment) => `/blocktransfer/issuer-disclosures/pull/${pr}?notification_referrer_id=NT_example#issuecomment-${comment}`;
+  const mixed = ['/apps/netlify', '/contributor'];
   const rows = [
     row(['/apps/vercel']),
     row(['/bob', '/apps/vercel'], { id: '127' }),
     row(['/alice'], { id: '125' }),
     row(['/kefania-pony%5Bbot%5D'], { id: '124' }),
+    row(mixed, { id: '128', more: '+1', href: linkedComment(12, 123) }),
+    row(mixed, { id: '129', href: linkedComment(8, 456) }),
+    row(mixed, { id: '130', href: linkedComment(7, 789) }),
+    row(mixed, { id: '131', saved: true, href: linkedComment(6, 123) }),
   ];
   let settings = { mutedInboxAccounts: [] };
   const handlers = {};
   const timers = new Map();
   let id = 0;
-  const location = { hostname: 'github.com', pathname: '/notifications', search: '' };
+  const location = new URL('https://github.com/notifications?query=org%3Ablocktransfer');
+  const fetched = [];
   const document = {
     documentElement: {},
     hidden: false,
@@ -113,12 +132,19 @@ test('uses native Done for listed accounts and skips all rows when the list is e
     setTimeout: (fn) => { timers.set(++id, fn); return id; },
     clearTimeout: (key) => timers.delete(key),
     setInterval() {},
-    fetch() { throw new Error('No background polling in the inbox'); },
+    async fetch(url, settings) {
+      fetched.push([url, settings.credentials]);
+      const bot = url.endsWith('/12') && settings.credentials === 'omit';
+      const human = url.endsWith('/8');
+      const authors = bot ? { 'issuecomment-123': '/apps/netlify' } : human ? { 'issuecomment-456': '/bob' } : {};
+      return { ok: true, text: async () => JSON.stringify(authors) };
+    },
   };
-  const runTimers = () => {
+  const runTimers = async () => {
     const todo = [...timers.values()];
     timers.clear();
     todo.forEach((fn) => fn());
+    await flush();
   };
   vm.runInNewContext(script, {
     window, document, chrome: { storage: {
@@ -126,22 +152,40 @@ test('uses native Done for listed accounts and skips all rows when the list is e
       onChanged: { addListener: (fn) => { handlers.storage = fn; } },
     } },
     URL, URLSearchParams, Date,
+    DOMParser: class {
+      parseFromString(text) {
+        const authors = JSON.parse(text);
+        return {
+          getElementById: (key) => authors[key] ? {
+            querySelector: (selector) => selector === '.timeline-comment-header a.author[href]'
+              ? { getAttribute: () => authors[key] } : null,
+          } : null,
+        };
+      }
+    },
     MutationObserver: class { observe() {} },
   });
   await flush();
-  runTimers();
-  assert.deepEqual(rows.map((r) => r.checkedButton.clicks), [0, 0, 0, 0]);
+  await runTimers();
+  assert.deepEqual(rows.map((r) => r.checkedButton.clicks), [0, 0, 0, 0, 0, 0, 0, 0]);
 
-  settings = { muteInboxAccountsEnabled: false, mutedInboxAccounts: ['vercel[bot]', 'kefania-pony[bot]', 'alice'] };
+  settings = { muteInboxAccountsEnabled: false, mutedInboxAccounts: ['vercel[bot]', 'kefania-pony[bot]', 'alice', 'netlify'] };
   handlers.storage({ mutedInboxAccounts: {} }, 'local');
   await flush();
-  runTimers();
-  assert.deepEqual(rows.map((r) => r.checkedButton.clicks), [1, 0, 1, 1]);
+  await runTimers();
+  assert.deepEqual(rows.map((r) => r.checkedButton.clicks), [1, 0, 1, 1, 1, 0, 0, 0]);
+  assert.deepEqual(fetched, [
+    ['/blocktransfer/issuer-disclosures/pull/12', 'same-origin'],
+    ['/blocktransfer/issuer-disclosures/pull/12', 'omit'],
+    ['/blocktransfer/issuer-disclosures/pull/8', 'same-origin'],
+    ['/blocktransfer/issuer-disclosures/pull/7', 'same-origin'],
+    ['/blocktransfer/issuer-disclosures/pull/7', 'omit'],
+  ]);
 
   rows.push(row(['/alice'], { id: '126' }));
   settings = { mutedInboxAccounts: [] };
   handlers.storage({ mutedInboxAccounts: {} }, 'local');
   await flush();
-  runTimers();
-  assert.deepEqual(rows.map((r) => r.checkedButton.clicks), [1, 0, 1, 1, 0]);
+  await runTimers();
+  assert.deepEqual(rows.map((r) => r.checkedButton.clicks), [1, 0, 1, 1, 1, 0, 0, 0, 0]);
 });
