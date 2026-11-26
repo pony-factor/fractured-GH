@@ -43,25 +43,53 @@
     // Avatar stacks are participants, not "last actor". A +N means that
     // GitHub has hidden other participants, potentially including a human.
     if (/\+\s*\d+\b/.test(stack.textContent || '')) return null;
-    const links = row.querySelectorAll('.AvatarStack-body a[href]');
-    if (!links.length) return null;
-    const accounts = [...links].map((link) => accountFromHref(link.getAttribute('href')));
-    return accounts.every(Boolean) ? accounts : null;
+    const accounts = visibleParticipants(row);
+    return accounts.length && accounts.every(Boolean) ? accounts : null;
+  }
+
+  function visibleParticipants(row) {
+    return [...row.querySelectorAll('.AvatarStack-body a[href]')]
+      .map((link) => accountFromHref(link.getAttribute('href')));
+  }
+
+  function isSaved(row) {
+    return row.classList?.contains('notification-starred')
+      || Boolean(row.querySelector('.notification-starred, [aria-label="Saved"], [data-state="saved"]'));
   }
 
   function isMutedAccountNotification(row, mutedAccounts) {
-    if (!mutedAccounts.size || row.classList?.contains('notification-starred')) return false;
-    if (row.querySelector('.notification-starred, [aria-label="Saved"], [data-state="saved"]')) return false;
+    if (!mutedAccounts.size || isSaved(row)) return false;
     const participants = notificationParticipants(row);
-    // Every participant must be identifiable and on the mute list.
     return Boolean(participants?.length && participants.every((account) => isMutedActor(account, mutedAccounts)));
+  }
+
+  function notificationComment(row) {
+    const href = row.querySelector('a[href*="notification_referrer_id="]')?.getAttribute('href');
+    if (!href) return null;
+    try {
+      const url = new URL(href, 'https://github.com');
+      if (url.origin !== 'https://github.com'
+        || !/^\/[\w.-]+\/[\w.-]+\/(?:issues|pull)\/\d+$/.test(url.pathname)
+        || !/^#issuecomment-\d+$/.test(url.hash)
+        || !url.searchParams.get('notification_referrer_id')) return null;
+      // The notification referrer can mark the thread read. Fetch the plain page.
+      return { path: url.pathname, id: url.hash.slice(1) };
+    } catch {
+      return null;
+    }
+  }
+
+  function commentAuthor(page, id) {
+    const comment = page.getElementById(id);
+    const link = comment?.querySelector('.timeline-comment-header a.author[href]');
+    return accountFromHref(link?.getAttribute('href'));
   }
 
   function isInbox(location) {
     if (location.hostname !== 'github.com'
       || location.pathname.replace(/\/$/, '') !== '/notifications') return false;
     const query = (new URLSearchParams(location.search).get('query') || '').trim();
-    return !query || /^is:(?:read|unread)$/i.test(query);
+    return !/(?:^|\s|")is:(?:done|saved)(?=$|\s|")/i.test(query);
   }
 
   function notificationId(row) {
@@ -105,6 +133,7 @@
     module.exports = {
       normalizeAccount, accountFromHref, isMutedActor,
       notificationParticipants, isMutedAccountNotification, isInbox,
+      notificationComment, commentAuthor,
       notificationId, doneButton, createDoneRequest,
     };
     return;
@@ -114,6 +143,45 @@
   let refreshTimer = null;
   let polling = false;
   const attempted = new Map();
+  const commentLookups = new Map();
+
+  async function fetchCommentAuthor({ path, id }) {
+    try {
+      // Signed-in and public GitHub can serve different versions of the timeline.
+      for (const credentials of ['same-origin', 'omit']) {
+        const response = await window.fetch(path, { credentials, redirect: 'error' });
+        if (!response.ok) continue;
+        const page = new DOMParser().parseFromString(await response.text(), 'text/html');
+        const author = commentAuthor(page, id);
+        if (author) return author;
+      }
+    } catch {
+      // Leave the notification alone if its author cannot be verified.
+    }
+    return null;
+  }
+
+  function findCommentAuthor(comment) {
+    const key = comment.path + '#' + comment.id;
+    const cached = commentLookups.get(key);
+    if (cached && Date.now() - cached.time < MIN_RETRY_MS) return cached.result;
+    commentLookups.delete(key);
+    if (commentLookups.size >= 100) commentLookups.delete(commentLookups.keys().next().value);
+    const result = fetchCommentAuthor(comment);
+    commentLookups.set(key, { time: Date.now(), result });
+    return result;
+  }
+
+  async function matchesMutedNotification(row, accounts) {
+    if (isSaved(row)) return false;
+    const comment = notificationComment(row);
+    if (!comment) return isMutedAccountNotification(row, accounts);
+    if (!visibleParticipants(row).some((actor) => isMutedActor(actor, accounts))) return false;
+    const author = await findCommentAuthor(comment);
+    const current = notificationComment(row);
+    return current?.id === comment.id && current.path === comment.path && !isSaved(row)
+      && isMutedActor(author, accounts);
+  }
 
   function attemptKey(row) {
     const id = notificationId(row);
@@ -130,10 +198,16 @@
     return true;
   }
 
-  function checkVisibleInbox() {
+  async function checkVisibleInbox() {
     if (!mutedAccounts.size || !isInbox(window.location)) return;
+    const accounts = mutedAccounts;
+    const pageUrl = window.location.href;
     for (const row of document.querySelectorAll(ROW_SELECTOR)) {
-      if (!isMutedAccountNotification(row, mutedAccounts)) continue;
+      if (accounts !== mutedAccounts || pageUrl !== window.location.href) return;
+      const key = attemptKey(row);
+      if (!key || !await matchesMutedNotification(row, accounts)) continue;
+      if (accounts !== mutedAccounts || pageUrl !== window.location.href) return;
+      if (row.isConnected === false || attemptKey(row) !== key) continue;
       const button = doneButton(row);
       if (!button || !mayAttempt(row)) continue;
       // Use GitHub's native per-thread Done action; it marks the thread
@@ -159,10 +233,13 @@
       });
       if (!response.ok || response.redirected) return;
       const page = new DOMParser().parseFromString(await response.text(), 'text/html');
+      const accounts = mutedAccounts;
       let completed = 0;
       for (const row of page.querySelectorAll(ROW_SELECTOR)) {
         if (completed >= MAX_DONE_PER_POLL) break;
-        if (!isMutedAccountNotification(row, mutedAccounts)) continue;
+        if (accounts !== mutedAccounts) break;
+        if (!await matchesMutedNotification(row, accounts)) continue;
+        if (accounts !== mutedAccounts || isInbox(window.location)) break;
         const body = createDoneRequest(row, page);
         if (!body || !mayAttempt(row)) continue;
         const result = await window.fetch(DONE_PATH, {
