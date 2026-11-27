@@ -7,7 +7,7 @@ const vm = require('node:vm');
 const script = fs.readFileSync(path.join(__dirname, '../../features/notifications/mute-accounts-inbox.js'), 'utf8');
 const {
   normalizeAccount, accountFromHref, isMutedActor, notificationParticipants,
-  isMutedAccountNotification, isInbox, notificationComment, notificationId, doneButton, createDoneRequest,
+  isMutedAccountNotification, isInbox, notificationLink, notificationComment, notificationId, doneButton, createDoneRequest,
 } = require('../../features/notifications/mute-accounts-inbox.js');
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
@@ -75,12 +75,13 @@ test('acts on filtered inboxes and skips Done and Saved views', () => {
 
 test('only follows a GitHub issue or pull request notification permalink', () => {
   const href = '/blocktransfer/issuer-disclosures/pull/12?notification_referrer_id=NT_example&notifications_query=org%3Ablocktransfer#issuecomment-123';
-  assert.deepEqual(notificationComment(row([], { href })), {
+  const comment = (href) => notificationComment(notificationLink(row([], { href })));
+  assert.deepEqual(comment(href), {
     path: '/blocktransfer/issuer-disclosures/pull/12',
     id: 'issuecomment-123',
   });
-  assert.equal(notificationComment(row([], { href: 'https://example.com' + href })), null);
-  assert.equal(notificationComment(row([], { href: href.replace('#issuecomment-123', '#event-123') })), null);
+  assert.equal(comment('https://example.com' + href), null);
+  assert.equal(comment(href.replace('#issuecomment-123', '#event-123')), null);
 });
 
 test('requires a per-thread Done form, a GitHub notification ID and CSRF token', () => {
@@ -104,9 +105,16 @@ test('requires a per-thread Done form, a GitHub notification ID and CSRF token',
   assert.equal(createDoneRequest(row(['/apps/vercel'], { form, id: 'all' }), page), null);
 });
 
-test('uses native Done for muted comment authors in an organization inbox', async () => {
+test('uses native Done for muted comment authors, mergers and commit ranges in a filtered inbox', async () => {
   const linkedComment = (pr, comment) => `/blocktransfer/issuer-disclosures/pull/${pr}?notification_referrer_id=NT_example#issuecomment-${comment}`;
+  const linkedEvent = (event) => `/blocktransfer/issuer-disclosures/pull/20?notification_referrer_id=NT_example#event-${event}`;
+  const base = 'a'.repeat(40);
+  const head = 'b'.repeat(40);
+  const linkedRange = (pr) => `/blocktransfer/issuer-disclosures/pull/${pr}/changes/${base}..${head}?notification_referrer_id=NT_example`;
+  const singleChange = `/blocktransfer/issuer-disclosures/pull/23/changes/${head}`;
+  const directCommit = `/blocktransfer/issuer-disclosures/commit/${head}`;
   const mixed = ['/apps/netlify', '/contributor'];
+  const lindsey = ['/apps/lindsey-pony', '/contributor'];
   const rows = [
     row(['/apps/vercel']),
     row(['/bob', '/apps/vercel'], { id: '127' }),
@@ -116,6 +124,14 @@ test('uses native Done for muted comment authors in an organization inbox', asyn
     row(mixed, { id: '129', href: linkedComment(8, 456) }),
     row(mixed, { id: '130', href: linkedComment(7, 789) }),
     row(mixed, { id: '131', saved: true, href: linkedComment(6, 123) }),
+    row(lindsey, { id: '132', href: linkedEvent(101) }),
+    row(lindsey, { id: '133', href: linkedEvent(102) }),
+    row(['/apps/lindsey-pony'], { id: '134', href: linkedEvent(103) }),
+    row(lindsey, { id: '135', href: linkedRange(21) }),
+    row(lindsey, { id: '136', href: linkedRange(22) }),
+    row(lindsey, { id: '137', href: singleChange + '?notification_referrer_id=NT_example' }),
+    row(lindsey, { id: '138', href: directCommit + '?notification_referrer_id=NT_example' }),
+    row(lindsey, { id: '139', href: directCommit + '?notification_referrer_id=NT_example#commitcomment-1' }),
   ];
   let settings = { mutedInboxAccounts: [] };
   const handlers = {};
@@ -136,6 +152,28 @@ test('uses native Done for muted comment authors in an organization inbox', asyn
     setInterval() {},
     async fetch(url, settings) {
       fetched.push([url, settings.credentials]);
+      if (settings.headers?.Accept === 'application/json' && url === directCommit) {
+        return { ok: true, json: async () => ({ payload: { commitRoute: {
+          commit: { oid: head, authors: [{ login: 'lindsey-pony[bot]' }] },
+        } } }) };
+      }
+      if (url.includes('/page_data/catch_up?')) {
+        return { ok: true, json: async () => ({ timeline: [
+          { id: 'IssueEvent_101', user: { displayLogin: 'lindsey-pony[bot]' }, additionalInfo: { issueEvent: { eventType: 'merged' } } },
+          { id: 'IssueEvent_102', user: { displayLogin: 'contributor' }, additionalInfo: { issueEvent: { eventType: 'merged' } } },
+          { id: 'IssueEvent_103', user: { displayLogin: 'lindsey-pony[bot]' }, additionalInfo: { issueEvent: { eventType: 'closed' } } },
+        ] }) };
+      }
+      if (settings.headers?.Accept === 'application/json' && url.includes('/changes/')) {
+        const commits = [
+          { oid: base, actorLogin: 'contributor' },
+          { oid: 'c'.repeat(40), actorLogin: url.includes('/21/') ? 'lindsey-pony[bot]' : 'contributor' },
+          { oid: head, actorLogin: 'lindsey-pony[bot]' },
+        ];
+        return { ok: true, json: async () => ({ payload: { pullRequestsChangesWithRangeRoute: {
+          comparison: { selectedRange: { baseOid: base, headOid: head } }, commits, commit: { oid: head },
+        } } }) };
+      }
       const bot = url.endsWith('/12') && settings.credentials === 'omit';
       const human = url.endsWith('/8');
       const authors = bot ? { 'issuecomment-123': '/apps/netlify' } : human ? { 'issuecomment-456': '/bob' } : {};
@@ -169,19 +207,25 @@ test('uses native Done for muted comment authors in an organization inbox', asyn
   });
   await flush();
   await runTimers();
-  assert.deepEqual(rows.map((r) => r.checkedButton.clicks), [0, 0, 0, 0, 0, 0, 0, 0]);
+  assert.deepEqual(rows.map((r) => r.checkedButton.clicks), Array(rows.length).fill(0));
 
-  settings = { muteInboxAccountsEnabled: false, mutedInboxAccounts: ['vercel[bot]', 'kefania-pony[bot]', 'alice', 'netlify'] };
+  settings = { muteInboxAccountsEnabled: false, mutedInboxAccounts: ['vercel[bot]', 'kefania-pony[bot]', 'alice', 'netlify', 'lindsey-pony'] };
   handlers.storage({ mutedInboxAccounts: {} }, 'local');
   await flush();
   await runTimers();
-  assert.deepEqual(rows.map((r) => r.checkedButton.clicks), [1, 0, 1, 1, 1, 0, 0, 0]);
+  const expected = [1, 0, 1, 1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1, 0];
+  assert.deepEqual(rows.map((r) => r.checkedButton.clicks), expected);
   assert.deepEqual(fetched, [
     ['/blocktransfer/issuer-disclosures/pull/12', 'same-origin'],
     ['/blocktransfer/issuer-disclosures/pull/12', 'omit'],
     ['/blocktransfer/issuer-disclosures/pull/8', 'same-origin'],
     ['/blocktransfer/issuer-disclosures/pull/7', 'same-origin'],
     ['/blocktransfer/issuer-disclosures/pull/7', 'omit'],
+    ...Array.from({ length: 3 }, () => ['/blocktransfer/issuer-disclosures/pull/20/page_data/catch_up?since=2026-11-06T15%3A55%3A00.000Z', 'same-origin']),
+    [linkedRange(21).split('?')[0], 'same-origin'],
+    [linkedRange(22).split('?')[0], 'same-origin'],
+    [singleChange, 'same-origin'],
+    [directCommit, 'same-origin'],
   ]);
 
   rows.push(row(['/alice'], { id: '126' }));
@@ -189,5 +233,5 @@ test('uses native Done for muted comment authors in an organization inbox', asyn
   handlers.storage({ mutedInboxAccounts: {} }, 'local');
   await flush();
   await runTimers();
-  assert.deepEqual(rows.map((r) => r.checkedButton.clicks), [1, 0, 1, 1, 1, 0, 0, 0, 0]);
+  assert.deepEqual(rows.map((r) => r.checkedButton.clicks), [...expected, 0]);
 });

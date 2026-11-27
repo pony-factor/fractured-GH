@@ -63,20 +63,62 @@
     return Boolean(participants?.length && participants.every((account) => isMutedActor(account, mutedAccounts)));
   }
 
-  function notificationComment(row) {
+  function notificationLink(row) {
     const href = row.querySelector('a[href*="notification_referrer_id="]')?.getAttribute('href');
     if (!href) return null;
     try {
       const url = new URL(href, 'https://github.com');
-      if (url.origin !== 'https://github.com'
-        || !/^\/[\w.-]+\/[\w.-]+\/(?:issues|pull)\/\d+$/.test(url.pathname)
-        || !/^#issuecomment-\d+$/.test(url.hash)
-        || !url.searchParams.get('notification_referrer_id')) return null;
-      // The notification referrer can mark the thread read. Fetch the plain page.
-      return { path: url.pathname, id: url.hash.slice(1) };
+      return url.origin === 'https://github.com' && url.searchParams.get('notification_referrer_id') ? url : null;
     } catch {
       return null;
     }
+  }
+
+  function notificationComment(url) {
+    if (!url || !/^\/[\w.-]+\/[\w.-]+\/(?:issues|pull)\/\d+$/.test(url.pathname)
+      || !/^#issuecomment-\d+$/.test(url.hash)) return null;
+    // The notification referrer can mark the thread read. Fetch the plain page.
+    return { path: url.pathname, id: url.hash.slice(1) };
+  }
+
+  function pullRequestActivity(url) {
+    if (!url) return null;
+    const event = /^#event-(\d+)$/.exec(url.hash);
+    if (event && /^\/[\w.-]+\/[\w.-]+\/pull\/\d+$/.test(url.pathname)) {
+      return { kind: 'merge', path: url.pathname, id: 'IssueEvent_' + event[1] };
+    }
+    if (url.hash) return null;
+    const changes = /^\/[\w.-]+\/[\w.-]+\/pull\/\d+\/changes\/(?:(?<base>[a-f0-9]{40})\.\.)?(?<head>[a-f0-9]{40})$/.exec(url.pathname);
+    if (changes) return { kind: 'changes', path: url.pathname, ...changes.groups };
+    const commit = /^\/[\w.-]+\/[\w.-]+\/commit\/([a-f0-9]{40})$/.exec(url.pathname);
+    return commit ? { kind: 'commit', path: url.pathname, head: commit[1] } : null;
+  }
+
+  function mergeActor(data, id) {
+    if (!Array.isArray(data?.timeline)) return '';
+    const item = data.timeline.find((item) => item?.id === id);
+    if (item?.additionalInfo?.issueEvent?.eventType !== 'merged') return '';
+    return normalizeAccount(item.user?.displayLogin);
+  }
+
+  function commitActors(data, { kind, base, head }) {
+    if (kind === 'commit') {
+      const commit = data?.payload?.commitRoute?.commit;
+      return commit?.oid === head && Array.isArray(commit.authors)
+        ? commit.authors.map((author) => normalizeAccount(author?.login)) : [];
+    }
+    const route = data?.payload?.pullRequestsChangesWithRangeRoute;
+    if (!Array.isArray(route?.commits)) return [];
+    const last = route.commits.findIndex((commit) => commit?.oid === head);
+    if (last < 0) return [];
+    if (!base) {
+      return route.commit?.oid === head ? [normalizeAccount(route.commits[last].actorLogin)] : [];
+    }
+    const range = route?.comparison?.selectedRange;
+    if (range?.baseOid !== base || range.headOid !== head) return [];
+    const first = route.commits.findIndex((commit) => commit?.oid === base);
+    if (first < 0 || last <= first) return [];
+    return route.commits.slice(first + 1, last + 1).map((commit) => normalizeAccount(commit?.actorLogin));
   }
 
   function commentAuthor(page, id) {
@@ -133,7 +175,7 @@
     module.exports = {
       normalizeAccount, accountFromHref, isMutedActor,
       notificationParticipants, isMutedAccountNotification, isInbox,
-      notificationComment,
+      notificationLink, notificationComment,
       notificationId, doneButton, createDoneRequest,
     };
     return;
@@ -143,7 +185,7 @@
   let refreshTimer = null;
   let polling = false;
   const attempted = new Map();
-  const commentLookups = new Map();
+  const actorLookups = new Map();
 
   async function fetchCommentAuthor({ path, id }) {
     try {
@@ -161,32 +203,65 @@
     return null;
   }
 
-  function findCommentAuthor(comment) {
-    const key = comment.path + '#' + comment.id;
-    const cached = commentLookups.get(key);
+  async function fetchActivityActors(activity, timestamp) {
+    try {
+      let path = activity.path;
+      if (activity.kind === 'merge') {
+        const time = Date.parse(timestamp);
+        if (!Number.isFinite(time)) return [];
+        // GitHub's unread timestamp can trail the corresponding timeline event.
+        const query = new URLSearchParams({ since: new Date(time - MIN_RETRY_MS).toISOString() });
+        path += '/page_data/catch_up?' + query;
+      }
+      const response = await window.fetch(path, {
+        credentials: 'same-origin', redirect: 'manual',
+        headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      });
+      if (!response.ok) return [];
+      const data = await response.json();
+      return activity.kind === 'merge' ? [mergeActor(data, activity.id)] : commitActors(data, activity);
+    } catch {
+      return [];
+    }
+  }
+
+  function lookupActors(key, lookup) {
+    const cached = actorLookups.get(key);
     if (cached && Date.now() - cached.time < MIN_RETRY_MS) return cached.result;
-    commentLookups.delete(key);
-    if (commentLookups.size >= 100) commentLookups.delete(commentLookups.keys().next().value);
-    const result = fetchCommentAuthor(comment);
-    commentLookups.set(key, { time: Date.now(), result });
+    actorLookups.delete(key);
+    if (actorLookups.size >= 100) actorLookups.delete(actorLookups.keys().next().value);
+    const result = lookup();
+    actorLookups.set(key, { time: Date.now(), result });
     return result;
   }
 
   async function matchesMutedNotification(row, accounts) {
     if (isSaved(row)) return false;
-    const comment = notificationComment(row);
+    const url = notificationLink(row);
+    const activity = pullRequestActivity(url);
+    if (activity) {
+      const timestamp = notificationTime(row);
+      const key = url.pathname + url.hash + ':' + timestamp;
+      const actors = await lookupActors(key, () => fetchActivityActors(activity, timestamp));
+      return url.href === notificationLink(row)?.href && timestamp === notificationTime(row) && !isSaved(row)
+        && actors.length > 0 && actors.every((actor) => isMutedActor(actor, accounts));
+    }
+    const comment = notificationComment(url);
     if (!comment) return isMutedAccountNotification(row, accounts);
     if (!visibleParticipants(row).some((actor) => isMutedActor(actor, accounts))) return false;
-    const author = await findCommentAuthor(comment);
-    const current = notificationComment(row);
+    const author = await lookupActors(url.pathname + url.hash, () => fetchCommentAuthor(comment));
+    const current = notificationComment(notificationLink(row));
     return current?.id === comment.id && current.path === comment.path && !isSaved(row)
       && (author ? isMutedActor(author, accounts) : isMutedAccountNotification(row, accounts));
   }
 
+  function notificationTime(row) {
+    return row.querySelector('relative-time')?.getAttribute('datetime') || '';
+  }
+
   function attemptKey(row) {
     const id = notificationId(row);
-    const time = row.querySelector('relative-time')?.getAttribute('datetime') || '';
-    return id ? id + ':' + time : null;
+    return id ? id + ':' + notificationTime(row) : null;
   }
 
   function mayAttempt(row) {
