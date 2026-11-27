@@ -134,6 +134,15 @@
     const match = /^(?:\\[!"#$%&'()*+,\-./:;<=>?@[\]\\^_`{|}~]|\[\^[^\]\r\n]+\](?::)?|[_*]+)/.exec(text.slice(at));
     return match ? at + match[0].length : -1;
   }
+
+  function isProseDash(text, at, field) {
+    if (text.slice(at, at + 2) !== '--' || !/[ \t]/.test(text[at - 1] || '')
+      || !/^--[ \t]+[^\s|]/.test(text.slice(at))) return false;
+    const before = text.slice(text.lastIndexOf('\n', at - 1) + 1, at);
+    return /[^\s|][ \t]+$/.test(before)
+      && (field === 'title' || !/^(?: {4}| {0,3}\t)/.test(before));
+  }
+
   function protect(original) {
     const source = { title: String(original?.title ?? ''), body: String(original?.body ?? '') };
     let marker = 'FRACTUREDLINKTOKEN';
@@ -145,13 +154,16 @@
       let output = '';
       for (let i = 0; i < value.length;) {
         const linkEnd = protectedEnd(value, i);
-        const end = linkEnd > i ? linkEnd : syntaxEnd(value, i);
+        const syntax = linkEnd > i ? linkEnd : syntaxEnd(value, i);
+        const dash = syntax <= i && isProseDash(value, i, field);
+        const end = dash ? i + 2 : syntax;
         if (end <= i) { output += value[i]; i += 1; continue; }
         const token = `${marker}${entries.length}END`;
         const literal = value.slice(i, end);
         const presentation = /^(?:https?:\/\/|www\.|github\.com(?:\/|$))/i.test(literal)
           ? rawLinkPresentation(value, i, end) : null;
-        entries.push({ token, literal, field, presentation, kind: linkEnd > i ? 'link' : 'syntax' });
+        const kind = dash ? 'dash' : linkEnd > i ? 'link' : 'syntax';
+        entries.push({ token, literal, field, presentation, kind });
         output += token;
         i = end;
       }
@@ -181,6 +193,18 @@
       // introduced immediately before them before restoring the authored bytes.
       for (const entry of expected) {
         result[field] = result[field].replace(new RegExp('\\\\+(?=' + entry.token + ')', 'g'), '');
+      }
+      const rawLinks = new Set(expected.filter(entry => entry.presentation !== null).map(entry => entry.token));
+      const precedingToken = new RegExp(`(${marker}\\d+END)[.,;:!?)]*$`);
+      const followingToken = new RegExp(`^${marker}\\d+END`);
+      for (const { token, kind } of expected) {
+        if (kind !== 'dash') continue;
+        result[field] = result[field].replace(new RegExp(`[ \\t]*${token}[ \\t]*`), (match, offset, text) => {
+          const before = precedingToken.exec(text.slice(0, offset))?.[1];
+          const after = followingToken.exec(text.slice(offset + match.length))?.[0];
+          // A bare URL needs whitespace to keep the dash outside the link.
+          return rawLinks.has(before) || rawLinks.has(after) ? ' — ' : '—';
+        });
       }
       for (const entry of expected) {
         result[field] = result[field].replace(entry.token, () => entry.literal);

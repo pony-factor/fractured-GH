@@ -105,6 +105,33 @@ test('keeps text-only drafts editable and rejects injected links on GitHub', () 
   }), false);
 });
 
+test('joins phrases with em dashes in the title and body even when spellcheck leaves the markers alone', () => {
+  const api = links();
+  const original = {
+    title: 'Teh first part -- the second part',
+    body: 'See https://example.com/issue, -- it is actually done -- putting it here -- https://example.com/next',
+  };
+  const draft = api.protect(original);
+  const result = api.restore(draft, { ...draft.masked, title: draft.masked.title.replace('Teh', 'The') });
+  assert.equal(result.title, 'The first part—the second part');
+  assert.equal(result.body, 'See https://example.com/issue, — it is actually done—putting it here — https://example.com/next');
+});
+
+test('preserves dash syntax in code, URLs, escaped text, and Markdown separators', () => {
+  const api = links();
+  const body = [
+    '`git checkout -- file` and --force and two--part',
+    'https://example.com/a--b',
+    '```sh\ngit checkout -- file\n```',
+    '    git checkout -- file',
+    'A \\-- B',
+    'Before\n---\nAfter',
+    '| First | Second |\n| -- | -- |',
+  ].join('\n\n');
+  const draft = api.protect({ body });
+  assert.equal(api.restore(draft, draft.masked).body, body);
+});
+
 test('preserves complete native GitHub HTML images outside the image importer', () => {
   const api = links();
   const image = '<img width="690" height="326" alt="Screenshot > draft"\n'

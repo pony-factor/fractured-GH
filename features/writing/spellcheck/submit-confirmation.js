@@ -3,7 +3,7 @@
 
   const DIALOG_ID = 'fractured-spellcheck-submit-warning';
   const STYLE_ID = 'fractured-spellcheck-submit-warning-styles';
-  const reviewedDrafts = new WeakMap();
+  const reviewedDrafts = new WeakSet();
   const approvedDrafts = new WeakMap();
   const boundControls = new WeakMap();
 
@@ -12,7 +12,7 @@
   }
 
   function markChecked(fields) {
-    reviewedDrafts.set(fields.body, snapshot(fields));
+    reviewedDrafts.add(fields.body);
     approvedDrafts.delete(fields.body);
   }
 
@@ -67,7 +67,7 @@
     heading.textContent = 'Submit without spellchecking?';
     const description = document.createElement('p');
     description.id = 'fractured-spellcheck-submit-description';
-    description.textContent = 'This draft has not been spellchecked, or has changed since its last spellcheck. You can check it first or submit it unchanged.';
+    description.textContent = 'This draft has not been spellchecked. You can check it first or submit it unchanged.';
     const actions = document.createElement('div');
     actions.className = 'fractured-spellcheck-warning-actions';
 
@@ -114,6 +114,8 @@
       return true;
     }
 
+    if (reviewedDrafts.has(fields.body)) return false;
+
     const current = snapshot(fields);
     if (approvedDrafts.get(fields.body) === current) {
       if (event.type === 'submit') {
@@ -125,8 +127,6 @@
       }
       return false;
     }
-    if (reviewedDrafts.get(fields.body) === current) return false;
-
     event.preventDefault();
     event.stopImmediatePropagation?.();
     showWarning(fields, submitControl, spellcheckControl);
