@@ -166,24 +166,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 void applyActionIcon();
 
 
-// Curated, safe-rated fandom artworks. Fetch via the extension worker so that
-// GitHub's content security policy cannot break the images.
-const FRACTURED_404_IMAGE_IDS = [2961898, 2962441, 3150400, 2988636];
-const fractured404Cache = new Map();
+// Fetch through the extension worker and pass the image to GitHub as a data URL.
+const fractured404Search = new URL('https://derpibooru.org/api/v1/json/search/images');
+fractured404Search.search = new URLSearchParams({
+  q: 'safe, pony, artist:*, -animated',
+  sf: 'random',
+  per_page: '8',
+});
 let fractured404LastId = null;
 
-async function loadFractured404Artwork(id) {
-  const cached = fractured404Cache.get(id);
-  if (cached && Date.now() - cached.createdAt < 30 * 60 * 1000) return cached.value;
-
-  const response = await fetch('https://derpibooru.org/api/v1/json/images/' + id, {
-    signal: AbortSignal.timeout(10000),
-  });
-  if (!response.ok) throw new Error('Artwork metadata unavailable');
-  const { image } = await response.json();
+async function loadFractured404Artwork(image, signal) {
   const tags = Array.isArray(image?.tags) ? image.tags : [];
   const artistTag = tags.find(tag => /^artist:[^ ]/i.test(tag));
-  if (!image || image.id !== id || !tags.includes('safe') || !artistTag) {
+  const id = image?.id;
+  if (!Number.isSafeInteger(id) || id <= 0 || !tags.includes('safe') || !artistTag) {
     throw new Error('Artwork is not verified as safe and credited');
   }
   const imageUrl = image.representations?.large || image.representations?.medium;
@@ -191,7 +187,7 @@ async function loadFractured404Artwork(id) {
   if (cdn.protocol !== 'https:' || cdn.hostname !== 'derpicdn.net') {
     throw new Error('Unexpected artwork host');
   }
-  const asset = await fetch(cdn.href, { signal: AbortSignal.timeout(15000) });
+  const asset = await fetch(cdn.href, { signal });
   const mime = (asset.headers.get('content-type') || '').split(';')[0].toLowerCase();
   if (!asset.ok || !/^image\/(?:jpeg|png|webp|gif)$/.test(mime)) {
     throw new Error('Artwork image unavailable');
@@ -209,7 +205,7 @@ async function loadFractured404Artwork(id) {
   } catch {
     // Source URL is optional; the Derpibooru post remains linked.
   }
-  const value = {
+  return {
     ok: true,
     id,
     imageDataUrl: 'data:' + mime + ';base64,' + btoa(binary),
@@ -217,18 +213,34 @@ async function loadFractured404Artwork(id) {
     postUrl: 'https://derpibooru.org/images/' + id,
     sourceUrl,
   };
-  fractured404Cache.set(id, { createdAt: Date.now(), value });
-  return value;
+}
+
+async function selectFractured404Artwork(excludeId) {
+  const response = await fetch(fractured404Search.href, {
+    cache: 'no-store',
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!response.ok) throw new Error('Artwork search unavailable');
+  const { images } = await response.json();
+  const signal = AbortSignal.timeout(15000);
+  for (const image of images) {
+    if (image?.id === excludeId || image?.id === fractured404LastId) continue;
+    try {
+      const artwork = await loadFractured404Artwork(image, signal);
+      if (artwork.id === fractured404LastId) continue;
+      fractured404LastId = artwork.id;
+      return artwork;
+    } catch {
+      // A random result can be missing a credit or a usable image. Try the next one.
+      if (signal.aborted) break;
+    }
+  }
+  throw new Error('No usable artwork in the random results');
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type !== 'fractured:load-404-fan-art') return false;
-  const candidates = FRACTURED_404_IMAGE_IDS.filter(id =>
-    id !== message.excludeId && id !== fractured404LastId);
-  const pool = candidates.length ? candidates : FRACTURED_404_IMAGE_IDS;
-  const id = pool[Math.floor(Math.random() * pool.length)];
-  fractured404LastId = id;
-  void loadFractured404Artwork(id)
+  void selectFractured404Artwork(message.excludeId)
     .then(sendResponse)
     .catch(error => sendResponse({ ok: false, error: String(error.message || error) }));
   return true;
