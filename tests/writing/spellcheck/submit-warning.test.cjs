@@ -149,13 +149,22 @@ test('Run Spellcheck Only starts spellchecking without submitting', () => {
   assert.equal(app.state.dialog, null);
 });
 
-test('spellchecked drafts do not warn again until text changes', () => {
+test('spellchecked drafts do not warn again after title and body edits', () => {
   const app = setup();
   app.sandbox.fracturedSpellcheckSubmitConfirmation.markChecked(app.fields);
-  assert.equal(app.shortcut().defaultPrevented, false);
+  app.fields.title.value = 'Updated title';
   app.fields.body.value = 'New edits after spellchecking';
-  assert.equal(app.shortcut().defaultPrevented, true);
-  app.choose('Cancel');
+  const click = app.event('click', { closest: () => app.submit });
+  assert.equal(app.documentEvent(click).defaultPrevented, false);
+  assert.equal(app.shortcut().defaultPrevented, false);
+  const submit = app.event('submit', app.form, { submitter: app.submit });
+  assert.equal(app.documentEvent(submit).defaultPrevented, false);
+  assert.equal(app.state.dialog, null);
+});
+
+test('undoing spellcheck restores the submission warning', () => {
+  const app = setup();
+  app.sandbox.fracturedSpellcheckSubmitConfirmation.markChecked(app.fields);
   app.sandbox.fracturedSpellcheckSubmitConfirmation.markUnchecked(app.fields);
   assert.equal(app.shortcut().defaultPrevented, true);
 });
