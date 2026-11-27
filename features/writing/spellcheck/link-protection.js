@@ -194,10 +194,20 @@
       for (const entry of expected) {
         result[field] = result[field].replace(new RegExp('\\\\+(?=' + entry.token + ')', 'g'), '');
       }
+      const rawLinks = new Set(expected.filter(entry => entry.presentation !== null).map(entry => entry.token));
+      const precedingToken = new RegExp(`(${marker}\\d+END)[.,;:!?)]*$`);
+      const followingToken = new RegExp(`^${marker}\\d+END`);
+      for (const { token, kind } of expected) {
+        if (kind !== 'dash') continue;
+        result[field] = result[field].replace(new RegExp(`[ \\t]*${token}[ \\t]*`), (match, offset, text) => {
+          const before = precedingToken.exec(text.slice(0, offset))?.[1];
+          const after = followingToken.exec(text.slice(offset + match.length))?.[0];
+          // A bare URL needs whitespace to keep the dash outside the link.
+          return rawLinks.has(before) || rawLinks.has(after) ? ' — ' : '—';
+        });
+      }
       for (const entry of expected) {
-        result[field] = entry.kind === 'dash'
-          ? result[field].replace(new RegExp(`[ \\t]*${entry.token}[ \\t]*`), '—')
-          : result[field].replace(entry.token, () => entry.literal);
+        result[field] = result[field].replace(entry.token, () => entry.literal);
       }
       const escapes = value => value.match(/\\[!"#$%&'()*+,\-./:;<=>?@[\]\\^_`{|}~]/g) || [];
       const originalEscapes = escapes(source[field]);
