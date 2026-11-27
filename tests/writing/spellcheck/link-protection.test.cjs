@@ -109,12 +109,12 @@ test('joins phrases with em dashes in the title and body even when spellcheck le
   const api = links();
   const original = {
     title: 'Teh first part -- the second part',
-    body: 'See https://example.com/issue -- it is actually done -- putting it here -- https://example.com/next',
+    body: 'See https://example.com/issue, -- it is actually done -- putting it here -- https://example.com/next',
   };
   const draft = api.protect(original);
   const result = api.restore(draft, { ...draft.masked, title: draft.masked.title.replace('Teh', 'The') });
   assert.equal(result.title, 'The first part—the second part');
-  assert.equal(result.body, 'See https://example.com/issue — it is actually done—putting it here — https://example.com/next');
+  assert.equal(result.body, 'See https://example.com/issue, — it is actually done—putting it here — https://example.com/next');
 });
 
 test('preserves dash syntax in code, URLs, escaped text, and Markdown separators', () => {
