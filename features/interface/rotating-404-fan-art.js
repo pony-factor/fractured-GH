@@ -5,6 +5,7 @@
   const PANEL_ID = 'fractured-404-fan-art';
   const STYLE_ID = 'fractured-404-fan-art-style';
   const REPLACED = 'data-fractured-original-404-hidden';
+  const STATIC_404_ART = 'main img[data-static-error-asset="404-illustration"]';
   const ROTATION_MS = 90000;
   let enabled = false;
   let timer = null;
@@ -16,7 +17,7 @@
   let currentPageUrl = location.href;
 
   function is404Page() {
-    if (document.querySelector('#parallax_wrapper, .container-404, .error-404, .illustration-404')) {
+    if (document.querySelector(STATIC_404_ART + ', #parallax_wrapper, .container-404, .error-404, .illustration-404')) {
       return true;
     }
     return /(?:404|page not found)/i.test(document.title)
@@ -24,6 +25,10 @@
   }
 
   function originalArtwork() {
+    // Hide the full hero so its separate background goes away with the illustration.
+    const staticHero = document.querySelector(STATIC_404_ART)?.closest('main > div.position-relative');
+    if (staticHero) return staticHero;
+
     return document.querySelector(
       '#parallax_wrapper, .illustration-404, .container-404 #parallax, .error-404 #parallax'
     ) || [...document.querySelectorAll('img[src]')].find(image =>
@@ -99,7 +104,7 @@
         panel.setAttribute('aria-label', '404 fan artwork');
       }
       const heading = document.createElement('h1');
-      heading.textContent = '404 · Page not found';
+      heading.textContent = '404';
       const credits = document.createElement('div');
       credits.className = 'fractured-404-credits';
       const author = document.createElement('span');
