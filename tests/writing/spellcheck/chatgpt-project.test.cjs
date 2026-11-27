@@ -5,7 +5,6 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const background = fs.readFileSync(path.join(__dirname, '../../../background.js'), 'utf8')
-  .split('// Curated, safe-rated fandom artworks.')[0]
   .replaceAll('void applyActionIcon();', '');
 
 function setup(settings = {}) {
@@ -27,7 +26,7 @@ function setup(settings = {}) {
       remove(_id, done) { done(); },
     },
   };
-  const context = { chrome, URL, console };
+  const context = { chrome, URL, URLSearchParams, console };
   vm.runInNewContext(background + '\nglobalThis.normalizeUrl = normalizeChatgptProjectUrl;', context);
   return {
     tabs,
