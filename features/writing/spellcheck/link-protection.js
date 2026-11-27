@@ -134,6 +134,15 @@
     const match = /^(?:\\[!"#$%&'()*+,\-./:;<=>?@[\]\\^_`{|}~]|\[\^[^\]\r\n]+\](?::)?|[_*]+)/.exec(text.slice(at));
     return match ? at + match[0].length : -1;
   }
+
+  function isProseDash(text, at, field) {
+    if (text.slice(at, at + 2) !== '--' || !/[ \t]/.test(text[at - 1] || '')
+      || !/^--[ \t]+[^\s|]/.test(text.slice(at))) return false;
+    const before = text.slice(text.lastIndexOf('\n', at - 1) + 1, at);
+    return /[^\s|][ \t]+$/.test(before)
+      && (field === 'title' || !/^(?: {4}| {0,3}\t)/.test(before));
+  }
+
   function protect(original) {
     const source = { title: String(original?.title ?? ''), body: String(original?.body ?? '') };
     let marker = 'FRACTUREDLINKTOKEN';
@@ -145,13 +154,16 @@
       let output = '';
       for (let i = 0; i < value.length;) {
         const linkEnd = protectedEnd(value, i);
-        const end = linkEnd > i ? linkEnd : syntaxEnd(value, i);
+        const syntax = linkEnd > i ? linkEnd : syntaxEnd(value, i);
+        const dash = syntax <= i && isProseDash(value, i, field);
+        const end = dash ? i + 2 : syntax;
         if (end <= i) { output += value[i]; i += 1; continue; }
         const token = `${marker}${entries.length}END`;
         const literal = value.slice(i, end);
         const presentation = /^(?:https?:\/\/|www\.|github\.com(?:\/|$))/i.test(literal)
           ? rawLinkPresentation(value, i, end) : null;
-        entries.push({ token, literal, field, presentation, kind: linkEnd > i ? 'link' : 'syntax' });
+        const kind = dash ? 'dash' : linkEnd > i ? 'link' : 'syntax';
+        entries.push({ token, literal, field, presentation, kind });
         output += token;
         i = end;
       }
@@ -183,7 +195,9 @@
         result[field] = result[field].replace(new RegExp('\\\\+(?=' + entry.token + ')', 'g'), '');
       }
       for (const entry of expected) {
-        result[field] = result[field].replace(entry.token, () => entry.literal);
+        result[field] = entry.kind === 'dash'
+          ? result[field].replace(new RegExp(`[ \\t]*${entry.token}[ \\t]*`), '—')
+          : result[field].replace(entry.token, () => entry.literal);
       }
       const escapes = value => value.match(/\\[!"#$%&'()*+,\-./:;<=>?@[\]\\^_`{|}~]/g) || [];
       const originalEscapes = escapes(source[field]);
