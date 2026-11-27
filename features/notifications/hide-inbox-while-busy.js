@@ -130,6 +130,10 @@
     throw new Error('GitHub status response did not contain a Busy status control');
   }
 
+  function isAuthenticationPage(pathname) {
+    return /^\/(?:login|session|signup)(?:\/|$)/.test(pathname);
+  }
+
   async function fetchBusyStatus(signal) {
     const statusUrl = new URL(STATUS_URL, window.location.origin);
     statusUrl.searchParams.set('_', String(Date.now()));
@@ -144,6 +148,11 @@
       },
     });
 
+    // A missing or expired session is normal, not a status parsing failure.
+    if (response.status === 401 ||
+        (response.redirected && response.url &&
+          isAuthenticationPage(new URL(response.url).pathname))) return null;
+
     if (!response.ok) {
       throw new Error(`GitHub status request returned ${response.status}`);
     }
@@ -155,13 +164,20 @@
 
   async function checkBusyStatus() {
     if (requestPending || navigator.onLine === false || document.hidden ||
-        Date.now() < nextCheckAt) return;
+        isAuthenticationPage(window.location.pathname) || Date.now() < nextCheckAt) return;
 
     requestPending = true;
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
-      applyBusyStatus(await fetchBusyStatus(controller.signal));
+      const isBusy = await fetchBusyStatus(controller.signal);
+      if (isBusy === null) {
+        // Keep the cached presentation and allow recovery after signing in.
+        nextCheckAt = Date.now() + retryDelay;
+        retryDelay = Math.min(retryDelay * 2, MAX_RETRY_MS);
+        return;
+      }
+      applyBusyStatus(isBusy);
       retryDelay = CHECK_INTERVAL_MS;
       nextCheckAt = 0;
       lastWarning = null;

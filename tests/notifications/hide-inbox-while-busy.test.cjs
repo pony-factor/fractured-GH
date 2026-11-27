@@ -7,7 +7,7 @@ const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../../features/notifications/hide-inbox-while-busy.js'), 'utf8');
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 
-async function startFeature(fetch) {
+async function startFeature(fetch, pathname = '/dashboard') {
   let now = 0;
   let requests = 0;
   const attributes = new Map();
@@ -31,7 +31,7 @@ async function startFeature(fetch) {
     addEventListener: (name, callback) => { events[name] = callback; },
   };
   const window = {
-    location: { origin: 'https://github.com' },
+    location: { origin: 'https://github.com', pathname },
     localStorage: {
       getItem: (key) => cache.get(key),
       setItem: (key, value) => cache.set(key, value),
@@ -59,7 +59,7 @@ async function startFeature(fetch) {
   });
   await settle();
   return {
-    attributes, cache, events, timers, warnings, navigator, document,
+    attributes, cache, events, timers, warnings, navigator, document, location: window.location,
     get requests() { return requests; },
     advance(ms) { now += ms; },
     async poll() { void poll(); await settle(); },
@@ -122,4 +122,49 @@ test('skips offline and hidden tabs and refreshes when visible again', async () 
   feature.events.visibilitychange();
   await settle();
   assert.equal(feature.requests, 2);
+});
+
+test('does not poll on authentication pages and resumes after navigation', async () => {
+  const feature = await startFeature(async () => ({ ok: true, text: async () => 'available' }), '/login');
+  for (const pathname of ['/login', '/session', '/signup']) {
+    feature.location.pathname = pathname;
+    feature.advance(60_000);
+    await feature.poll();
+  }
+  assert.equal(feature.requests, 0);
+  assert.deepEqual(feature.warnings, []);
+  feature.location.pathname = '/dashboard';
+  feature.events['turbo:load']();
+  await settle();
+  assert.equal(feature.requests, 1);
+  assert.equal(feature.cache.get('fractured-github-busy'), 'false');
+});
+
+test('401 and login redirects stay quiet, preserve cached state, and recover', async () => {
+  let response = { ok: false, status: 401 };
+  const feature = await startFeature(async () => response);
+  assert.equal(feature.cache.get('fractured-github-busy'), 'true');
+  feature.events.focus();
+  await settle();
+  assert.equal(feature.requests, 1);
+  response = { ok: true, redirected: true, url: 'https://github.com/login?return_to=%2Fdashboard' };
+  feature.advance(60_000);
+  await feature.poll();
+  assert.equal(feature.requests, 2);
+  assert.equal(feature.attributes.get('data-fractured-github-busy'), 'true');
+  assert.deepEqual(feature.warnings, []);
+  response = { ok: true, text: async () => 'available' };
+  feature.advance(120_000);
+  await feature.poll();
+  assert.equal(feature.requests, 3);
+  assert.equal(feature.cache.get('fractured-github-busy'), 'false');
+  assert.equal(feature.attributes.has('data-fractured-github-busy'), false);
+});
+
+test('unexpected HTTP failures still warn and deduplicate', async () => {
+  const feature = await startFeature(async () => ({ ok: false, status: 500 }));
+  feature.advance(60_000);
+  await feature.poll();
+  assert.equal(feature.requests, 2);
+  assert.deepEqual(feature.warnings, [['[Fractured GitHub]', 'GitHub status request returned 500']]);
 });
