@@ -47,7 +47,10 @@ function setup(preferences = {}) {
   function addAction(name, { count = '23', mainArrow = false, menu = true, inline = false } = {}) {
     const endpoints = { Watch: 'watchers', Star: 'stargazers', Fork: 'forks' };
     const main = element(inline ? name + count : name, { arrow: mainArrow });
-    if (inline) main.setAttribute('aria-label', name + ' ' + repository);
+    if (inline) {
+      main.setAttribute('aria-label', name + ' ' + repository);
+      main.setAttribute('data-testid', 'star-button');
+    }
     const counter = element(count, inline ? { tag: 'span' } : {
       tag: 'a',
       href: 'https://github.com/' + repository + '/' + endpoints[name],
@@ -166,9 +169,11 @@ test('hides GitHub’s inline CounterLabel while keeping the Star button visible
   await app.settle();
   assert.equal(star.counter.getAttribute(hidden), 'star-count');
   assert.equal(star.main.hasAttribute(hidden), false);
+  assert.equal(star.main.getAttribute(compact), 'star');
 
   await app.toggle('hideRepositoryStar', false);
   assert.equal(star.counter.hasAttribute(hidden), false);
+  assert.equal(star.main.hasAttribute(compact), false);
 });
 
 test('each preference works independently and can restore the native header', async () => {

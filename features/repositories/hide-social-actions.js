@@ -81,8 +81,9 @@
     // Restore the rounded right edge left behind by split-button groups.
     for (const control of item.querySelectorAll('a, button, summary')) {
       const label = (control.textContent || '').replace(/\s+/g, ' ').trim();
-      if (/^(?:watch|unwatch|star|unstar|fork)(?:\s+\d[\d,.]*[kmb]?)?$/i.test(label)
-        && !control.hasAttribute(ATTRIBUTE)) {
+      const isPrimary = control.getAttribute('data-testid') === 'star-button'
+        || /^(?:watch|unwatch|star|unstar|fork)(?:\s+\d[\d,.]*[kmb]?)?$/i.test(label);
+      if (isPrimary && !control.hasAttribute(ATTRIBUTE)) {
         control.setAttribute(COMPACT_ATTRIBUTE, action);
         break;
       }
