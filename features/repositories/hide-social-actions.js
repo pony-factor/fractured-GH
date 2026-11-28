@@ -51,7 +51,7 @@
       }
     }
     for (const counter of item.querySelectorAll(
-      '.Counter, [id*="counter"], [data-testid*="count"]',
+      '.Counter, [id*="counter"], [data-testid*="count"], [data-component="CounterLabel"]',
     )) {
       if (isCount(counter.textContent)) {
         counter.setAttribute(ATTRIBUTE, `${action}-count`);

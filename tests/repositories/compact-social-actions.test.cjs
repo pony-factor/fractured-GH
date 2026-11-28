@@ -44,10 +44,11 @@ function setup(preferences = {}) {
     return node;
   }
 
-  function addAction(name, { count = '23', mainArrow = false, menu = true } = {}) {
+  function addAction(name, { count = '23', mainArrow = false, menu = true, inline = false } = {}) {
     const endpoints = { Watch: 'watchers', Star: 'stargazers', Fork: 'forks' };
-    const main = element(name, { arrow: mainArrow });
-    const counter = element(count, {
+    const main = element(inline ? name + count : name, { arrow: mainArrow });
+    if (inline) main.setAttribute('aria-label', name + ' ' + repository);
+    const counter = element(count, inline ? { tag: 'span' } : {
       tag: 'a',
       href: 'https://github.com/' + repository + '/' + endpoints[name],
     });
@@ -58,9 +59,11 @@ function setup(preferences = {}) {
     groups.push({
       querySelectorAll(selector) {
         if (selector === 'a, button, summary') return controls;
-        if (selector === 'a[href]') return [counter];
+        if (selector === 'a[href]') return inline ? [] : [counter];
         if (selector === 'button, summary, [role="button"]') return [main, ...(menu ? [toggle] : [])];
-        if (selector.startsWith('.Counter,')) return [];
+        if (selector.startsWith('.Counter,')) {
+          return inline && selector.includes('[data-component="CounterLabel"]') ? [counter] : [];
+        }
         throw new Error('Unknown group query: ' + selector);
       },
     });
@@ -155,6 +158,17 @@ test('hides an integrated arrow on the Watch primary button without disabling Wa
   await app.settle();
   assert.equal(watch.main.hasAttribute(hidden), false);
   assert.equal(watch.main.arrow.getAttribute(hidden), 'watch-chevron');
+});
+
+test('hides GitHub’s inline CounterLabel while keeping the Star button visible', async () => {
+  const app = setup({ hideRepositoryStar: true });
+  const star = app.addAction('Star', { count: '1', inline: true });
+  await app.settle();
+  assert.equal(star.counter.getAttribute(hidden), 'star-count');
+  assert.equal(star.main.hasAttribute(hidden), false);
+
+  await app.toggle('hideRepositoryStar', false);
+  assert.equal(star.counter.hasAttribute(hidden), false);
 });
 
 test('each preference works independently and can restore the native header', async () => {
