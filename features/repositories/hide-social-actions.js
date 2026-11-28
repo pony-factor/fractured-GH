@@ -34,6 +34,14 @@
     const destinations = { watch: 'watchers', star: 'stargazers', fork: 'forks' };
     const path = `/${repository}/${destinations[action]}`.toLowerCase();
     const isCount = value => /^\s*\d[\d,.]*[kmb]?\s*$/i.test(value || '');
+    const primaryTestId = action === 'watch' ? 'notifications-subscriptions-menu-button' : `${action}-button`;
+    const trailingVisual = '[data-component="trailingVisual"]';
+
+    function isPrimaryControl(control) {
+      const label = (control.textContent || '').replace(/\s+/g, ' ').trim();
+      return control.getAttribute('data-testid') === primaryTestId
+        || /^(?:watch|unwatch|star|unstar|fork)(?:\s+\d[\d,.]*[kmb]?)?$/i.test(label);
+    }
 
     // GitHub renders counters as links on some headers and as inline spans
     // on others. Only hide numeric counters belonging to this action.
@@ -51,10 +59,13 @@
       }
     }
     for (const counter of item.querySelectorAll(
-      '.Counter, [id*="counter"], [data-testid*="count"]',
+      '.Counter, [id*="counter"], [data-testid*="count"], [data-component="CounterLabel"]',
     )) {
       if (isCount(counter.textContent)) {
         counter.setAttribute(ATTRIBUTE, `${action}-count`);
+        if (action === 'watch') {
+          counter.closest(trailingVisual)?.setAttribute(ATTRIBUTE, 'watch-trailing-visual');
+        }
       }
     }
 
@@ -62,15 +73,14 @@
       const arrow = trigger.querySelector('svg.octicon-triangle-down, svg.octicon-chevron-down');
       if (!arrow) continue;
 
-      const label = (trigger.textContent || '').replace(/\s+/g, ' ').trim();
-      const isPrimary = /^(?:watch|unwatch|star|unstar|fork)(?:\s+\d[\d,.]*[kmb]?)?$/i.test(label)
+      const isPrimary = isPrimaryControl(trigger)
         || Boolean(trigger.querySelector(
           'svg.octicon-eye, svg.octicon-bell, svg.octicon-star, svg.octicon-repo-forked',
         ));
       if (isPrimary) {
         // Watch can use its *main* button to open notification settings.
         // Never remove that button or prevent its default click behavior.
-        arrow.setAttribute(ATTRIBUTE, `${action}-chevron`);
+        (arrow.closest(trailingVisual) || arrow).setAttribute(ATTRIBUTE, `${action}-chevron`);
       } else {
         // Split-button menus have their own arrow-only button or summary.
         const menu = trigger.matches('summary') ? trigger.closest('details') || trigger : trigger;
@@ -80,9 +90,7 @@
 
     // Restore the rounded right edge left behind by split-button groups.
     for (const control of item.querySelectorAll('a, button, summary')) {
-      const label = (control.textContent || '').replace(/\s+/g, ' ').trim();
-      if (/^(?:watch|unwatch|star|unstar|fork)(?:\s+\d[\d,.]*[kmb]?)?$/i.test(label)
-        && !control.hasAttribute(ATTRIBUTE)) {
+      if (isPrimaryControl(control) && !control.hasAttribute(ATTRIBUTE)) {
         control.setAttribute(COMPACT_ATTRIBUTE, action);
         break;
       }

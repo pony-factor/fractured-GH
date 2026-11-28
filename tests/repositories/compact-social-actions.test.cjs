@@ -44,13 +44,26 @@ function setup(preferences = {}) {
     return node;
   }
 
-  function addAction(name, { count = '23', mainArrow = false, menu = true } = {}) {
+  function addAction(name, { count = '23', mainArrow = false, menu = true, inline = false } = {}) {
     const endpoints = { Watch: 'watchers', Star: 'stargazers', Fork: 'forks' };
-    const main = element(name, { arrow: mainArrow });
-    const counter = element(count, {
+    const main = element(inline ? name + count : name, {
+      tag: inline && name === 'Fork' ? 'a' : 'button',
+      arrow: mainArrow,
+    });
+    if (inline) {
+      main.setAttribute('aria-label', name + ' ' + repository);
+      main.setAttribute('data-testid', name === 'Watch'
+        ? 'notifications-subscriptions-menu-button'
+        : name.toLowerCase() + '-button');
+    }
+    const counter = element(count, inline ? { tag: 'span' } : {
       tag: 'a',
       href: 'https://github.com/' + repository + '/' + endpoints[name],
     });
+    const trailingVisual = inline && name === 'Watch' ? element('', { tag: 'span' }) : null;
+    if (trailingVisual) {
+      counter.closest = selector => selector === '[data-component="trailingVisual"]' ? trailingVisual : null;
+    }
     const shell = element('', { tag: 'details' });
     const toggle = element('', { tag: 'summary', arrow: menu });
     toggle.closest = selector => selector === 'details' ? shell : null;
@@ -58,13 +71,15 @@ function setup(preferences = {}) {
     groups.push({
       querySelectorAll(selector) {
         if (selector === 'a, button, summary') return controls;
-        if (selector === 'a[href]') return [counter];
+        if (selector === 'a[href]') return inline ? [] : [counter];
         if (selector === 'button, summary, [role="button"]') return [main, ...(menu ? [toggle] : [])];
-        if (selector.startsWith('.Counter,')) return [];
+        if (selector.startsWith('.Counter,')) {
+          return inline && selector.includes('[data-component="CounterLabel"]') ? [counter] : [];
+        }
         throw new Error('Unknown group query: ' + selector);
       },
     });
-    return { main, counter, shell, toggle };
+    return { main, counter, shell, toggle, trailingVisual };
   }
 
 
@@ -155,6 +170,45 @@ test('hides an integrated arrow on the Watch primary button without disabling Wa
   await app.settle();
   assert.equal(watch.main.hasAttribute(hidden), false);
   assert.equal(watch.main.arrow.getAttribute(hidden), 'watch-chevron');
+});
+
+test('hides GitHub’s inline CounterLabel while keeping the Star button visible', async () => {
+  const app = setup({ hideRepositoryStar: true });
+  const star = app.addAction('Star', { count: '1', inline: true });
+  await app.settle();
+  assert.equal(star.counter.getAttribute(hidden), 'star-count');
+  assert.equal(star.main.hasAttribute(hidden), false);
+  assert.equal(star.main.getAttribute(compact), 'star');
+
+  await app.toggle('hideRepositoryStar', false);
+  assert.equal(star.counter.hasAttribute(hidden), false);
+  assert.equal(star.main.hasAttribute(compact), false);
+});
+
+test('compacts the inline Fork and Watch controls and restores them when disabled', async () => {
+  const app = setup({ hideRepositoryFork: true, hideRepositoryWatch: true });
+  const fork = app.addAction('Fork', { inline: true });
+  const watch = app.addAction('Watch', { inline: true, mainArrow: true, menu: false });
+  await app.settle();
+
+  for (const [name, control] of [['fork', fork], ['watch', watch]]) {
+    assert.equal(control.main.hasAttribute(hidden), false);
+    assert.equal(control.main.getAttribute(compact), name);
+    assert.equal(control.counter.getAttribute(hidden), name + '-count');
+  }
+  assert.equal(fork.shell.getAttribute(hidden), 'fork-menu');
+  assert.equal(watch.main.arrow.getAttribute(hidden), 'watch-chevron');
+  assert.equal(watch.trailingVisual.getAttribute(hidden), 'watch-trailing-visual');
+
+  await app.toggle('hideRepositoryFork', false);
+  await app.toggle('hideRepositoryWatch', false);
+  for (const control of [fork, watch]) {
+    assert.equal(control.main.hasAttribute(compact), false);
+    assert.equal(control.counter.hasAttribute(hidden), false);
+  }
+  assert.equal(fork.shell.hasAttribute(hidden), false);
+  assert.equal(watch.main.arrow.hasAttribute(hidden), false);
+  assert.equal(watch.trailingVisual.hasAttribute(hidden), false);
 });
 
 test('each preference works independently and can restore the native header', async () => {
